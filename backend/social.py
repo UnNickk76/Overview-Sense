@@ -11,10 +11,10 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from pydantic import BaseModel
 
-from database import db, UPLOAD_DIR
+from database import db
 from auth import get_current_user, get_optional_user
 
 social_router = APIRouter(prefix="/api", tags=["social"])
@@ -130,6 +130,7 @@ async def ensure_social_indexes():
     await db.comments.create_index("obs_id")
     await db.saves.create_index([("user_id", 1), ("obs_id", 1)], unique=True)
     await db.reposts.create_index([("user_id", 1), ("obs_id", 1)], unique=True)
+    await db.media.create_index("id", unique=True)
 
 
 # ---------------------------------------------------------------------------
@@ -188,8 +189,8 @@ async def create_observation(req: CreateObs, user: dict = Depends(get_current_us
         if "," in raw and raw.strip().startswith("data:"):
             raw = raw.split(",", 1)[1]
         try:
-            img_bytes = base64.b64decode(raw)
-            (UPLOAD_DIR / f"{oid}.jpg").write_bytes(img_bytes)
+            base64.b64decode(raw)  # validate
+            await db.media.insert_one({"id": oid, "content_type": "image/jpeg", "data": raw})
             has_image = True
         except Exception:
             raise HTTPException(status_code=400, detail="Immagine non valida")
@@ -220,10 +221,11 @@ async def create_observation(req: CreateObs, user: dict = Depends(get_current_us
 
 @social_router.get("/media/{obs_id}")
 async def get_media(obs_id: str):
-    path = UPLOAD_DIR / f"{obs_id}.jpg"
-    if not path.exists():
+    doc = await db.media.find_one({"id": obs_id}, {"_id": 0})
+    if not doc:
         raise HTTPException(status_code=404, detail="Media non trovato")
-    return FileResponse(str(path), media_type="image/jpeg")
+    return Response(content=base64.b64decode(doc["data"]),
+                    media_type=doc.get("content_type", "image/jpeg"))
 
 
 # ---------------------------------------------------------------------------
@@ -257,10 +259,10 @@ async def feed(
     if following:
         if not viewer:
             return {"items": []}
-        ids = [f["following_id"] async for f in db.follows.find({"follower_id": viewer["id"]})]
+        ids = [f["following_id"] async for f in db.follows.find({"follower_id": viewer["id"]}, {"following_id": 1, "_id": 0}).limit(2000)]
         q["user_id"] = {"$in": ids}
 
-    docs = await db.observations.find(q).sort("created_at", -1).to_list(400)
+    docs = await db.observations.find(q, {"_id": 0}).sort("created_at", -1).limit(400).to_list(400)
 
     if lat is not None and lon is not None:
         near = []
@@ -460,12 +462,12 @@ async def get_profile(user_id: str, viewer: Optional[dict] = Depends(get_optiona
 
 @social_router.get("/users/{user_id}/observations")
 async def user_observations(user_id: str, viewer: Optional[dict] = Depends(get_optional_user)):
-    own = await db.observations.find({"user_id": user_id}).sort("created_at", -1).to_list(200)
+    own = await db.observations.find({"user_id": user_id}, {"_id": 0}).sort("created_at", -1).limit(200).to_list(200)
     # include reposts made by this user (reference original, tag reposted_by)
-    repost_ids = [r["obs_id"] async for r in db.reposts.find({"user_id": user_id}).sort("created_at", -1)]
+    repost_ids = [r["obs_id"] async for r in db.reposts.find({"user_id": user_id}, {"obs_id": 1, "_id": 0}).sort("created_at", -1).limit(200)]
     reposted_docs = []
     if repost_ids:
-        found = await db.observations.find({"id": {"$in": repost_ids}}).to_list(200)
+        found = await db.observations.find({"id": {"$in": repost_ids}}, {"_id": 0}).to_list(200)
         by_id = {d["id"]: d for d in found}
         reposter = await db.users.find_one({"id": user_id})
         rn = reposter["nickname"] if reposter else ""
@@ -506,10 +508,10 @@ async def save_observation(obs_id: str, user: dict = Depends(get_current_user)):
 
 @social_router.get("/users/{user_id}/collection")
 async def collection(user_id: str, viewer: Optional[dict] = Depends(get_optional_user)):
-    ids = [s["obs_id"] async for s in db.saves.find({"user_id": user_id}).sort("created_at", -1)]
+    ids = [s["obs_id"] async for s in db.saves.find({"user_id": user_id}, {"obs_id": 1, "_id": 0}).sort("created_at", -1).limit(300)]
     if not ids:
         return {"items": []}
-    found = await db.observations.find({"id": {"$in": ids}}).to_list(300)
+    found = await db.observations.find({"id": {"$in": ids}}, {"_id": 0}).to_list(300)
     by_id = {d["id"]: d for d in found}
     ordered = [by_id[i] for i in ids if i in by_id]
     my: dict = {}

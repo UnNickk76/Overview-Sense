@@ -14,6 +14,3 @@ EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
 JWT_SECRET = os.environ.get("JWT_SECRET", "overview-dev-secret-change-me")
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = 30
-
-UPLOAD_DIR = ROOT_DIR / "uploads"
-UPLOAD_DIR.mkdir(exist_ok=True)
