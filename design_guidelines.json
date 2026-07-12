@@ -1,0 +1,170 @@
+{
+  "app_name": "Overview",
+  "personality": "6 Glass / Luxe DARK (Apple-style scientific instrument)",
+  "personality_one_liner": "A highly evolved, cinematic scientific instrument that translates the invisible universe into an elegant, sensory-rich experience.",
+  "color": {
+    "surface": "#000000",
+    "onSurface": "#F5F5F7",
+    "surfaceSecondary": "#0A0B0E",
+    "onSurfaceSecondary": "#A1A1A6",
+    "surfaceTertiary": "#15161A",
+    "onSurfaceTertiary": "#C6C6C8",
+    "surfaceInverse": "#FFFFFF",
+    "onSurfaceInverse": "#000000",
+    "brand": "#D4AF37",
+    "brandPrimary": "#D4AF37",
+    "onBrandPrimary": "#000000",
+    "brandSecondary": "#0A84FF",
+    "onBrandSecondary": "#FFFFFF",
+    "brandTertiary": "#1A1D24",
+    "onBrandTertiary": "#FFFFFF",
+    "success": "#32D74B",
+    "onSuccess": "#000000",
+    "warning": "#FFD60A",
+    "onWarning": "#000000",
+    "error": "#FF453A",
+    "onError": "#FFFFFF",
+    "info": "#0A84FF",
+    "onInfo": "#FFFFFF",
+    "border": "#2C2C2E",
+    "borderStrong": "#3A3A3C",
+    "divider": "#1C1C1E"
+  },
+  "typography": {
+    "displayFontFamily": "Geist",
+    "textFontFamily": "Geist",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24,
+      "3xl": 32,
+      "4xl": 48
+    }
+  },
+  "spacing": {
+    "rule": "Generous Apple-style padding (lg/xl). Content modules are separated by obvious whitespace or structural glass cards. Safe areas must be perfectly respected for the full-bleed AR/3D screens.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 8,
+    "md": 14,
+    "lg": 22,
+    "pill": 999
+  },
+  "shadow_tier": "0",
+  "navigation": "stack_only",
+  "icon_set": "Ionicons",
+  "glassmorphism": {
+    "enabled": true,
+    "do's": [
+      "Use heavily blurred glass (expo-blur) for floating UI controls over AR/Camera and 3D views.",
+      "Use glassmorphism for bottom sheets containing astronomical facts.",
+      "Use subtle glass for the module cards on the Home screen layered over the animated space background."
+    ],
+    "dont's": [
+      "Do not use glass for text containers if contrast drops below 4.5:1. Always pair glass with a >70% opacity dark tint underlay.",
+      "Do not over-layer glass on top of glass; keep it to one elevated layer."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-blur",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Home",
+      "purpose": "Minimalist launchpad acting as the index to the universe.",
+      "states": {
+        "loading": "Subtle pulsing brandPrimary (Gold) abstract logo on pure black.",
+        "empty": "N/A",
+        "error": "Minimal text 'Connection lost to the cosmos' with a retry button."
+      },
+      "layout": "Full-bleed abstract animated background. Top: minimal 'Overview' wordmark. Center: The philosophical quote fading in and out slowly. Bottom 2/3: A beautifully spaced grid (or list) of frosted glass cards for the 8 modules. No tab bar. Stack navigation pushes to modules."
+    },
+    {
+      "name": "Qui_e_Ora",
+      "purpose": "Real-time narrative data dashboard of Earth and Space.",
+      "states": {
+        "loading": "Skeleton of data modules pulsing.",
+        "empty": "Waiting for sensor calibration...",
+        "error": "Sensors offline. Reconnecting."
+      },
+      "layout": "Apple Weather style. Large scrolling list of glass cards. The hero card is the narrative sentence ('Earth is currently moving at...'). Below it, a 2-column grid of square cards for metrics (Moon phase, Solar time, Magnetism) featuring large Mono typography."
+    },
+    {
+      "name": "Cielo_AR",
+      "purpose": "Camera overlay showing the visible and invisible sky.",
+      "states": {
+        "loading": "Calibrating compass and gyro...",
+        "empty": "Point device at the sky.",
+        "error": "Camera access required for AR view."
+      },
+      "layout": "Full-screen camera view with an overlay of stars/planets. Floating glass controls (back button, filters) avoid the safe areas. Tapping an object slides up a glass bottom sheet with facts, distance, and 3D images."
+    },
+    {
+      "name": "Univers_3D",
+      "purpose": "3D navigable solar system and nearby stars.",
+      "states": {
+        "loading": "Generating star map...",
+        "empty": "N/A",
+        "error": "Failed to load 3D environment."
+      },
+      "layout": "Immersive dark canvas. Floating minimalistic zoom/pan controls. A timeline scrubber at the bottom (floating glass pill) to move forward/backward in time."
+    },
+    {
+      "name": "Realta_Invisibile",
+      "purpose": "Visualization of unseen forces (gravity, magnetism).",
+      "states": {
+        "loading": "Reading sensors...",
+        "empty": "No magnetic fluctuations detected.",
+        "error": "Sensor hardware not available."
+      },
+      "layout": "Aesthetic instrument panel. Large centralized abstract visualizations (e.g., a fluid compass or magnetic wave graph) that respond live to device movement. Mono fonts for precise numerical readouts."
+    }
+  ],
+  "images": {
+    "home_background": {
+      "url": "https://images.unsplash.com/photo-1567095751004-aa51a2690368",
+      "alt": "Subtle deep space dark abstract background"
+    },
+    "cielo_sky_fallback": {
+      "url": "https://images.unsplash.com/photo-1580432551600-8c9768628a9e",
+      "alt": "Dark milky way starry sky"
+    },
+    "moon_surface": {
+      "url": "https://images.unsplash.com/photo-1446941611757-91d2c3bd3d45",
+      "alt": "Detailed photo of the moon in dark space"
+    }
+  },
+  "haptics": {
+    "module_card_press": "impactLight",
+    "ar_object_tap": "impactMedium",
+    "timeline_scrub": "selection",
+    "data_refresh": "notificationSuccess"
+  },
+  "instructions_to_main_agent": [
+    "Strictly adhere to the 'Black, Gold, Blue' palette. Use the specified hex codes to maintain the cinematic, premium scientific instrument feel.",
+    "Typography: Use 'Geist' for all standard UI text. CRITICAL: For all scientific data numbers, coordinates, speeds, and live metrics (especially in 'Qui e Ora' and 'Realtà Invisibile'), you MUST use a Monospace font like 'Geist Mono' or 'Space Mono' to give it a precise, hardware-instrument aesthetic.",
+    "All navigation should use Stack layout. Home is the central hub. AR, 3D, and Camera screens must be completely full-bleed, extending under the notch/dynamic island and home indicator, with floating glass controls respecting safe areas.",
+    "Do NOT use purely flat design for the modules. Utilize 'expo-blur' heavily with a dark underlay (#1A1D24 at 75% opacity) to create Apple-style frosted glass cards over the deep space backgrounds.",
+    "Incorporate smooth, soft, and deliberate animations (Reanimated). State changes should feel like a high-end tool calibrating, not a playful app bouncing. Cap spring bounciness to 0.",
+    "For the AR and 3D views, ensure the UI chrome is kept to an absolute minimum, relying on gestures and floating glass pills.",
+    "No sci-fi tropes (no neon green grids, no cyber-punk fonts). The aesthetic is modern luxury space-tech (think Apple Watch Ultra or a minimalist Leica camera interface)."
+  ]
+}
