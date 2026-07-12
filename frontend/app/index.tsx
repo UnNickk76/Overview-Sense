@@ -61,6 +61,7 @@ export default function Home() {
           <View style={styles.dot} />
           <Text style={styles.wordmark}>OVERVIEW</Text>
         </View>
+        <Text style={styles.tagline}>the Invisible Sense</Text>
         <Quote />
 
         <View style={styles.grid}>
@@ -88,9 +89,10 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-  brandRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, marginBottom: spacing["2xl"] },
+  brandRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, marginBottom: spacing.sm },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.brand },
   wordmark: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.xl, letterSpacing: 6 },
+  tagline: { color: colors.brand, fontFamily: fonts.regular, fontSize: type.sm, letterSpacing: 3, textAlign: "center", marginBottom: spacing["2xl"], textTransform: "none", fontStyle: "italic" },
   quote: {
     color: colors.onSurfaceTertiary, fontFamily: fonts.regular, fontSize: type.lg,
     textAlign: "center", lineHeight: 26, paddingHorizontal: spacing.xl, marginBottom: spacing["3xl"],
