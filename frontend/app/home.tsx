@@ -9,6 +9,7 @@ import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { GlassCard } from "@/src/components/GlassCard";
 import { MiniSun, MiniOrrery, MiniField } from "@/src/components/MiniViz";
 import { TodayCard } from "@/src/components/TodayCard";
+import { ObservationOfTheDay } from "@/src/components/ObservationOfTheDay";
 import { colors, fonts, spacing, type } from "@/src/theme";
 import { useObserver, useNow } from "@/src/hooks/useObserver";
 import { useAuth } from "@/src/context/AuthContext";
@@ -164,6 +165,8 @@ export default function Home() {
         </View>
 
         <TodayCard />
+
+        <ObservationOfTheDay />
 
         <Text style={styles.sectionLabel}>ACCENDI UNO STRATO DELLA REALTÀ</Text>
 

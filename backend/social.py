@@ -160,6 +160,44 @@ def compute_scores(o: dict) -> dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# Discovery Level — custom cosmic ranks earned through real activity
+# ---------------------------------------------------------------------------
+DISCOVERY_LEVELS = [
+    {"key": "observer", "title": "Observer", "min": 0},
+    {"key": "explorer", "title": "Explorer", "min": 40},
+    {"key": "seeker", "title": "Seeker", "min": 120},
+    {"key": "investigator", "title": "Investigator", "min": 300},
+    {"key": "revealer", "title": "Revealer", "min": 700},
+    {"key": "sentinel", "title": "Sentinel", "min": 1500},
+    {"key": "invisible_sense", "title": "Invisible Sense", "min": 3500},
+]
+
+
+def compute_discovery_level(points: int) -> dict:
+    level = DISCOVERY_LEVELS[0]
+    nxt = None
+    for i, lv in enumerate(DISCOVERY_LEVELS):
+        if points >= lv["min"]:
+            level = lv
+            nxt = DISCOVERY_LEVELS[i + 1] if i + 1 < len(DISCOVERY_LEVELS) else None
+    if nxt:
+        span = max(1, nxt["min"] - level["min"])
+        progress = max(0.0, min(1.0, (points - level["min"]) / span))
+    else:
+        progress = 1.0
+    return {
+        "key": level["key"],
+        "title": level["title"],
+        "points": points,
+        "index": DISCOVERY_LEVELS.index(level),
+        "total_levels": len(DISCOVERY_LEVELS),
+        "next_title": nxt["title"] if nxt else None,
+        "next_min": nxt["min"] if nxt else None,
+        "progress": round(progress, 3),
+    }
+
+
 def obs_public(o: dict, viewer_interactions: Optional[set] = None,
                saved: bool = False, reposted_by: Optional[str] = None) -> dict:
     return {
@@ -345,6 +383,28 @@ async def feed(
     return {"items": [obs_public(o, my.get(o["id"], set()), o["id"] in saved) for o in docs]}
 
 
+# ---------------------------------------------------------------------------
+# Observation of the Day — highest composite score in the recent window
+# ---------------------------------------------------------------------------
+@social_router.get("/observation-of-the-day")
+async def observation_of_the_day(viewer: Optional[dict] = Depends(get_optional_user)):
+    since = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
+    docs = await db.observations.find({"created_at": {"$gte": since}}, {"_id": 0}).limit(500).to_list(500)
+    if not docs:
+        docs = await db.observations.find({}, {"_id": 0}).sort("created_at", -1).limit(200).to_list(200)
+    if not docs:
+        return {"observation": None}
+    best = max(docs, key=lambda o: compute_scores(o)["overall_score"])
+    my: set = set()
+    saved = False
+    if viewer:
+        async for it in db.interactions.find({"user_id": viewer["id"], "obs_id": best["id"]}):
+            if it["type"] in INTERACTIONS:
+                my.add(it["type"])
+        saved = bool(await db.saves.find_one({"user_id": viewer["id"], "obs_id": best["id"]}))
+    return {"observation": obs_public(best, my, saved)}
+
+
 @social_router.get("/observations/{obs_id}")
 async def get_observation(obs_id: str, viewer: Optional[dict] = Depends(get_optional_user)):
     o = await db.observations.find_one({"id": obs_id})
@@ -476,10 +536,27 @@ async def get_profile(user_id: str, viewer: Optional[dict] = Depends(get_optiona
     if viewer:
         is_following = (await db.follows.find_one(
             {"follower_id": viewer["id"], "following_id": user_id})) is not None
+
+    # Discovery points from real activity: published observations + interactions received.
+    own = await db.observations.find(
+        {"user_id": user_id},
+        {"observed": 1, "discovery": 1, "learned": 1, "saves_count": 1, "scientific_value": 1, "_id": 0},
+    ).to_list(2000)
+    tot_observed = sum(o.get("observed", 0) for o in own)
+    tot_discovery = sum(o.get("discovery", 0) for o in own)
+    tot_learned = sum(o.get("learned", 0) for o in own)
+    tot_saves = sum(o.get("saves_count", 0) for o in own)
+    avg_sv = (sum(o.get("scientific_value", 0) for o in own) / len(own)) if own else 0
+    points = round(
+        obs_count * 15 + tot_observed * 2 + tot_discovery * 4 + tot_learned * 3
+        + tot_saves * 3 + followers * 3 + avg_sv * (obs_count > 0)
+    )
+
     return {
         "id": u["id"], "nickname": u["nickname"], "bio": u.get("bio", ""),
         "avatar": u.get("avatar"), "created_at": u.get("created_at"),
         "stats": {"observations": obs_count, "followers": followers, "following": following},
+        "discovery_level": compute_discovery_level(points),
         "is_following": is_following,
         "is_me": bool(viewer and viewer["id"] == user_id),
     }

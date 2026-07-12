@@ -41,10 +41,25 @@ export interface FeedObservation {
   saves_count: number;
   repost_count: number;
   created_at: string;
+  overall_score: number;
+  community_value: number;
+  rarity_score: number;
+  confirmed: boolean;
   my_interactions: string[];
   my_saved: boolean;
   reposted_by?: string | null;
   author?: { id: string; nickname: string; bio?: string; avatar?: string | null };
+}
+
+export interface DiscoveryLevel {
+  key: string;
+  title: string;
+  points: number;
+  index: number;
+  total_levels: number;
+  next_title: string | null;
+  next_min: number | null;
+  progress: number;
 }
 
 export interface Profile {
@@ -54,6 +69,7 @@ export interface Profile {
   avatar?: string | null;
   created_at?: string;
   stats: { observations: number; followers: number; following: number };
+  discovery_level?: DiscoveryLevel;
   is_following: boolean;
   is_me: boolean;
 }
@@ -104,6 +120,8 @@ export const socialApi = {
     return apiFetch<{ items: FeedObservation[] }>(`/feed?${q.toString()}`);
   },
   observation: (id: string) => apiFetch<FeedObservation>(`/observations/${id}`),
+  observationOfTheDay: () =>
+    apiFetch<{ observation: FeedObservation | null }>("/observation-of-the-day"),
   interact: (id: string, type: InteractionType) =>
     apiFetch<{ active: boolean; type: string; count: number }>(
       `/observations/${id}/interact`, { method: "POST", body: JSON.stringify({ type }) }),

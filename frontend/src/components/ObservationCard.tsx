@@ -31,11 +31,19 @@ export function ObservationCard({ obs }: { obs: FeedObservation }) {
         <View style={styles.avatar}><Text style={styles.avatarText}>{(obs.nickname || "?")[0].toUpperCase()}</Text></View>
         <View style={{ flex: 1 }}>
           <Text style={styles.nick}>{obs.nickname}</Text>
-          <Text style={styles.meta}>{obs.category} · {timeAgo(obs.created_at)}</Text>
+          <View style={styles.metaRow}>
+            <Text style={styles.meta}>{obs.category} · {timeAgo(obs.created_at)}</Text>
+            {obs.confirmed ? (
+              <View style={styles.confirmed}>
+                <Ionicons name="checkmark-circle" size={11} color={colors.blue} />
+                <Text style={styles.confirmedText}>Confermata</Text>
+              </View>
+            ) : null}
+          </View>
         </View>
         <View style={styles.sv}>
-          <Ionicons name="flask" size={12} color={colors.brand} />
-          <Text style={styles.svText}>{obs.scientific_value}</Text>
+          <Ionicons name="sparkles" size={12} color={colors.brand} />
+          <Text style={styles.svText}>{obs.overall_score}</Text>
         </View>
       </Pressable>
 
@@ -67,6 +75,9 @@ const styles = StyleSheet.create({
   avatarText: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.base },
   nick: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
   meta: { color: colors.onSurfaceSecondary, fontFamily: fonts.mono, fontSize: type.sm - 2, marginTop: 1 },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: 1 },
+  confirmed: { flexDirection: "row", alignItems: "center", gap: 3 },
+  confirmedText: { color: colors.blue, fontFamily: fonts.medium, fontSize: type.sm - 3 },
   sv: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.tertiary, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 3 },
   svText: { color: colors.brand, fontFamily: fonts.monoMedium, fontSize: type.sm - 1 },
   image: { width: "100%", aspectRatio: 1, backgroundColor: colors.tertiary },

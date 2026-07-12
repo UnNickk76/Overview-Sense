@@ -122,3 +122,48 @@ Priorità suggerita: 3 (Universe Explorer) e 1 (Satellite Observation) hanno imp
 ### Verifica: self-test (curl + tsc + lint + screenshot). NESSUN test agent (per volere esplicito dell'utente: "No test agent. Mai").
 ### Device-only: satellite publish (download immagine), camera Invisible Fields, GPS/sensori.
 
+---
+
+## IDENTITÀ / FILOSOFIA UFFICIALE (2026-06, definita dall'utente)
+
+Overview **non** è un'app di astronomia, **non** è un social. È **un'estensione dei sensi umani**.
+L'obiettivo non è osservare il cielo: è osservare **qualsiasi realtà** — un fiore, una persona,
+un animale, un edificio, un'auto, una montagna, un lago, un tramonto, il cielo, qualunque cosa.
+La domanda guida, sempre: **"Cosa esiste qui che l'occhio umano non riesce a vedere?"**
+
+Nessun dato inventato, nessun effetto speciale. Solo dati **realmente misurabili** (sensori iPhone,
+fotocamera, satelliti, API scientifiche, modelli fisici) trasformati in qualcosa che l'occhio possa
+finalmente vedere: differenze di temperatura, micro-variazioni di luce, differenze cromatiche invisibili,
+amplificazione di micro-movimenti, direzione/intensità del vento, campi magnetici misurabili, percorso
+Sole/Luna, satelliti/ISS sopra la scena, confronto temporale della stessa zona, variazioni vegetazione,
+UV, qualità aria, umidità, pressione, meteo spaziale, orientamento, gravità, dati astronomici, ecc.
+
+Ogni Observation è la rappresentazione di una realtà invisibile; l'utente la interpreta liberamente
+(visualizzazione scientifica / aura / energia). L'app **non afferma mai interpretazioni**: mostra solo
+dati reali resi comprensibili.
+
+Motti ufficiali:
+- "Everything you see contains much more than you can perceive."
+- "You don't need another camera. You need another sense." — **The Invisible Sense.**
+- "We don't create invisible worlds. We reveal the invisible parts of the real one."
+
+Implicazione roadmap: l'esperienza di cattura ("Invisible Fields"/Observation) va riorientata dall'essere
+cielo-centrica all'essere **soggetto-libero** (qualsiasi cosa inquadrata), proponendo i layer invisibili
+reali pertinenti al contesto.
+
+---
+
+## SESSIONE 3 — Diario Collettivo dell'Universo, Slice 1 (2026-06)
+
+### Fatto e verificato (curl + lint, NO test agent)
+- **Observation Score (composito)**: `compute_scores` in `social.py` → `overall_score` = 0.35·scientific + 0.30·community + 0.20·rarity + 0.15·confirmed. Restituito da `obs_public` (community_value, rarity_score, confirmed, overall_score). Mostrato come badge headline (sparkles) su ObservationCard + chip "Confermata" (observed≥3).
+- **Discovery Level**: ranghi utente Observer → Explorer → Seeker → Investigator → Revealer → Sentinel → Invisible Sense, calcolati da attività reale (observations, interazioni ricevute, follower, avg scientific value). `GET /api/users/{id}` restituisce `discovery_level` {title, points, next_title, next_min, progress}. Mostrato su profilo con progress bar.
+- **Observation of the Day**: `GET /api/observation-of-the-day` → observation con `overall_score` più alto nelle ultime 48h (fallback all-time). Sezione in evidenza in Home (`ObservationOfTheDay.tsx`).
+
+### Prossimo (Fase 2 roadmap Diario Collettivo)
+- P0: Discovery Card Export (grafica condivisibile: watermark, QR, overlay dati).
+- P1: Community Verification (Verified Events), Live Earth (Terra 3D pulsante nel Social), Observation Chains.
+- P2: Event Timeline, Observation Replay (time machine), Discovery Challenges.
+- P3: Observatory (galleria mondiale delle osservazioni più rare/verificate/belle).
+- Riorientamento esperienza cattura secondo la nuova filosofia (soggetto libero, non solo cielo).
+

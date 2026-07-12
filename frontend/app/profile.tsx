@@ -102,6 +102,27 @@ export default function Profile() {
           <View style={styles.headerCard}>
             <View style={styles.avatar}><Text style={styles.avatarText}>{profile.nickname[0].toUpperCase()}</Text></View>
             <Text style={styles.nick}>{profile.nickname}</Text>
+            {profile.discovery_level ? (
+              <View style={styles.levelWrap}>
+                <View style={styles.levelBadge}>
+                  <Ionicons name="planet" size={13} color={colors.brand} />
+                  <Text style={styles.levelTitle}>{profile.discovery_level.title}</Text>
+                  <Text style={styles.levelPoints}>{profile.discovery_level.points} pt</Text>
+                </View>
+                {profile.discovery_level.next_title ? (
+                  <>
+                    <View style={styles.progressTrack}>
+                      <View style={[styles.progressFill, { width: `${Math.round(profile.discovery_level.progress * 100)}%` }]} />
+                    </View>
+                    <Text style={styles.levelNext}>
+                      Prossimo livello: {profile.discovery_level.next_title} · {profile.discovery_level.next_min} pt
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={styles.levelNext}>Livello massimo raggiunto</Text>
+                )}
+              </View>
+            ) : null}
             {editing ? (
               <View style={{ width: "100%", gap: spacing.sm }}>
                 <TextInput style={styles.bioInput} value={bio} onChangeText={setBio} multiline placeholder="Scrivi qualcosa su di te…" placeholderTextColor={colors.onSurfaceSecondary} />
@@ -183,6 +204,13 @@ const styles = StyleSheet.create({
   avatar: { width: 76, height: 76, borderRadius: 38, backgroundColor: colors.tertiary, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.brand },
   avatarText: { color: colors.brand, fontFamily: fonts.bold, fontSize: type["2xl"] },
   nick: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.xl },
+  levelWrap: { width: "100%", alignItems: "center", gap: spacing.sm },
+  levelBadge: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.tertiary, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 5, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
+  levelTitle: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.base },
+  levelPoints: { color: colors.onSurfaceSecondary, fontFamily: fonts.mono, fontSize: type.sm - 2 },
+  progressTrack: { width: "72%", height: 4, borderRadius: 2, backgroundColor: colors.surfaceTertiary, overflow: "hidden" },
+  progressFill: { height: "100%", borderRadius: 2, backgroundColor: colors.brand },
+  levelNext: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1 },
   bio: { color: colors.onSurfaceTertiary, fontFamily: fonts.regular, fontSize: type.base, textAlign: "center", lineHeight: 20 },
   bioInput: { backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, padding: spacing.md, color: colors.onSurface, fontFamily: fonts.regular, fontSize: type.base, minHeight: 70, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, textAlignVertical: "top" },
   statsRow: { flexDirection: "row", gap: spacing.xl, marginTop: spacing.sm },

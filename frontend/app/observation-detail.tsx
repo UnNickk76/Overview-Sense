@@ -60,7 +60,7 @@ export default function ObservationDetail() {
 
   return (
     <SpaceBackground>
-      <ScreenHeader title={obs.category} subtitle={`Scientific Value ${obs.scientific_value}`} />
+      <ScreenHeader title={obs.category} subtitle={`Overview Score ${obs.overall_score}`} />
       <KeyboardAwareScrollView bottomOffset={20} contentContainerStyle={{ paddingBottom: insets.bottom + spacing["2xl"] }} showsVerticalScrollIndicator={false} testID="observation-detail-remote">
         <Pressable style={styles.author} onPress={() => router.push(`/profile?id=${obs.user_id}` as never)}>
           <View style={styles.avatar}><Text style={styles.avatarText}>{obs.nickname[0].toUpperCase()}</Text></View>
@@ -79,6 +79,27 @@ export default function ObservationDetail() {
           {obs.caption ? <Text style={styles.caption}>{obs.caption}</Text> : null}
           <InteractionBar obs={obs} />
           <ActionBar obs={obs} />
+
+          <View style={styles.scoreCard}>
+            <View style={styles.scoreHead}>
+              <View style={styles.scoreMain}>
+                <Ionicons name="sparkles" size={16} color={colors.brand} />
+                <Text style={styles.scoreMainValue}>{obs.overall_score}</Text>
+                <Text style={styles.scoreMainLabel}>Overview Score</Text>
+              </View>
+              {obs.confirmed ? (
+                <View style={styles.confirmedChip}>
+                  <Ionicons name="checkmark-circle" size={14} color={colors.blue} />
+                  <Text style={styles.confirmedChipText}>Confermata dalla community</Text>
+                </View>
+              ) : null}
+            </View>
+            <View style={styles.scoreBreakdown}>
+              <ScoreBit label="Scientifico" value={obs.scientific_value} />
+              <ScoreBit label="Community" value={obs.community_value} />
+              <ScoreBit label="Rarità" value={obs.rarity_score} />
+            </View>
+          </View>
 
           {d ? (
             <View style={styles.dataCard}>
@@ -121,6 +142,15 @@ export default function ObservationDetail() {
   );
 }
 
+function ScoreBit({ label, value }: { label: string; value: number }) {
+  return (
+    <View style={styles.scoreBit}>
+      <Text style={styles.scoreBitValue}>{value}</Text>
+      <Text style={styles.scoreBitLabel}>{label}</Text>
+    </View>
+  );
+}
+
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.row}>
@@ -141,6 +171,17 @@ const styles = StyleSheet.create({
   placeholder: { alignItems: "center", justifyContent: "center" },
   body: { padding: spacing.lg, gap: spacing.lg },
   caption: { color: colors.onSurface, fontFamily: fonts.regular, fontSize: type.lg, lineHeight: 23 },
+  scoreCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.lg, gap: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
+  scoreHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: spacing.sm },
+  scoreMain: { flexDirection: "row", alignItems: "center", gap: 6 },
+  scoreMainValue: { color: colors.brand, fontFamily: fonts.bold, fontSize: type["2xl"] },
+  scoreMainLabel: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm },
+  confirmedChip: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.tertiary, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 4 },
+  confirmedChipText: { color: colors.blue, fontFamily: fonts.medium, fontSize: type.sm - 1 },
+  scoreBreakdown: { flexDirection: "row", gap: spacing.sm },
+  scoreBit: { flex: 1, alignItems: "center", backgroundColor: colors.surfaceTertiary, borderRadius: radius.sm, paddingVertical: spacing.sm },
+  scoreBitValue: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.lg },
+  scoreBitLabel: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 2, marginTop: 1 },
   dataCard: { backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, paddingHorizontal: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   row: { flexDirection: "row", justifyContent: "space-between", paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },
   rowLabel: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.base },
