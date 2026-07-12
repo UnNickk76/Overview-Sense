@@ -46,3 +46,44 @@ export function computeSatellites(date: Date, lat: number, lon: number, altKm = 
 export function satellitesOverhead(date: Date, lat: number, lon: number): SatPos[] {
   return computeSatellites(date, lat, lon).filter((s) => s.alt > 0).sort((a, b) => b.alt - a.alt);
 }
+
+export interface SatPass {
+  name: string;
+  start: Date;
+  peak: Date;
+  end: Date;
+  peakAlt: number;
+  peakAz: number;
+}
+
+// Predict the next pass of a satellite matching `pattern` above `horizonDeg`,
+// scanning the next `minutes` (real SGP4). Returns null if none found.
+export function nextPass(
+  pattern: RegExp, now: Date, lat: number, lon: number,
+  horizonDeg = 10, minutes = 120,
+): SatPass | null {
+  if (!satrecs.length) return null;
+  let start: Date | null = null;
+  let end: Date | null = null;
+  let peakAlt = -90;
+  let peakAz = 0;
+  let peak: Date | null = null;
+  let name = "";
+  for (let s = 0; s <= minutes * 60; s += 30) {
+    const t = new Date(now.getTime() + s * 1000);
+    const sats = computeSatellites(t, lat, lon);
+    const sat = sats.find((x) => pattern.test(x.name));
+    if (!sat) continue;
+    if (sat.alt >= horizonDeg) {
+      if (!start) { start = t; name = sat.name; }
+      end = t;
+      if (sat.alt > peakAlt) { peakAlt = sat.alt; peakAz = sat.az; peak = t; }
+    } else if (start) {
+      break; // pass ended
+    }
+  }
+  if (start && peak && end) {
+    return { name, start, peak, end, peakAlt, peakAz };
+  }
+  return null;
+}

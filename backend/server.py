@@ -14,14 +14,12 @@ import uuid
 from datetime import datetime, timezone
 import requests
 
+from database import db, client, EMERGENT_LLM_KEY
+from auth import auth_router, ensure_auth_indexes
+from social import social_router, ensure_social_indexes
+from ai_features import ai_router
+
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
-
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
-
-EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
 
 app = FastAPI(title="Overview API")
 api_router = APIRouter(prefix="/api")
@@ -373,6 +371,9 @@ async def satellites():
 
 
 app.include_router(api_router)
+app.include_router(auth_router)
+app.include_router(social_router)
+app.include_router(ai_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -381,6 +382,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def _startup_indexes():
+    try:
+        await ensure_auth_indexes()
+        await ensure_social_indexes()
+    except Exception as e:
+        logger.warning(f"index creation failed: {e}")
 
 
 @app.on_event("shutdown")
