@@ -1,7 +1,7 @@
 import React, { useCallback, useRef, useState } from "react";
 import { StyleSheet, Text, View, Pressable, ScrollView, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -9,11 +9,12 @@ import { createAudioPlayer, AudioPlayer } from "expo-audio";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { colors, fonts, spacing, type } from "@/src/theme";
-import { listObservations, removeObservation, Observation } from "@/src/lib/gallery";
+import { listObservations, removeObservation, observationCode, Observation } from "@/src/lib/gallery";
 
 export default function Observations() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const router = useRouter();
   const [items, setItems] = useState<Observation[]>([]);
   const player = useRef<AudioPlayer | null>(null);
 
@@ -54,15 +55,15 @@ export default function Observations() {
             <Text style={styles.section}>Immagini</Text>
             <View style={styles.grid}>
               {images.map((o) => (
-                <View key={o.id} style={[styles.imgCard, { width: cell }]} testID={`obs-${o.id}`}>
+                <Pressable key={o.id} testID={`obs-${o.id}`} style={[styles.imgCard, { width: cell }]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(`/observation?id=${o.id}` as never); }}>
                   <Image source={{ uri: o.uri }} style={{ width: cell, height: cell }} contentFit="cover" />
                   <View style={styles.imgFooter}>
-                    <Text style={styles.imgLabel} numberOfLines={1}>{o.label}</Text>
+                    <Text style={styles.imgLabel} numberOfLines={1}>{observationCode(o.seq)}</Text>
                     <Pressable testID={`delete-${o.id}`} onPress={() => del(o.id)} hitSlop={8}>
                       <Ionicons name="trash" size={16} color={colors.error} />
                     </Pressable>
                   </View>
-                </View>
+                </Pressable>
               ))}
             </View>
           </>

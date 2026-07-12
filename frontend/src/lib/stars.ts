@@ -55,3 +55,16 @@ export const DEEP_SKY: DeepSky[] = [
   { name: "Pleiades (M45)", ra: 56.75, dec: 24.117, type: "Open cluster", distanceLy: 444, constellation: "Taurus" },
   { name: "Galactic Center (Sgr A*)", ra: 266.417, dec: -29.008, type: "Supermassive black hole", distanceLy: 26670, constellation: "Sagittarius" },
 ];
+
+
+// Constellation lines: pairs of star names present in STARS (drawn when both visible).
+export const CONSTELLATION_LINES: [string, string][] = [
+  // Orion
+  ["Betelgeuse", "Alnilam"],
+  ["Bellatrix", "Alnilam"],
+  ["Alnilam", "Alnitak"],
+  ["Alnilam", "Rigel"],
+  ["Betelgeuse", "Bellatrix"],
+  // Gemini
+  ["Castor", "Pollux"],
+];

@@ -39,6 +39,7 @@ export const api = {
   iss: () => getJson<ISS>("/iss"),
   weather: (lat: number, lon: number) => getJson<Weather>(`/weather?lat=${lat}&lon=${lon}`),
   spaceWeather: () => getJson<SpaceWeather>("/space-weather"),
+  satellites: () => getJson<{ available: boolean; satellites: { name: string; satelliteId: number; line1: string; line2: string }[] }>("/satellites"),
   chatUrl: () => `${BASE}/api/ai/chat`,
   history: (sid: string) => getJson<{ messages: { role: string; text: string }[] }>(`/ai/history/${sid}`),
 };

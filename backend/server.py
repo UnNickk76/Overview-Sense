@@ -302,6 +302,76 @@ async def ai_history(session_id: str):
     return {"messages": msgs}
 
 
+# ---------------------------------------------------------------------------
+# Satellites — real TLEs (SGP4 done client-side with satellite.js)
+# ---------------------------------------------------------------------------
+_TLE_CACHE: dict = {"ts": 0, "data": None}
+TLE_TTL = 6 * 3600  # 6 hours
+
+BRIGHT_IDS = [25544, 48274, 20580, 25338, 33591, 39084, 25994, 27424, 43013]  # ISS, Tiangong, Hubble, NOAA/EOS
+
+
+def _fetch_tle_id(sid: int):
+    url = f"https://tle.ivanstanojevic.me/api/tle/{sid}"
+    r = requests.get(url, headers=UA, timeout=8, allow_redirects=True)
+    r.raise_for_status()
+    return r.json()
+
+
+def _fetch_tle_search(q: str, size: int):
+    url = f"https://tle.ivanstanojevic.me/api/tle/?search={q}&page-size={size}"
+    r = requests.get(url, headers=UA, timeout=10, allow_redirects=True)
+    r.raise_for_status()
+    return r.json().get("member", [])
+
+
+def _build_tle_list():
+    out = []
+    seen = set()
+
+    def add(item):
+        try:
+            sid = item["satelliteId"]
+            if sid in seen:
+                return
+            seen.add(sid)
+            out.append({"name": item["name"], "satelliteId": sid,
+                        "line1": item["line1"], "line2": item["line2"]})
+        except Exception:
+            pass
+
+    for sid in BRIGHT_IDS:
+        try:
+            add(_fetch_tle_id(sid))
+        except Exception as e:
+            logger.warning(f"tle {sid} failed: {e}")
+    try:
+        for m in _fetch_tle_search("starlink", 25):
+            add(m)
+    except Exception as e:
+        logger.warning(f"tle starlink search failed: {e}")
+    return out
+
+
+@api_router.get("/satellites")
+async def satellites():
+    import time
+    now_ts = time.time()
+    if _TLE_CACHE["data"] and now_ts - _TLE_CACHE["ts"] < TLE_TTL:
+        return {"available": True, "source": "tle.ivanstanojevic.me",
+                "cached": True, "satellites": _TLE_CACHE["data"]}
+    data = await asyncio.to_thread(_build_tle_list)
+    if data:
+        _TLE_CACHE["data"] = data
+        _TLE_CACHE["ts"] = now_ts
+        return {"available": True, "source": "tle.ivanstanojevic.me",
+                "cached": False, "satellites": data}
+    if _TLE_CACHE["data"]:
+        return {"available": True, "source": "tle.ivanstanojevic.me",
+                "cached": True, "satellites": _TLE_CACHE["data"]}
+    return {"available": False, "satellites": []}
+
+
 app.include_router(api_router)
 
 app.add_middleware(

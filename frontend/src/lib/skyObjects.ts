@@ -7,7 +7,7 @@ import { BODIES, PLANET_ORDER } from "./bodies";
 export interface SkyObject {
   id: string;
   name: string;
-  kind: "sun" | "moon" | "planet" | "star" | "deepsky" | "galcenter";
+  kind: "sun" | "moon" | "planet" | "star" | "deepsky" | "galcenter" | "satellite";
   alt: number;
   az: number;
   magnitude: number;
