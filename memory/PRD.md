@@ -192,3 +192,26 @@ Flusso: 📷 Make a Sense → 👁 analisi scena → ✨ Sense Created → 🌍 
 ### Device-only: la cattura Sense Vision (fotocamera + sensori) richiede build nativa; su web/Expo Go
 appare il gate permessi "Make a Sense".
 
+---
+
+## SESSIONE 5 — Sense Vision branding + Skia + fix (2026-06)
+
+- **Fix bug scatto**: la cattura salvava solo con GPS concesso → senza posizione non scattava. Ora
+  scatta sempre (posizione = dati completi, senza = dati minimi onesti). `invisible-observe` e
+  `invisible-fields` → "Start Observation" ora puntano a `/sense-vision` (esperienza unica).
+- **Icona-simbolo `SenseMark`** (`src/components/SenseMark.tsx`, asset `assets/images/sense-mark.png`,
+  attualmente = anello eclissi Overview): simbolo universale di "Make a Sense", presente in badge Home,
+  pulsante MAKE A SENSE, gate/boot/created della cattura, hero del viewer. Animazione (glow+pulse+
+  rotazione lenta) mentre `active` (durante il sensing).  ⚠️ Da confermare con l'utente se usare
+  un'icona Sense Vision dedicata (basta sostituire il file `sense-mark.png`).
+- **Skia real pixel processing** (`src/components/SenseCanvas.tsx`): il Sense catturato viene
+  rielaborato con ColorMatrix reali (Luce, Colore, Contrasto, Luminanza, Micro-dettaglio, Originale).
+  Selettore "Sense Layers" nel viewer. Trasformazioni oneste dei pixel reali (nessun dato inventato).
+  Fallback a immagine semplice su web / non caricata / Originale.
+- **Icona Home globale** in `ScreenHeader` (alto a destra, fissa, discreta) → torna alla Home.
+- **Credit Emergent** aggiunto in About → SPECIAL THANKS.
+- **Fix deploy (BUILD)**: aggiunti i config plugin mancanti in `app.json` (expo-camera, expo-location,
+  expo-media-library) — probabile causa di "invalid mobile app config: app.json". Gli errori
+  `pull_source: activity error` (DEPLOY/HEALTH_CHECK/MANAGE_SECRETS/MONGODB_MIGRATE) sono lato
+  piattaforma/infra (pull sorgente da GCS) → retry + support.
+

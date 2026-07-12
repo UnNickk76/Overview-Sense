@@ -20,6 +20,8 @@ import { project } from "@/src/lib/project";
 import { nf, compassPoint } from "@/src/lib/format";
 import { socialApi, aiApi } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
+import { SenseCanvas, VISUAL_LAYERS, layerToVisual, SenseVisualLayer } from "@/src/components/SenseCanvas";
+import { SenseMark } from "@/src/components/SenseMark";
 
 export default function ObservationView() {
   const insets = useSafeAreaInsets();
@@ -34,9 +36,11 @@ export default function ObservationView() {
   const [publishing, setPublishing] = useState(false);
   const [aiText, setAiText] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [visualLayer, setVisualLayer] = useState<SenseVisualLayer>("Originale");
   const shotRef = useRef<ViewShot>(null);
 
   useEffect(() => { if (id) getObservation(id).then(setObs); }, [id]);
+  useEffect(() => { if (obs?.data) setVisualLayer(layerToVisual(obs.data.senseLayer)); }, [obs]);
 
   const cardW = width - spacing.lg * 2;
   const cardH = cardW * 1.25;
@@ -142,12 +146,12 @@ export default function ObservationView() {
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"], gap: spacing.md }} showsVerticalScrollIndicator={false} testID="observation-view">
 
         <View style={styles.senseHero}>
-          <Ionicons name="sparkles" size={15} color={colors.brand} />
+          <SenseMark size={22} />
           <Text style={styles.senseHeroText}>SENSE CREATED · The Invisible Sense</Text>
         </View>
 
         <ViewShot ref={shotRef} style={{ width: cardW, height: cardH, alignSelf: "center", borderRadius: 18, overflow: "hidden" }}>
-          <Image source={{ uri: obs.uri }} style={{ width: cardW, height: cardH }} contentFit="cover" />
+          <SenseCanvas uri={obs.uri} width={cardW} height={cardH} layer={visualLayer} />
 
           {reveal && overlay ? (
             <Svg width={cardW} height={cardH} style={StyleSheet.absoluteFill}>
@@ -191,6 +195,23 @@ export default function ObservationView() {
             </View>
           </View>
         </ViewShot>
+
+        <View style={styles.layerHint}>
+          <SenseMark size={16} />
+          <Text style={styles.layerHintText}>SENSE LAYERS · rivela la luce reale della scena</Text>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.layerRow}>
+          {VISUAL_LAYERS.map((l) => (
+            <Pressable
+              key={l}
+              testID={`visual-layer-${l}`}
+              style={[styles.layerChip, visualLayer === l && styles.layerChipActive]}
+              onPress={() => { Haptics.selectionAsync(); setVisualLayer(l); }}
+            >
+              <Text style={[styles.layerChipText, visualLayer === l && styles.layerChipTextActive]}>{l}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
 
         <View style={styles.actions}>
           <Pressable testID="reveal-toggle" style={[styles.revealBtn, reveal && styles.revealActive]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setReveal((r) => !r); }}>
@@ -284,6 +305,13 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   senseHero: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, alignSelf: "center", backgroundColor: colors.surfaceSecondary, borderRadius: 999, paddingHorizontal: spacing.lg, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
   senseHeroText: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.sm - 1, letterSpacing: 1 },
+  layerHint: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.xs },
+  layerHintText: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm - 2, letterSpacing: 0.8 },
+  layerRow: { gap: spacing.sm, paddingVertical: spacing.xs },
+  layerChip: { backgroundColor: colors.tertiary, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  layerChipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  layerChipText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.sm - 1 },
+  layerChipTextActive: { color: colors.onBrand },
   watermark: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "center", gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, backgroundColor: "rgba(0,0,0,0.42)" },
   wmBrand: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.base, letterSpacing: 0.3 },
   wmDot: { color: colors.brand },

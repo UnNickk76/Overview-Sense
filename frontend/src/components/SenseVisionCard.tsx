@@ -1,12 +1,12 @@
 import React, { useCallback, useState } from "react";
 import { StyleSheet, Text, View, Pressable } from "react-native";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { listObservations, Observation } from "@/src/lib/gallery";
+import { SenseMark } from "@/src/components/SenseMark";
 
 export function SenseVisionCard() {
   const router = useRouter();
@@ -44,7 +44,7 @@ export function SenseVisionCard() {
         />
         <View style={styles.content}>
           <View style={styles.badge}>
-            <Ionicons name="eye" size={13} color={colors.brand} />
+            <SenseMark size={14} />
             <Text style={styles.badgeText}>SENSE VISION™</Text>
           </View>
           <View style={{ flex: 1 }} />
@@ -53,7 +53,7 @@ export function SenseVisionCard() {
             {last ? "Il tuo ultimo Sense · tocca per crearne uno nuovo" : "Inquadra qualsiasi cosa e rivela l'invisibile"}
           </Text>
           <Pressable testID="make-a-sense-home" style={styles.btn} onPress={go}>
-            <Ionicons name="sparkles" size={18} color={colors.onBrand} />
+            <SenseMark size={22} />
             <Text style={styles.btnText}>MAKE A SENSE</Text>
           </Pressable>
         </View>

@@ -21,6 +21,7 @@ import { loadSatrecs, computeSatellites, SatPos } from "@/src/lib/satellites";
 import { buildObservation } from "@/src/lib/observationData";
 import { saveObservation } from "@/src/lib/gallery";
 import type { ObsData } from "@/src/lib/gallery";
+import { SenseMark } from "@/src/components/SenseMark";
 
 // The "Invisible Fields" engine, presented to the user as Sense Layers.
 type Layer = { key: string; label: string; tint: string; color: string };
@@ -137,7 +138,7 @@ export default function SenseVision() {
       <SpaceBackground>
         <ScreenHeader title="Sense Vision™" />
         <View style={styles.permCenter}>
-          <Ionicons name="scan-circle-outline" size={52} color={colors.brand} />
+          <SenseMark size={64} />
           <Text style={styles.permTitle}>Make a Sense</Text>
           <Text style={styles.permText}>Inquadra qualsiasi cosa — un fiore, la tua mano, un&apos;auto, il cielo. Sense Vision rivela ciò che l&apos;occhio non vede usando i dati reali dei sensori e delle fonti scientifiche. Nessun dato inventato.</Text>
           <Text style={styles.permSlogan}>&ldquo;You don&apos;t take a photo. You make a Sense.&rdquo;</Text>
@@ -193,7 +194,7 @@ export default function SenseVision() {
         <Animated.View exiting={FadeOut.duration(400)} style={styles.bootOverlay} pointerEvents="none">
           <Animated.View style={[styles.scanLine, scanStyle]} />
           <View style={styles.bootCenter}>
-            <Ionicons name="eye" size={30} color={colors.brand} />
+            <SenseMark size={48} active />
             <Text style={styles.bootText}>
               {stage === "init" ? "Initializing Sense Vision…" : "Looking beyond human perception…"}
             </Text>
@@ -204,7 +205,7 @@ export default function SenseVision() {
       {/* Sense Created flash */}
       {created ? (
         <Animated.View entering={FadeIn.duration(200)} style={styles.createdOverlay} pointerEvents="none">
-          <Ionicons name="sparkles" size={48} color={colors.brand} />
+          <SenseMark size={64} active />
           <Text style={styles.createdText}>Sense Created</Text>
         </Animated.View>
       ) : null}
@@ -240,10 +241,9 @@ export default function SenseVision() {
       {stage === "ready" ? (
         <Animated.View entering={FadeIn.delay(200)} style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }]}>
           <Text style={styles.hudMeta}>{compassPoint(heading)} {heading.toFixed(0)}° · {nf(mag.magnitude, 0)} µT{weather?.temperature_c != null ? ` · ${nf(weather.temperature_c, 0)}°` : ""}</Text>
-          <Pressable testID="make-a-sense" style={[styles.senseBtn, busy && { opacity: 0.6 }]} onPress={makeSense} disabled={busy}>
-            <Ionicons name="sparkles" size={20} color={colors.onBrand} />
+          <Pressable testID="make-a-sense" style={[styles.senseBtn, busy && { opacity: 0.85 }]} onPress={makeSense} disabled={busy}>
+            <SenseMark size={26} active={busy} />
             <Text style={styles.senseBtnText}>MAKE A SENSE</Text>
-            <Ionicons name="sparkles" size={20} color={colors.onBrand} />
           </Pressable>
           <Text style={styles.captureHint}>Rivela i dati reali della scena · Layer: {layer.label}</Text>
         </Animated.View>

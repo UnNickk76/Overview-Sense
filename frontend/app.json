@@ -42,6 +42,25 @@
       "expo-router",
       "expo-audio",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Reveal what the eye can't see around you"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Compute the real sky and forces around you"
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Save your Sense observations to Photos",
+          "savePhotosPermission": "Save your Sense observations to Photos"
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-image.png",
