@@ -1,0 +1,54 @@
+{
+  "summary": "Backend 6/6 tests pass (100%): health, weather (Open-Meteo Rome shows temp/pressure/humidity/AQI), space-weather (NOAA Kp 3.3 Quiet + solar_wind 486km/s + IMF Bz + flare B9.5 + sunspots 94.4), ISS (wheretheiss.at live position), and AI /api/ai/chat SSE streaming with GPT-5.5 (delta events + [DONE] terminator) with user+assistant messages persisted and retrievable via /api/ai/history. Frontend 5/6 major flows pass: Home renders wordmark + all 8 module cards (module-now, module-sky, module-universe, module-invisible, module-space-weather, module-audio, module-timeline, module-ai); Meteo Spaziale renders real NOAA data (Kp 3.3 badge, solar wind 486 km/s, IMF Bz 0.0nT/Bt 4.0nT, flare B9.5, sunspots 94.4); Universo orrery renders 8 planets, segmented control scope-inner/scope-all toggles, tapping planet-jupiter opens ObjectSheet with 'Giove' info; Timeline datetime-card shows +1g step change and now-button resets; Assistente suggestion chip triggers SSE streaming and full assistant bubble appears (~875 chars); Qui e Ora and Cielo show correct permission gate UI without crashing. CRITICAL BUG: /realta-invisibile CRASHES on web with 'this._nativeModule.addListener is not a function' from expo-sensors Magnetometer — the sensor hook does not guard against Platform.OS==='web' so the gate UI never renders (violates 'gate UI renders without crashing' acceptance).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "realta-invisibile screen",
+        "issue": "Uncaught runtime error 'this._nativeModule.addListener is not a function' from expo-sensors Magnetometer/Accelerometer/DeviceMotion when opened on web preview. The screen never renders a gate UI — it hard-crashes. Reference: /app/frontend/src/hooks/useSensors.ts:11 (Magnetometer.setUpdateInterval), :25, :44, :63 (DeviceMotion). Guard subscription with Platform.OS!=='web' or Magnetometer.isAvailableAsync() and render a 'sensori non disponibili sul web' fallback in /app/frontend/app/realta-invisibile.tsx.",
+        "testID": "n/a (no root testID on screen)",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {
+        "component": "useSensors hooks (expo-sensors on web)",
+        "issue": "expo-sensors (Magnetometer, Accelerometer, DeviceMotion) is not implemented on react-native-web and throws 'this._nativeModule.addListener is not a function'. Hooks must early-return on web (Platform.OS==='web') or call isAvailableAsync() before addListener. Reference: /app/frontend/src/hooks/useSensors.ts:7-73."
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_overview_backend.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Fix /app/frontend/src/hooks/useSensors.ts: gate every subscription with Platform.OS!=='web' (or Sensor.isAvailableAsync()) and return neutral defaults on web so /realta-invisibile can render its permission/unavailable gate without crashing.",
+    "Optionally add a testID (e.g. 'invisible-screen' or 'sensors-unavailable-gate') on /app/frontend/app/realta-invisibile.tsx root View for future automated verification of the gate."
+  ],
+  "critical_code_review_comments": [
+    "server.py:20 uses os.environ['MONGO_URL'] (good, fails fast).",
+    "ISS endpoint may take ~30s worst case due to 3x10s retries then open-notify fallback — consider reducing per-attempt timeout to 5s to keep total under 20s.",
+    "MongoDB history query correctly excludes _id ({'_id': 0}).",
+    "SSE endpoint sets X-Accel-Buffering: no and Cache-Control: no-cache (correct for streaming).",
+    "Frontend api.ts uses process.env.EXPO_PUBLIC_BACKEND_URL correctly.",
+    "useSensors hooks lack web/platform guards → causes runtime crash on Expo web preview."
+  ],
+  "updated_files": [
+    "/app/backend/tests/__init__.py (new)",
+    "/app/backend/tests/conftest.py (new)",
+    "/app/backend/tests/test_overview_backend.py (new)",
+    "/app/test_reports/iteration_1.json (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "~92% (5.5/6 flows; realta-invisibile crashes)"},
+  "seed_data_creation": "AI chat test created one TEST_ session (TEST_sess_*) with user+assistant messages in chat_messages collection; low volume, safe to leave.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend URL: https://invisible-sense.preview.emergentagent.com. Backend tests: pytest /app/backend/tests/ -v. All external APIs (Open-Meteo, NOAA SWPC, wheretheiss.at) reachable from container. AI streaming uses emergentintegrations gpt-5.5. On web preview, sensor screens (realta-invisibile) require web guards in useSensors; camera (cielo) and location (qui-e-ora) gates work correctly.",
+  "rca_of_issue": "Realta Invisibile crash RCA: The screen imports useMagnetometer/useHeading/useAccelerometer from src/hooks/useSensors.ts which unconditionally call Magnetometer.setUpdateInterval() then Magnetometer.addListener() on mount. On react-native-web, expo-sensors' NativeModule is missing addListener, causing a JS runtime crash before the JSX gate can render. Reproduction: open /realta-invisibile in web preview → console shows 'this._nativeModule.addListener is not a function' and body shows the red error overlay instead of the module UI. Mitigation: In useSensors.ts wrap each useEffect body with `if (Platform.OS === 'web') return;` and return neutral zero readings, or use `Magnetometer.isAvailableAsync()` before addListener."
+}
