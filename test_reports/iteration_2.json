@@ -1,0 +1,55 @@
+{
+  "summary": "Auth + Social + AI narration backend: 31/31 pytest tests pass (100%) — register/login/me + observations create + media serving + feed with all filters (smart/recent/observed/discovery/learned/scientific, category, media_type, source, window today/week, following, nearby) + observation detail with unique view counting + interact toggle (observed/discovery/learned) + comments POST/GET + follow/unfollow + profile stats + PATCH me (bio + nickname conflict 409) + AI explain-opportunity/curiosity/explain-visualization (all return Italian text via gpt-5.5). Scientific value + category derivation verified (ISS/Pianeti/Listening Layer). Frontend: Home renders motto + all 10 module cards + profile icon. /today renders 'Today's Opportunities' + motto + curiosity card (AI loaded) + real Waning Crescent Luna + Listening Layer opportunities. /invisible-fields renders with 'Explain This Visualization' button + real Kp 3.3 + solar wind 471 km/s + dati che alimentano. /profile renders with stats/logout/edit bio; bio edit + save flow works. Register submit successfully creates account (verified profile-view rendered after). CRITICAL BUG FOUND & FIXED: /feed screen crashed with 'mediaUrl is not a function' — mediaUrl was defined in src/lib/client.ts but not re-exported from src/lib/backend.ts where ObservationCard/observation-detail/profile were importing it. Added re-export; /feed now renders observation cards correctly with ISS category, Scientific Value badge, Observed/Discovery/Learned bar, and comment count.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "login.tsx / register.tsx post-submit navigation",
+        "issue": "Both screens call router.back() after successful auth. When the user opens /login or /register directly via URL (or from a fresh navigation with no history), router.back() logs 'The action GO_BACK was not handled by any navigator' and the user stays on the auth page (though session is set). Prefer router.replace('/home') or router.canGoBack() check. Reference: /app/frontend/app/login.tsx:30, /app/frontend/app/register.tsx:33.",
+        "testID": "login-submit / register-submit",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {
+        "component": "textShadow* deprecation (multiple components)",
+        "issue": "Warning 'textShadow* style props are deprecated. Use textShadow' fires on every screen load. Consolidate to the shorthand `textShadow` style property. Non-blocking but noisy in web preview console."
+      },
+      {
+        "component": "pointerEvents prop deprecation",
+        "issue": "Warning 'props.pointerEvents is deprecated. Use style.pointerEvents' fires on every screen. Move `pointerEvents` prop into `style` object. Non-blocking."
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_social_auth.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/pytest_social.xml"
+  ],
+  "action_items": [
+    "Replace router.back() with router.replace('/home') (or a smart canGoBack check) in /app/frontend/app/login.tsx:30 and /app/frontend/app/register.tsx:33 so a direct URL open still leaves the auth screen after success.",
+    "Optional: address 'textShadow*' and 'pointerEvents' deprecation warnings (react-native-web) for a clean console."
+  ],
+  "critical_code_review_comments": [
+    "auth.py uses bcrypt with 72-byte truncation (correct) and unique indexes on email_lower + nickname_lower (correct). Duplicate detection returns 409 with Italian message.",
+    "social.py: interactions collection has unique index on (user_id, obs_id, type), which drives unique-view counting via insert-catch in get_observation. Correct pattern.",
+    "social.py compute_scientific_value clamps 0..100 and rewards ISS/planets/Kp>=5 — verified end-to-end.",
+    "server.py wires auth_router, social_router, ai_router and calls ensure_*_indexes on startup — fails fast (good).",
+    "mediaUrl helper was declared in /app/frontend/src/lib/client.ts but 3 consumers imported it from /app/frontend/src/lib/backend which did NOT re-export it → crashes any screen that renders an ObservationCard. Fixed by adding re-export in backend.ts.",
+    "database.py uses os.environ['MONGO_URL'] and os.environ['DB_NAME'] (fail-fast); UPLOAD_DIR is created eagerly (good)."
+  ],
+  "updated_files": [
+    "/app/frontend/src/lib/backend.ts (added `import { mediaUrl }` and `export { mediaUrl }` re-export to fix /feed, /profile, /observation-detail crash)",
+    "/app/backend/tests/test_social_auth.py (new — 31 tests covering auth + observations + feed + interactions + comments + follows + profile + AI narration)",
+    "/app/test_reports/iteration_2.json (new)",
+    "/app/test_reports/pytest/pytest_social.xml (new — pytest JUnit output)"
+  ],
+  "success_rate": { "backend": "100% (31/31)", "frontend": "~90% (home + today + feed + invisible-fields + profile edit all work; login/register redirect UX issue on direct URL open; observation-detail not deep-tested because feed only has seeded ISS cards)" },
+  "seed_data_creation": "Backend tests created TEST_-prefixed users (`u_*`, `A_*`, `B_*`, `dup_*`), a few observations with 1x1 PNG media + one listening observation, several comments, follow relationships, and one bio update. Volume is low and prefixed for easy cleanup. AI narration tests created no persistent state.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend URL: https://invisible-sense.preview.emergentagent.com. Run `pytest backend/tests/test_social_auth.py -v` to re-verify all 31 endpoints. All observations/interactions/follows are stored in the `test_database` Mongo db. To retest the /feed crash fix, open /feed directly and confirm no red error overlay and observation cards render with title + Scientific Value badge + Observed/Discovery/Learned counters.",
+  "rca_of_issue": "RCA of /feed crash: `mediaUrl(imageUrl)` is declared in /app/frontend/src/lib/client.ts:11 but three consumers (`src/components/ObservationCard.tsx:7`, `app/observation-detail.tsx:13`, `app/profile.tsx:11`) imported it from `@/src/lib/backend`. Because backend.ts did not export mediaUrl, at runtime `_srcLibBackend.mediaUrl` was undefined and calling it threw `TypeError: is not a function`, which surfaced immediately on /feed because ObservationCard is rendered for every feed item. Mitigation applied: added `import { apiFetch, mediaUrl } from './client'` and `export { mediaUrl }` in /app/frontend/src/lib/backend.ts. Verified /feed now renders ISS cards + all filter chips work (feed-scope-recent, feed-cat-ISS)."
+}

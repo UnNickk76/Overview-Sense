@@ -5,6 +5,7 @@ import Svg, { Circle, Line, G, Text as SvgText, Polygon } from "react-native-svg
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { GlassCard } from "@/src/components/GlassCard";
+import { OpportunitiesSection } from "@/src/components/OpportunitiesSection";
 import { colors, fonts, spacing, type } from "@/src/theme";
 import { useObserver } from "@/src/hooks/useObserver";
 import { useHeading, useMagnetometer, useAccelerometer } from "@/src/hooks/useSensors";
@@ -48,6 +49,7 @@ export default function RealtaInvisibile() {
     <SpaceBackground>
       <ScreenHeader title="Realtà Invisibile" subtitle="Le forze che non vedi" />
       <ScrollView testID="invisible-screen" contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"], gap: spacing.md }} showsVerticalScrollIndicator={false}>
+        <OpportunitiesSection layer="magnetic" />
         {Platform.OS === "web" ? (
           <GlassCard testID="web-notice">
             <Text style={styles.cardTitle}>Sensori non disponibili sul web</Text>

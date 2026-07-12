@@ -8,6 +8,7 @@ import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { GlassCard } from "@/src/components/GlassCard";
 import { ObjectSheet } from "@/src/components/ObjectSheet";
+import { OpportunitiesSection } from "@/src/components/OpportunitiesSection";
 import { colors, fonts, spacing, type } from "@/src/theme";
 import { useObserver } from "@/src/hooks/useObserver";
 import { dayNumber, moonPhase } from "@/src/lib/astronomy";
@@ -58,6 +59,7 @@ export default function Timeline() {
     <SpaceBackground>
       <ScreenHeader title="Timeline" subtitle="Il cielo di qualsiasi data" />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"], gap: spacing.md }} showsVerticalScrollIndicator={false}>
+        <OpportunitiesSection layer="time" />
         <GlassCard testID="datetime-card" style={{ alignItems: "center" }}>
           <Text style={styles.bigDate}>{date.toLocaleDateString([], { weekday: "short", day: "2-digit", month: "long", year: "numeric" })}</Text>
           <Text style={styles.bigTime}>{date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>

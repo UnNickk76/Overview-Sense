@@ -8,8 +8,10 @@ import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { GlassCard } from "@/src/components/GlassCard";
 import { MiniSun, MiniOrrery, MiniField } from "@/src/components/MiniViz";
+import { TodayCard } from "@/src/components/TodayCard";
 import { colors, fonts, spacing, type } from "@/src/theme";
 import { useObserver, useNow } from "@/src/hooks/useObserver";
+import { useAuth } from "@/src/context/AuthContext";
 import { api, Weather, SpaceWeather, ISS } from "@/src/lib/api";
 import { computeSky } from "@/src/lib/skyObjects";
 import { dayNumber, sun, toHorizontal, moonPhase, earthRotationSpeedKmh, sunLightMinutes, AU_KM } from "@/src/lib/astronomy";
@@ -26,15 +28,18 @@ const LAYERS: Layer[] = [
   { key: "sky", route: "/cielo", overline: "SKY LAYER", title: "Cielo", icon: "telescope", accent: colors.blue, viz: null },
   { key: "universe", route: "/universo", overline: "UNIVERSE LAYER", title: "Universo", icon: "planet", accent: colors.brand, viz: "orrery" },
   { key: "invisible", route: "/realta-invisibile", overline: "MAGNETIC LAYER", title: "Realtà Invisibile", icon: "magnet", accent: colors.blue, viz: "field" },
+  { key: "fields", route: "/invisible-fields", overline: "FIELD LAYER", title: "Invisible Fields", icon: "aperture", accent: colors.brand, viz: null },
   { key: "space-weather", route: "/meteo-spaziale", overline: "SOLAR LAYER", title: "Meteo Spaziale", icon: "sunny", accent: colors.brand, viz: "sun" },
   { key: "audio", route: "/audio", overline: "SIGNAL LAYER", title: "Sonificazione", icon: "musical-notes", accent: colors.blue, viz: null },
   { key: "timeline", route: "/timeline", overline: "TIME LAYER", title: "Timeline", icon: "time", accent: colors.brand, viz: null },
+  { key: "feed", route: "/feed", overline: "COMMUNITY", title: "Feed mondiale", icon: "globe", accent: colors.blue, viz: null },
   { key: "ai", route: "/assistant", overline: "GUIDE", title: "Assistente", icon: "sparkles", accent: colors.blue, viz: null },
 ];
 
 export default function Home() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { user } = useAuth();
   const obs = useObserver();
   const now = useNow(1000);
   const [weather, setWeather] = useState<Weather | null>(null);
@@ -101,6 +106,8 @@ export default function Home() {
       case "sky": return live.highlight;
       case "space-weather": return space?.kp_index?.available ? `Kp ${nf(space.kp_index.value ?? 0, 1)} · ${space.kp_index.level}` : "NOAA · in ascolto";
       case "invisible": return iss?.available ? "ISS + campi in tempo reale" : "Campi, forze e satelliti";
+      case "fields": return "Dati fisici resi visibili";
+      case "feed": return "Observation da tutto il mondo";
       case "universe": return "Sistema Solare in movimento";
       case "audio": return "Ascolta i dati reali";
       case "timeline": return "Il cielo di qualsiasi data";
@@ -123,12 +130,19 @@ export default function Home() {
         <View style={styles.brandRow}>
           <View style={styles.dot} />
           <Text style={styles.wordmark}>OVERVIEW</Text>
+          <Pressable testID="home-profile" style={styles.profileBtn} hitSlop={10}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(user ? `/profile?id=${user.id}` as never : "/login" as never); }}>
+            <Ionicons name={user ? "person-circle" : "person-circle-outline"} size={26} color={user ? colors.brand : colors.onSurface} />
+          </Pressable>
         </View>
+        <Text style={styles.motto}>The Universe is constantly changing. Don&apos;t miss today&apos;s opportunities.</Text>
         <View style={styles.phraseWrap}>
           <Animated.Text key={phraseIdx} entering={FadeIn.duration(800)} style={styles.phrase}>
             {phrases[phraseIdx]}
           </Animated.Text>
         </View>
+
+        <TodayCard />
 
         <Text style={styles.sectionLabel}>ACCENDI UNO STRATO DELLA REALTÀ</Text>
 
@@ -168,7 +182,9 @@ const styles = StyleSheet.create({
   brandRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
   dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.brand },
   wordmark: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.xl, letterSpacing: 6 },
-  phraseWrap: { minHeight: 66, justifyContent: "center", paddingHorizontal: spacing.xl, marginTop: spacing.lg, marginBottom: spacing.xl },
+  profileBtn: { position: "absolute", right: spacing.lg },
+  motto: { color: colors.brand, fontFamily: fonts.regular, fontSize: type.sm, fontStyle: "italic", textAlign: "center", marginTop: spacing.sm, paddingHorizontal: spacing.xl, lineHeight: 18 },
+  phraseWrap: { minHeight: 66, justifyContent: "center", paddingHorizontal: spacing.xl, marginTop: spacing.md, marginBottom: spacing.lg },
   phrase: { color: colors.onSurfaceTertiary, fontFamily: fonts.regular, fontSize: type.lg, textAlign: "center", lineHeight: 25 },
   sectionLabel: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm - 1, letterSpacing: 1.5, textAlign: "center", marginBottom: spacing.lg },
   grid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: spacing.lg, gap: spacing.md },

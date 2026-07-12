@@ -10,6 +10,7 @@ import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
+import { AuthProvider } from "@/src/context/AuthContext";
 
 LogBox.ignoreAllLogs(true);
 SplashScreen.preventAutoHideAsync();
@@ -38,14 +39,16 @@ export default function RootLayout() {
       <KeyboardProvider>
         <SafeAreaProvider>
           <BottomSheetModalProvider>
-            <StatusBar style="light" />
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: "#000000" },
-                animation: "fade",
-              }}
-            />
+            <AuthProvider>
+              <StatusBar style="light" />
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: "#000000" },
+                  animation: "fade",
+                }}
+              />
+            </AuthProvider>
           </BottomSheetModalProvider>
         </SafeAreaProvider>
       </KeyboardProvider>

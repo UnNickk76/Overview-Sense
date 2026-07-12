@@ -6,6 +6,7 @@ import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { GlassCard } from "@/src/components/GlassCard";
 import { StatCard } from "@/src/components/StatCard";
+import { OpportunitiesSection } from "@/src/components/OpportunitiesSection";
 import { colors, fonts, spacing, type } from "@/src/theme";
 import { useObserver, useNow } from "@/src/hooks/useObserver";
 import { useMagnetometer } from "@/src/hooks/useSensors";
@@ -115,6 +116,7 @@ export default function QuiEOra() {
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"], gap: spacing.md }}
         showsVerticalScrollIndicator={false}
       >
+        <OpportunitiesSection layer="earth" />
         <Animated.View key={narrIdx} entering={FadeIn.duration(700)}>
           <GlassCard testID="narrative-hero" style={styles.hero}>
             <Text style={styles.heroLabel}>ADESSO</Text>

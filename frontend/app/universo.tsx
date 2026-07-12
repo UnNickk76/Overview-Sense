@@ -7,6 +7,7 @@ import BottomSheet from "@gorhom/bottom-sheet";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { ObjectSheet } from "@/src/components/ObjectSheet";
+import { OpportunitiesSection } from "@/src/components/OpportunitiesSection";
 import { colors, fonts, spacing, type } from "@/src/theme";
 import { useObserver, useNow } from "@/src/hooks/useObserver";
 import { dayNumber, planetHeliocentric, earthHeliocentric } from "@/src/lib/astronomy";
@@ -74,6 +75,7 @@ export default function Universo() {
     <SpaceBackground>
       <ScreenHeader title="Universo" subtitle="Sistema Solare · posizioni reali" />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"] }} showsVerticalScrollIndicator={false}>
+        <OpportunitiesSection layer="universe" />
         <View style={styles.segment}>
           {(["inner", "all"] as const).map((s) => (
             <Pressable key={s} testID={`scope-${s}`} onPress={() => setScope(s)} style={[styles.segBtn, scope === s && styles.segActive]}>

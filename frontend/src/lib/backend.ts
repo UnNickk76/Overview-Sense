@@ -1,5 +1,7 @@
-import { apiFetch } from "./client";
+import { apiFetch, mediaUrl } from "./client";
 import { ObsData } from "./gallery";
+
+export { mediaUrl };
 
 export interface AuthUser {
   id: string;

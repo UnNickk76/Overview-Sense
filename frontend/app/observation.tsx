@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View, Pressable, ScrollView, useWindowDimensions, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
 import Svg, { Line, Circle, Rect as SvgRect, Text as SvgText, G } from "react-native-svg";
 import ViewShot, { captureRef } from "react-native-view-shot";
@@ -9,6 +9,7 @@ import QRCode from "react-native-qrcode-svg";
 import * as MediaLibrary from "expo-media-library";
 import * as Sharing from "expo-sharing";
 import * as Haptics from "expo-haptics";
+import * as ImageManipulator from "expo-image-manipulator";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
@@ -17,14 +18,20 @@ import { getObservation, observationCode, Observation, ObsPoint } from "@/src/li
 import { CONSTELLATION_LINES } from "@/src/lib/stars";
 import { project } from "@/src/lib/project";
 import { nf, compassPoint } from "@/src/lib/format";
+import { socialApi } from "@/src/lib/backend";
+import { useAuth } from "@/src/context/AuthContext";
 
 export default function ObservationView() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const router = useRouter();
+  const { user } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [obs, setObs] = useState<Observation | null>(null);
   const [reveal, setReveal] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [published, setPublished] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
   const shotRef = useRef<ViewShot>(null);
 
   useEffect(() => { if (id) getObservation(id).then(setObs); }, [id]);
@@ -76,6 +83,26 @@ export default function ObservationView() {
       await MediaLibrary.saveToLibraryAsync(uri);
       setStatus("Salvato in Foto ✓");
     } catch { setStatus("Errore"); }
+  };
+
+  const publish = async () => {
+    if (!obs || !obs.data) return;
+    if (!user) { router.push("/login" as never); return; }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setPublishing(true);
+    try {
+      const manipulated = await ImageManipulator.manipulateAsync(
+        obs.uri, [{ resize: { width: 1280 } }],
+        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+      );
+      const created = await socialApi.createObservation({
+        media_type: "image", source: "reality",
+        caption: "", image_base64: manipulated.base64 ?? undefined, data: obs.data,
+      });
+      setPublished(created.id);
+    } catch {
+      setStatus("Pubblicazione non riuscita");
+    } finally { setPublishing(false); }
   };
 
   if (!obs || !d) {
@@ -154,6 +181,22 @@ export default function ObservationView() {
         </View>
         {status ? <Text style={styles.status}>{status}</Text> : null}
 
+        {published ? (
+          <Pressable testID="published-open-feed" style={styles.publishedBtn} onPress={() => router.push(`/observation-detail?id=${published}` as never)}>
+            <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+            <Text style={styles.publishedText}>Pubblicata nel feed mondiale · Apri</Text>
+          </Pressable>
+        ) : (
+          <Pressable testID="publish-observation" style={[styles.publishBtn, publishing && { opacity: 0.6 }]} onPress={publish} disabled={publishing}>
+            {publishing ? <ActivityIndicator color={colors.onBrand} /> : (
+              <>
+                <Ionicons name="cloud-upload-outline" size={18} color={colors.onBrand} />
+                <Text style={styles.publishText}>Pubblica nel feed</Text>
+              </>
+            )}
+          </Pressable>
+        )}
+
         {d.lat == null ? (
           <Text style={styles.note}>Posizione non disponibile allo scatto: impossibile ricostruire il cielo di quel momento.</Text>
         ) : null}
@@ -206,6 +249,10 @@ const styles = StyleSheet.create({
   actBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.tertiary, borderRadius: 16, paddingVertical: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   actText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.base },
   status: { color: colors.success, fontFamily: fonts.medium, fontSize: type.base, textAlign: "center" },
+  publishBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brand, borderRadius: 16, paddingVertical: spacing.lg },
+  publishText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.base },
+  publishedBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.surfaceTertiary, borderRadius: 16, paddingVertical: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.success },
+  publishedText: { color: colors.success, fontFamily: fonts.medium, fontSize: type.base },
   sectionTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.lg, marginTop: spacing.md },
   dataCard: { backgroundColor: colors.surfaceTertiary, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, paddingHorizontal: spacing.lg },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },

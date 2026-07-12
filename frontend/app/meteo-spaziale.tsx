@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { GlassCard } from "@/src/components/GlassCard";
+import { OpportunitiesSection } from "@/src/components/OpportunitiesSection";
 import { colors, fonts, spacing, type } from "@/src/theme";
 import { api, SpaceWeather } from "@/src/lib/api";
 import { nf } from "@/src/lib/format";
@@ -47,6 +48,7 @@ export default function MeteoSpaziale() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
         >
+          <OpportunitiesSection layer="solar" />
           <GlassCard testID="kp-card" style={{ alignItems: "center", paddingVertical: spacing.xl }}>
             <Text style={styles.label}>ATTIVITÀ GEOMAGNETICA (Kp)</Text>
             {kp?.available ? (
