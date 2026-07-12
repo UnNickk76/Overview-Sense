@@ -146,9 +146,9 @@ export default function InvisibleFields() {
           <Text style={styles.note}>Magnetometro e sensori di orientamento non sono disponibili in anteprima web. Apri l&apos;app su iPhone per la visualizzazione completa in tempo reale.</Text>
         ) : null}
 
-        <Pressable testID="start-observation" style={styles.startBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); router.push("/invisible-observe" as never); }}>
-          <Ionicons name="scan" size={20} color={colors.onBrand} />
-          <Text style={styles.startText}>Start Observation</Text>
+        <Pressable testID="start-observation" style={styles.startBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); router.push("/sense-vision" as never); }}>
+          <Ionicons name="sparkles" size={20} color={colors.onBrand} />
+          <Text style={styles.startText}>MAKE A SENSE</Text>
         </Pressable>
 
         <Pressable testID="explain-viz" style={styles.explainBtn} onPress={explain} disabled={aiLoading}>

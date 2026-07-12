@@ -10,9 +10,10 @@ interface Props {
   title: string;
   subtitle?: string;
   right?: React.ReactNode;
+  showHome?: boolean;
 }
 
-export function ScreenHeader({ title, subtitle, right }: Props) {
+export function ScreenHeader({ title, subtitle, right, showHome = true }: Props) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   return (
@@ -32,7 +33,22 @@ export function ScreenHeader({ title, subtitle, right }: Props) {
         <Text style={styles.title} numberOfLines={1}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text> : null}
       </View>
-      <View style={styles.right}>{right}</View>
+      <View style={styles.rightRow}>
+        {right}
+        {showHome ? (
+          <Pressable
+            testID="header-home-button"
+            style={styles.home}
+            hitSlop={12}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.replace("/home" as never);
+            }}
+          >
+            <Ionicons name="home" size={18} color={colors.onSurface} />
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -53,5 +69,11 @@ const styles = StyleSheet.create({
   titleWrap: { flex: 1, marginLeft: spacing.md },
   title: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.xl },
   subtitle: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm, marginTop: 1 },
-  right: { minWidth: 40, alignItems: "flex-end" },
+  rightRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginLeft: spacing.md },
+  home: {
+    width: 40, height: 40, borderRadius: 20,
+    alignItems: "center", justifyContent: "center",
+    backgroundColor: colors.tertiary,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border,
+  },
 });

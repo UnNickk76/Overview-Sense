@@ -87,9 +87,14 @@ export default function InvisibleObserve() {
     setBusy(true);
     try {
       const photo = await cameraRef.current?.takePictureAsync({ quality: 0.9 });
-      if (photo?.uri && obs.status === "granted") {
+      if (photo?.uri) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        const data = buildObservation(now, obs.lat, obs.lon, obs.altitude, heading, cameraAlt, sats, weather, space);
+        const data = obs.status === "granted"
+          ? buildObservation(now, obs.lat, obs.lon, obs.altitude, heading, cameraAlt, sats, weather, space)
+          : { ts: now.getTime(), cameraAz: heading, cameraAlt,
+              spaceWeather: space?.kp_index?.available
+                ? { kp: space.kp_index.value ?? undefined, level: space.kp_index.level ?? undefined, solarWind: space.solar_wind?.speed_kms }
+                : undefined };
         const saved = await saveObservation(photo.uri, data);
         router.push(`/observation?id=${saved.id}` as never);
       }

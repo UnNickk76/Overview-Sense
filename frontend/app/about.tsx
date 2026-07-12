@@ -47,7 +47,8 @@ export default function About() {
         </Section>
 
         <Section title="SPECIAL THANKS" delay={140}>
-          <Text style={styles.body}>Ringraziamenti speciali ai sistemi di Intelligenza Artificiale che hanno contribuito allo sviluppo del progetto.</Text>
+          <Text style={styles.body}>Ringraziamenti speciali agli strumenti e ai sistemi di Intelligenza Artificiale che hanno reso possibile lo sviluppo del progetto.</Text>
+          <View style={styles.pair}><Text style={styles.pairKey}>Emergent</Text><Text style={styles.muted}>piattaforma di sviluppo full-stack con AI che ha reso possibile la realizzazione dell&apos;app</Text></View>
           <View style={styles.pair}><Text style={styles.pairKey}>OpenAI · GPT-5.5</Text><Text style={styles.muted}>supporto creativo, sviluppo funzionale, analisi tecnica, brainstorming</Text></View>
           <View style={styles.pair}><Text style={styles.pairKey}>Claude</Text><Text style={styles.muted}>supporto progettuale</Text></View>
           <Text style={styles.muted}>(altri strumenti potranno essere aggiunti in futuro)</Text>
