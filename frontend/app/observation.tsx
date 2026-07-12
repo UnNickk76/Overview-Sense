@@ -141,6 +141,11 @@ export default function ObservationView() {
       <ScreenHeader title={observationCode(obs.seq)} subtitle={dateStr} />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"], gap: spacing.md }} showsVerticalScrollIndicator={false} testID="observation-view">
 
+        <View style={styles.senseHero}>
+          <Ionicons name="sparkles" size={15} color={colors.brand} />
+          <Text style={styles.senseHeroText}>SENSE CREATED · The Invisible Sense</Text>
+        </View>
+
         <ViewShot ref={shotRef} style={{ width: cardW, height: cardH, alignSelf: "center", borderRadius: 18, overflow: "hidden" }}>
           <Image source={{ uri: obs.uri }} style={{ width: cardW, height: cardH }} contentFit="cover" />
 
@@ -208,18 +213,19 @@ export default function ObservationView() {
         {published ? (
           <Pressable testID="published-open-feed" style={styles.publishedBtn} onPress={() => router.push(`/observation-detail?id=${published}` as never)}>
             <Ionicons name="checkmark-circle" size={18} color={colors.success} />
-            <Text style={styles.publishedText}>Pubblicata nel feed mondiale · Apri</Text>
+            <Text style={styles.publishedText}>Sense pubblicato come Observation · Apri</Text>
           </Pressable>
         ) : (
           <Pressable testID="publish-observation" style={[styles.publishBtn, publishing && { opacity: 0.6 }]} onPress={publish} disabled={publishing}>
             {publishing ? <ActivityIndicator color={colors.onBrand} /> : (
               <>
                 <Ionicons name="cloud-upload-outline" size={18} color={colors.onBrand} />
-                <Text style={styles.publishText}>Pubblica nel feed</Text>
+                <Text style={styles.publishText}>Pubblica come Observation</Text>
               </>
             )}
           </Pressable>
         )}
+        <Text style={styles.note}>⭐ Diventerà una Verified Observation quando altri osservatori confermeranno lo stesso fenomeno.</Text>
 
         <Pressable testID="explain-observation" style={styles.explainBtn} onPress={explain} disabled={aiLoading}>
           {aiLoading ? <ActivityIndicator color={colors.brand} /> : (
@@ -243,6 +249,7 @@ export default function ObservationView() {
         <Text style={styles.sectionTitle}>Dati dell&apos;osservazione</Text>
         <View style={styles.dataCard}>
           <Row label="Data e ora" value={dateStr} />
+          {d.senseLayer ? <Row label="Sense Layer" value={d.senseLayer} /> : null}
           {d.lat != null ? <Row label="Coordinate" value={`${nf(d.lat, 4)}°, ${nf(d.lon!, 4)}°`} /> : null}
           {d.altitude != null ? <Row label="Altitudine" value={`${nf(d.altitude, 0)} m`} /> : null}
           {d.cameraAz != null ? <Row label="Direzione fotocamera" value={`${compassPoint(d.cameraAz)} ${nf(d.cameraAz, 0)}° · elev ${nf(d.cameraAlt ?? 0, 0)}°`} /> : null}
@@ -275,6 +282,8 @@ function Row({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  senseHero: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, alignSelf: "center", backgroundColor: colors.surfaceSecondary, borderRadius: 999, paddingHorizontal: spacing.lg, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
+  senseHeroText: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.sm - 1, letterSpacing: 1 },
   watermark: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "center", gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, backgroundColor: "rgba(0,0,0,0.42)" },
   wmBrand: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.base, letterSpacing: 0.3 },
   wmDot: { color: colors.brand },

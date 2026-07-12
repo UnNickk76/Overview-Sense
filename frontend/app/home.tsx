@@ -10,6 +10,7 @@ import { GlassCard } from "@/src/components/GlassCard";
 import { MiniSun, MiniOrrery, MiniField } from "@/src/components/MiniViz";
 import { TodayCard } from "@/src/components/TodayCard";
 import { ObservationOfTheDay } from "@/src/components/ObservationOfTheDay";
+import { SenseVisionCard } from "@/src/components/SenseVisionCard";
 import { colors, fonts, spacing, type } from "@/src/theme";
 import { useObserver, useNow } from "@/src/hooks/useObserver";
 import { useAuth } from "@/src/context/AuthContext";
@@ -30,7 +31,7 @@ const LAYERS: Layer[] = [
   { key: "sky", route: "/cielo", overline: "SKY LAYER", title: "Cielo", icon: "telescope", accent: colors.blue, viz: null },
   { key: "universe", route: "/universo", overline: "UNIVERSE LAYER", title: "Universo", icon: "planet", accent: colors.brand, viz: "orrery" },
   { key: "invisible", route: "/realta-invisibile", overline: "MAGNETIC LAYER", title: "Realtà Invisibile", icon: "magnet", accent: colors.blue, viz: "field" },
-  { key: "fields", route: "/invisible-fields", overline: "FIELD LAYER", title: "Invisible Fields", icon: "aperture", accent: colors.brand, viz: null },
+  { key: "fields", route: "/sense-vision", overline: "SENSE VISION™", title: "Sense Vision", icon: "eye", accent: colors.brand, viz: null },
   { key: "space-weather", route: "/meteo-spaziale", overline: "SOLAR LAYER", title: "Meteo Spaziale", icon: "sunny", accent: colors.brand, viz: "sun" },
   { key: "satellite", route: "/satellite-observe", overline: "SATELLITE LAYER", title: "Satellite Intelligence", icon: "earth", accent: colors.blue, viz: null },
   { key: "audio", route: "/audio", overline: "SIGNAL LAYER", title: "Sonificazione", icon: "musical-notes", accent: colors.blue, viz: null },
@@ -126,7 +127,7 @@ export default function Home() {
       case "sky": return live.highlight;
       case "space-weather": return space?.kp_index?.available ? `Kp ${nf(space.kp_index.value ?? 0, 1)} · ${space.kp_index.level}` : "NOAA · in ascolto";
       case "invisible": return iss?.available ? "ISS + campi in tempo reale" : "Campi, forze e satelliti";
-      case "fields": return "Dati fisici resi visibili";
+      case "fields": return "Rivela l'invisibile · Make a Sense";
       case "satellite": return "Osserva la Terra dallo spazio";
       case "feed": return "Observation da tutto il mondo";
       case "universe": return "Sistema Solare in movimento";
@@ -163,6 +164,8 @@ export default function Home() {
             {phrases[phraseIdx % phrases.length]}
           </Animated.Text>
         </View>
+
+        <SenseVisionCard />
 
         <TodayCard />
 

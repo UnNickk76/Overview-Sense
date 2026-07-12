@@ -17,6 +17,7 @@ export interface ObsData {
   galacticCenter?: { alt: number; az: number };
   weather?: { temp?: number; pressure?: number };
   spaceWeather?: { kp?: number; level?: string; solarWind?: number };
+  senseLayer?: string;
 }
 
 export interface Observation {

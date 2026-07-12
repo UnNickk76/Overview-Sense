@@ -167,3 +167,28 @@ reali pertinenti al contesto.
 - P3: Observatory (galleria mondiale delle osservazioni più rare/verificate/belle).
 - Riorientamento esperienza cattura secondo la nuova filosofia (soggetto libero, non solo cielo).
 
+---
+
+## SESSIONE 4 — SENSE VISION™ (funzione-firma, 2026-06)
+
+Esperienza di cattura unificata e brandizzata. "Invisible Fields" resta solo come **nome interno
+del motore**; per l'utente esiste una sola esperienza: **SENSE VISION™**.
+
+Flusso: 📷 Make a Sense → 👁 analisi scena → ✨ Sense Created → 🌍 Observation → ⭐ Verified Observation.
+
+### Fatto e verificato (lint + screenshot, NO test agent)
+- **`/sense-vision.tsx`**: fotocamera con animazione di avvio ("Initializing Sense Vision…" →
+  "Looking beyond human perception…"), overlay dati reali (magnetometro/heading via motore Invisible
+  Fields), selettore **Sense Layers** (Ambiente, Luce, Colore, Contrasto, Micro-dettaglio, Campo
+  magnetico, Sole & UV), pulsante iconico **✨ MAKE A SENSE ✨**, flash "Sense Created" → viewer.
+  Cattura funziona anche senza posizione (dati minimi onesti). Soggetto libero (non solo cielo).
+- **`SenseVisionCard.tsx`** (Home, protagonista in cima): anteprima ultimo Sense + "MAKE A SENSE".
+  Slogan "Reality is richer than your eyes." Layer grid "Invisible Fields" rinominato "Sense Vision".
+- **`observation.tsx`** rebrandizzato: hero "SENSE CREATED", riga "Sense Layer", pubblica come
+  Observation, nota "Verified Observation quando la community conferma". Watermark/QR/share invariati.
+- **Onestà scientifica**: niente mappa termica né UV-riflesso finti (hardware assente). Solo layer
+  derivati dai pixel reali + dati ambientali/astronomici reali etichettati. UV = indice ambientale reale.
+
+### Device-only: la cattura Sense Vision (fotocamera + sensori) richiede build nativa; su web/Expo Go
+appare il gate permessi "Make a Sense".
+
