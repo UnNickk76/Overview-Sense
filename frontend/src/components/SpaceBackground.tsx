@@ -22,7 +22,7 @@ function TwinkleStar({ x, y, size, delay }: { x: number; y: number; size: number
   );
 }
 
-export function SpaceBackground({ children }: { children?: React.ReactNode }) {
+export function SpaceBackground({ children, glow = true }: { children?: React.ReactNode; glow?: boolean }) {
   const { width, height } = useWindowDimensions();
   const stars = useMemo(
     () =>
@@ -48,11 +48,13 @@ export function SpaceBackground({ children }: { children?: React.ReactNode }) {
         ))}
       </View>
       {/* subtle gold glow bottom */}
-      <LinearGradient
-        colors={["transparent", "rgba(212,175,55,0.06)"]}
-        style={styles.glow}
-        pointerEvents="none"
-      />
+      {glow ? (
+        <LinearGradient
+          colors={["transparent", "rgba(212,175,55,0.06)"]}
+          style={styles.glow}
+          pointerEvents="none"
+        />
+      ) : null}
       {children}
     </View>
   );
