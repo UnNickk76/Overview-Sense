@@ -107,3 +107,18 @@ Pulsante "Open Universe Explorer" dalla schermata Universo. Mappa navigabile con
 
 Priorità suggerita: 3 (Universe Explorer) e 1 (Satellite Observation) hanno impatto/wow maggiore.
 
+
+---
+
+## SESSIONE 2 — Universe Explorer + Satellite Observation + Splash/Welcome + About (COMPLETATO)
+
+- **Universe Explorer** (`universe-explorer.tsx`, `scale.tsx`, `cosmic-object.tsx`, `src/lib/cosmos.ts`): hub oggetti cosmici (dati reali NASA/ESA), viaggio SCALE (quark→universo osservabile), dettaglio oggetto con Travel Here (piedi→luce), tempo-luce, curiosità, crea Observation. Pulsante "Open Universe Explorer" in Universo.
+- **Satellite Observation / Intelligence** (`satellite-observe.tsx`, `src/lib/satelliteImagery.ts`, backend `/api/ai/analyze-satellite`): immagini reali NASA GIBS/Worldview (True Color, VIIRS, False Color, Termico, Vegetazione, Luci notturne), Then/Now, analisi AI a 3 sezioni (WHAT WE OBSERVE / POSSIBLE EXPLANATIONS / WHAT WE CANNOT CONCLUDE, mai inventa), pubblicazione come Observation (source="satellite", upload immagine base64 via expo-file-system/legacy). Layer in Home.
+- **Splash + Welcome + Auth flow**: `index.tsx` = splash a schermo intero (Foto 1 verticale) ~4s → `welcome.tsx` (login/registrazione/ospite) → Home. Se già loggato, splash→Home.
+- **App icon**: attiva = anello dorato pulito (`assets/images/icon.png` + `adaptive-icon.png`). Alternative salvate: `icon-ring.png`, `icon-text.png` (l'utente può scegliere puntando app.json).
+- **About Overview** (`about.tsx`): carta d'identità (creator Fabio Andreola, special thanks AI, data sources, privacy, disclaimer, version, roadmap coming soon, contatti) + firma "Overview doesn't create reality. It reveals it.". Firma anche in fondo alla Home (tap → About) e accesso da profilo (icona info).
+- Social arricchito: **Save/My Collection, Repost, Share, contatori completi** (Views/Observed/Discovery/Learned/commenti/repost/save).
+
+### Verifica: self-test (curl + tsc + lint + screenshot). NESSUN test agent (per volere esplicito dell'utente: "No test agent. Mai").
+### Device-only: satellite publish (download immagine), camera Invisible Fields, GPS/sensori.
+

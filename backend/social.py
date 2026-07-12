@@ -36,6 +36,16 @@ def compute_scientific_value(data: dict, source: str) -> int:
         if data.get("noiseDb") is not None:
             score += 10
         return max(0, min(100, score))
+    if source == "satellite":
+        d = data or {}
+        score = 55
+        if d.get("layers"):
+            score += min(len(d["layers"]) * 6, 24)
+        if d.get("compare_date"):
+            score += 12
+        if d.get("lat") is not None:
+            score += 6
+        return max(0, min(100, score))
     d = data or {}
     score = 0
     if d.get("lat") is not None:
@@ -70,6 +80,8 @@ def derive_categories(data: dict, source: str):
     cats = set(["Astronomia"])
     if source == "listening":
         return "Listening Layer", ["Listening Layer"]
+    if source == "satellite":
+        return "Satellite Intelligence", ["Satellite Intelligence", "Osservazione Terra", "Atmosfera"]
     cats.add("Observation Reality")
     d = data or {}
     if d.get("sun") and d["sun"].get("alt", -90) > 0:

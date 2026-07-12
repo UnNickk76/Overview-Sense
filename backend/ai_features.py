@@ -98,3 +98,52 @@ async def explain_visualization(req: ExplainVizReq):
         "non un fenomeno inventato."
     )
     return {"text": await llm_complete(system, prompt)}
+
+
+class SatelliteReq(BaseModel):
+    location: str
+    date: str
+    layer: str
+    layer_desc: str
+    notes: Optional[str] = None
+
+
+@ai_router.post("/analyze-satellite")
+async def analyze_satellite(req: SatelliteReq):
+    system = BASE_RULES + (
+        " Stai analizzando un'immagine satellitare di osservazione della Terra. NON hai accesso ai "
+        "pixel dell'immagine: ricevi solo METADATI verificati (località, data, tipo di layer). "
+        "Il tuo compito è guidare l'interpretazione scientifica SENZA inventare ciò che è presente "
+        "nell'immagine. Non trasformare mai una correlazione in una certezza. Non confermare ipotesi "
+        "prive di evidenze. Devi rispondere ESCLUSIVAMENTE con un oggetto JSON valido con esattamente "
+        "queste tre chiavi (valori stringa in italiano, 1-3 frasi ciascuno): "
+        '{"observe": "...", "explanations": "...", "cannot": "..."}. '
+        "'observe' = cosa questo tipo di layer permette oggettivamente di rilevare in quel contesto; "
+        "'explanations' = possibili interpretazioni compatibili con quel tipo di dato; "
+        "'cannot' = ciò che questo dato NON permette di concludere."
+    )
+    notes = f"\nNote dell'osservatore: {req.notes}" if req.notes else ""
+    prompt = (
+        f"Località: {req.location}\nData acquisizione: {req.date}\n"
+        f"Layer satellitare: {req.layer} — {req.layer_desc}{notes}\n\n"
+        "Restituisci SOLO il JSON con le tre sezioni WHAT WE OBSERVE / POSSIBLE EXPLANATIONS / "
+        "WHAT WE CANNOT CONCLUDE."
+    )
+    text = await llm_complete(system, prompt)
+    import json as _json
+    observe = explanations = cannot = None
+    try:
+        raw = text.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```", 2)[1].replace("json", "", 1).strip() if "```" in raw else raw
+        parsed = _json.loads(raw)
+        observe = parsed.get("observe")
+        explanations = parsed.get("explanations")
+        cannot = parsed.get("cannot")
+    except Exception:
+        pass
+    return {
+        "observe": observe or text,
+        "explanations": explanations or "",
+        "cannot": cannot or "",
+    }

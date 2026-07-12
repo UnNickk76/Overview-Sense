@@ -31,6 +31,7 @@ const LAYERS: Layer[] = [
   { key: "invisible", route: "/realta-invisibile", overline: "MAGNETIC LAYER", title: "Realtà Invisibile", icon: "magnet", accent: colors.blue, viz: "field" },
   { key: "fields", route: "/invisible-fields", overline: "FIELD LAYER", title: "Invisible Fields", icon: "aperture", accent: colors.brand, viz: null },
   { key: "space-weather", route: "/meteo-spaziale", overline: "SOLAR LAYER", title: "Meteo Spaziale", icon: "sunny", accent: colors.brand, viz: "sun" },
+  { key: "satellite", route: "/satellite-observe", overline: "SATELLITE LAYER", title: "Satellite Intelligence", icon: "earth", accent: colors.blue, viz: null },
   { key: "audio", route: "/audio", overline: "SIGNAL LAYER", title: "Sonificazione", icon: "musical-notes", accent: colors.blue, viz: null },
   { key: "timeline", route: "/timeline", overline: "TIME LAYER", title: "Timeline", icon: "time", accent: colors.brand, viz: null },
   { key: "feed", route: "/feed", overline: "COMMUNITY", title: "Feed mondiale", icon: "globe", accent: colors.blue, viz: null },
@@ -125,6 +126,7 @@ export default function Home() {
       case "space-weather": return space?.kp_index?.available ? `Kp ${nf(space.kp_index.value ?? 0, 1)} · ${space.kp_index.level}` : "NOAA · in ascolto";
       case "invisible": return iss?.available ? "ISS + campi in tempo reale" : "Campi, forze e satelliti";
       case "fields": return "Dati fisici resi visibili";
+      case "satellite": return "Osserva la Terra dallo spazio";
       case "feed": return "Observation da tutto il mondo";
       case "universe": return "Sistema Solare in movimento";
       case "audio": return "Ascolta i dati reali";
@@ -189,6 +191,13 @@ export default function Home() {
           ))}
         </View>
 
+        <Pressable testID="home-signature" onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/about" as never); }} style={styles.signatureWrap}>
+          <View style={styles.sigRule} />
+          <Text style={styles.signature}>&ldquo;Overview doesn&apos;t create reality. It reveals it.&rdquo;</Text>
+          <View style={styles.sigRule} />
+          <Text style={styles.copyright}>© Fabio Andreola</Text>
+        </Pressable>
+
         <Text style={styles.footer}>
           Ogni dato proviene da sensori del dispositivo o da fonti scientifiche pubbliche. Mai inventato.
         </Text>
@@ -216,4 +225,8 @@ const styles = StyleSheet.create({
   title: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.lg, marginTop: 2 },
   caption: { color: colors.onSurfaceSecondary, fontFamily: fonts.mono, fontSize: type.sm - 1, marginTop: 4, lineHeight: 16 },
   footer: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, textAlign: "center", marginTop: spacing["2xl"], paddingHorizontal: spacing.xl, opacity: 0.55 },
+  signatureWrap: { alignItems: "center", gap: spacing.md, paddingVertical: spacing.xl, marginTop: spacing.lg },
+  sigRule: { width: 100, height: StyleSheet.hairlineWidth, backgroundColor: colors.borderStrong },
+  signature: { color: colors.brand, fontFamily: fonts.regular, fontSize: type.lg, fontStyle: "italic", textAlign: "center", opacity: 0.8, paddingHorizontal: spacing.xl },
+  copyright: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm, opacity: 0.7 },
 });

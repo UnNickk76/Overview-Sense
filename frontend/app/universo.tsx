@@ -2,6 +2,8 @@ import React, { useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View, Pressable, useWindowDimensions, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import BottomSheet from "@gorhom/bottom-sheet";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
@@ -18,6 +20,7 @@ const INNER = ["Mercury", "Venus", "Mars"];
 
 export default function Universo() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { width } = useWindowDimensions();
   const obs = useObserver();
   const now = useNow(30000);
@@ -76,6 +79,11 @@ export default function Universo() {
       <ScreenHeader title="Universo" subtitle="Sistema Solare · posizioni reali" />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"] }} showsVerticalScrollIndicator={false}>
         <OpportunitiesSection layer="universe" />
+        <Pressable testID="open-universe-explorer" style={styles.explorerBtn}
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); router.push("/universe-explorer" as never); }}>
+          <Ionicons name="rocket" size={20} color={colors.onBrand} />
+          <Text style={styles.explorerText}>Open Universe Explorer</Text>
+        </Pressable>
         <View style={styles.segment}>
           {(["inner", "all"] as const).map((s) => (
             <Pressable key={s} testID={`scope-${s}`} onPress={() => setScope(s)} style={[styles.segBtn, scope === s && styles.segActive]}>
@@ -137,6 +145,8 @@ export default function Universo() {
 }
 
 const styles = StyleSheet.create({
+  explorerBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brand, borderRadius: 16, paddingVertical: spacing.lg, marginBottom: spacing.lg },
+  explorerText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.lg },
   segment: { flexDirection: "row", backgroundColor: colors.tertiary, borderRadius: 999, padding: 4, marginBottom: spacing.xl, alignSelf: "center" },
   segBtn: { paddingHorizontal: spacing.xl, paddingVertical: spacing.sm, borderRadius: 999 },
   segActive: { backgroundColor: colors.brand },
