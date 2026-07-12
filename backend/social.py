@@ -136,6 +136,30 @@ async def ensure_social_indexes():
 # ---------------------------------------------------------------------------
 # Serialization
 # ---------------------------------------------------------------------------
+def compute_scores(o: dict) -> dict:
+    """Composite Overview score — replaces likes with a multi-dimensional value."""
+    sv = o.get("scientific_value", 0)
+    observed = o.get("observed", 0)
+    community = min(100, observed * 2 + o.get("discovery", 0) * 4 + o.get("learned", 0) * 3
+                    + o.get("saves_count", 0) * 3 + o.get("repost_count", 0) * 5
+                    + o.get("comments_count", 0) * 2)
+    cats = o.get("categories", [])
+    rarity = 0
+    for c, pts in (("ISS", 40), ("Aurore", 45), ("Via Lattea", 35), ("Satellite Intelligence", 25),
+                   ("Pianeti", 20), ("Costellazioni", 12)):
+        if c in cats:
+            rarity += pts
+    rarity = min(100, rarity)
+    confirmed = observed >= 3
+    overall = round(sv * 0.35 + community * 0.30 + rarity * 0.20 + (100 if confirmed else 0) * 0.15)
+    return {
+        "community_value": community,
+        "rarity_score": rarity,
+        "confirmed": confirmed,
+        "overall_score": max(0, min(100, overall)),
+    }
+
+
 def obs_public(o: dict, viewer_interactions: Optional[set] = None,
                saved: bool = False, reposted_by: Optional[str] = None) -> dict:
     return {
@@ -164,6 +188,7 @@ def obs_public(o: dict, viewer_interactions: Optional[set] = None,
         "my_interactions": sorted(viewer_interactions) if viewer_interactions else [],
         "my_saved": saved,
         "reposted_by": reposted_by,
+        **compute_scores(o),
     }
 
 
