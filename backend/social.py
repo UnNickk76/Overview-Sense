@@ -116,12 +116,15 @@ async def ensure_social_indexes():
     await db.interactions.create_index([("user_id", 1), ("obs_id", 1), ("type", 1)], unique=True)
     await db.follows.create_index([("follower_id", 1), ("following_id", 1)], unique=True)
     await db.comments.create_index("obs_id")
+    await db.saves.create_index([("user_id", 1), ("obs_id", 1)], unique=True)
+    await db.reposts.create_index([("user_id", 1), ("obs_id", 1)], unique=True)
 
 
 # ---------------------------------------------------------------------------
 # Serialization
 # ---------------------------------------------------------------------------
-def obs_public(o: dict, viewer_interactions: Optional[set] = None) -> dict:
+def obs_public(o: dict, viewer_interactions: Optional[set] = None,
+               saved: bool = False, reposted_by: Optional[str] = None) -> dict:
     return {
         "id": o["id"],
         "user_id": o["user_id"],
@@ -132,6 +135,7 @@ def obs_public(o: dict, viewer_interactions: Optional[set] = None) -> dict:
         "categories": o.get("categories", []),
         "caption": o.get("caption", ""),
         "scientific_value": o.get("scientific_value", 0),
+        "ai_confidence": o.get("ai_confidence"),
         "image_url": f"/api/media/{o['id']}" if o.get("has_image") else None,
         "lat": o.get("lat"),
         "lon": o.get("lon"),
@@ -141,8 +145,12 @@ def obs_public(o: dict, viewer_interactions: Optional[set] = None) -> dict:
         "discovery": o.get("discovery", 0),
         "learned": o.get("learned", 0),
         "comments_count": o.get("comments_count", 0),
+        "saves_count": o.get("saves_count", 0),
+        "repost_count": o.get("repost_count", 0),
         "created_at": o.get("created_at"),
         "my_interactions": sorted(viewer_interactions) if viewer_interactions else [],
+        "my_saved": saved,
+        "reposted_by": reposted_by,
     }
 
 
@@ -155,6 +163,7 @@ class CreateObs(BaseModel):
     caption: str = ""
     image_base64: Optional[str] = None
     data: Optional[dict] = None
+    ai_confidence: Optional[int] = None
 
 
 @social_router.post("/observations")
@@ -188,7 +197,9 @@ async def create_observation(req: CreateObs, user: dict = Depends(get_current_us
         "category": primary,
         "categories": cats,
         "scientific_value": compute_scientific_value(data, req.source),
-        "views": 0, "observed": 0, "discovery": 0, "learned": 0, "comments_count": 0,
+        "ai_confidence": req.ai_confidence,
+        "views": 0, "observed": 0, "discovery": 0, "learned": 0,
+        "comments_count": 0, "saves_count": 0, "repost_count": 0,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.observations.insert_one(doc)
@@ -285,11 +296,14 @@ async def feed(
 
     docs = docs[:limit]
     my: dict = {}
+    saved: set = set()
     if viewer:
         oids = [o["id"] for o in docs]
         async for it in db.interactions.find({"user_id": viewer["id"], "obs_id": {"$in": oids}}):
             my.setdefault(it["obs_id"], set()).add(it["type"])
-    return {"items": [obs_public(o, my.get(o["id"], set())) for o in docs]}
+        async for sv in db.saves.find({"user_id": viewer["id"], "obs_id": {"$in": oids}}):
+            saved.add(sv["obs_id"])
+    return {"items": [obs_public(o, my.get(o["id"], set()), o["id"] in saved) for o in docs]}
 
 
 @social_router.get("/observations/{obs_id}")
@@ -312,8 +326,9 @@ async def get_observation(obs_id: str, viewer: Optional[dict] = Depends(get_opti
         async for it in db.interactions.find({"user_id": viewer["id"], "obs_id": obs_id}):
             if it["type"] in INTERACTIONS:
                 my.add(it["type"])
+    saved = bool(viewer and await db.saves.find_one({"user_id": viewer["id"], "obs_id": obs_id}))
     author = await db.users.find_one({"id": o["user_id"]})
-    result = obs_public(o, my)
+    result = obs_public(o, my, saved)
     result["author"] = {
         "id": author["id"], "nickname": author["nickname"], "bio": author.get("bio", ""),
         "avatar": author.get("avatar"),
@@ -433,13 +448,85 @@ async def get_profile(user_id: str, viewer: Optional[dict] = Depends(get_optiona
 
 @social_router.get("/users/{user_id}/observations")
 async def user_observations(user_id: str, viewer: Optional[dict] = Depends(get_optional_user)):
-    docs = await db.observations.find({"user_id": user_id}).sort("created_at", -1).to_list(200)
+    own = await db.observations.find({"user_id": user_id}).sort("created_at", -1).to_list(200)
+    # include reposts made by this user (reference original, tag reposted_by)
+    repost_ids = [r["obs_id"] async for r in db.reposts.find({"user_id": user_id}).sort("created_at", -1)]
+    reposted_docs = []
+    if repost_ids:
+        found = await db.observations.find({"id": {"$in": repost_ids}}).to_list(200)
+        by_id = {d["id"]: d for d in found}
+        reposter = await db.users.find_one({"id": user_id})
+        rn = reposter["nickname"] if reposter else ""
+        for rid in repost_ids:
+            if rid in by_id:
+                reposted_docs.append((by_id[rid], rn))
     my: dict = {}
-    if viewer:
-        oids = [o["id"] for o in docs]
-        async for it in db.interactions.find({"user_id": viewer["id"], "obs_id": {"$in": oids}}):
+    saved: set = set()
+    all_ids = [o["id"] for o in own] + [d["id"] for d, _ in reposted_docs]
+    if viewer and all_ids:
+        async for it in db.interactions.find({"user_id": viewer["id"], "obs_id": {"$in": all_ids}}):
             my.setdefault(it["obs_id"], set()).add(it["type"])
-    return {"items": [obs_public(o, my.get(o["id"], set())) for o in docs]}
+        async for sv in db.saves.find({"user_id": viewer["id"], "obs_id": {"$in": all_ids}}):
+            saved.add(sv["obs_id"])
+    items = [obs_public(o, my.get(o["id"], set()), o["id"] in saved) for o in own]
+    items += [obs_public(o, my.get(o["id"], set()), o["id"] in saved, reposted_by=rn) for o, rn in reposted_docs]
+    return {"items": items}
+
+
+# ---------------------------------------------------------------------------
+# Save / Collection
+# ---------------------------------------------------------------------------
+@social_router.post("/observations/{obs_id}/save")
+async def save_observation(obs_id: str, user: dict = Depends(get_current_user)):
+    o = await db.observations.find_one({"id": obs_id}, {"id": 1})
+    if not o:
+        raise HTTPException(status_code=404, detail="Observation non trovata")
+    existing = await db.saves.find_one({"user_id": user["id"], "obs_id": obs_id})
+    if existing:
+        await db.saves.delete_one({"_id": existing["_id"]})
+        await db.observations.update_one({"id": obs_id}, {"$inc": {"saves_count": -1}})
+        return {"saved": False}
+    await db.saves.insert_one({"user_id": user["id"], "obs_id": obs_id,
+                               "created_at": datetime.now(timezone.utc).isoformat()})
+    await db.observations.update_one({"id": obs_id}, {"$inc": {"saves_count": 1}})
+    return {"saved": True}
+
+
+@social_router.get("/users/{user_id}/collection")
+async def collection(user_id: str, viewer: Optional[dict] = Depends(get_optional_user)):
+    ids = [s["obs_id"] async for s in db.saves.find({"user_id": user_id}).sort("created_at", -1)]
+    if not ids:
+        return {"items": []}
+    found = await db.observations.find({"id": {"$in": ids}}).to_list(300)
+    by_id = {d["id"]: d for d in found}
+    ordered = [by_id[i] for i in ids if i in by_id]
+    my: dict = {}
+    saved_set: set = set()
+    if viewer:
+        async for it in db.interactions.find({"user_id": viewer["id"], "obs_id": {"$in": ids}}):
+            my.setdefault(it["obs_id"], set()).add(it["type"])
+        async for sv in db.saves.find({"user_id": viewer["id"], "obs_id": {"$in": ids}}):
+            saved_set.add(sv["obs_id"])
+    return {"items": [obs_public(o, my.get(o["id"], set()), o["id"] in saved_set) for o in ordered]}
+
+
+# ---------------------------------------------------------------------------
+# Repost
+# ---------------------------------------------------------------------------
+@social_router.post("/observations/{obs_id}/repost")
+async def repost(obs_id: str, user: dict = Depends(get_current_user)):
+    o = await db.observations.find_one({"id": obs_id}, {"id": 1})
+    if not o:
+        raise HTTPException(status_code=404, detail="Observation non trovata")
+    existing = await db.reposts.find_one({"user_id": user["id"], "obs_id": obs_id})
+    if existing:
+        await db.reposts.delete_one({"_id": existing["_id"]})
+        await db.observations.update_one({"id": obs_id}, {"$inc": {"repost_count": -1}})
+        return {"reposted": False}
+    await db.reposts.insert_one({"user_id": user["id"], "obs_id": obs_id,
+                                 "created_at": datetime.now(timezone.utc).isoformat()})
+    await db.observations.update_one({"id": obs_id}, {"$inc": {"repost_count": 1}})
+    return {"reposted": True}
 
 
 class ProfileUpdate(BaseModel):

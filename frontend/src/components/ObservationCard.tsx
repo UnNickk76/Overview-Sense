@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { FeedObservation, mediaUrl } from "@/src/lib/backend";
 import { InteractionBar } from "./InteractionBar";
+import { ActionBar } from "./ActionBar";
 
 function timeAgo(iso: string): string {
   const s = (Date.now() - new Date(iso).getTime()) / 1000;
@@ -20,6 +21,12 @@ export function ObservationCard({ obs }: { obs: FeedObservation }) {
   const uri = mediaUrl(obs.image_url);
   return (
     <View style={styles.card}>
+      {obs.reposted_by ? (
+        <View style={styles.repostBanner}>
+          <Ionicons name="repeat" size={13} color={colors.onSurfaceSecondary} />
+          <Text style={styles.repostText}>{obs.reposted_by} ha ripubblicato</Text>
+        </View>
+      ) : null}
       <Pressable style={styles.head} onPress={() => router.push(`/profile?id=${obs.user_id}` as never)}>
         <View style={styles.avatar}><Text style={styles.avatarText}>{(obs.nickname || "?")[0].toUpperCase()}</Text></View>
         <View style={{ flex: 1 }}>
@@ -45,10 +52,7 @@ export function ObservationCard({ obs }: { obs: FeedObservation }) {
       <View style={styles.body}>
         {obs.caption ? <Text style={styles.caption} numberOfLines={2}>{obs.caption}</Text> : null}
         <InteractionBar obs={obs} />
-        <Pressable onPress={() => router.push(`/observation-detail?id=${obs.id}` as never)} style={styles.commentsLink}>
-          <Ionicons name="chatbubble-outline" size={14} color={colors.onSurfaceSecondary} />
-          <Text style={styles.commentsText}>{obs.comments_count} commenti</Text>
-        </Pressable>
+        <ActionBar obs={obs} onComment={() => router.push(`/observation-detail?id=${obs.id}` as never)} />
       </View>
     </View>
   );
@@ -56,6 +60,8 @@ export function ObservationCard({ obs }: { obs: FeedObservation }) {
 
 const styles = StyleSheet.create({
   card: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  repostBanner: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+  repostText: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm - 1 },
   head: { flexDirection: "row", alignItems: "center", gap: spacing.md, padding: spacing.md },
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.tertiary, alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.borderStrong },
   avatarText: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.base },

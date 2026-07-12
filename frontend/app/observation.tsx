@@ -18,7 +18,7 @@ import { getObservation, observationCode, Observation, ObsPoint } from "@/src/li
 import { CONSTELLATION_LINES } from "@/src/lib/stars";
 import { project } from "@/src/lib/project";
 import { nf, compassPoint } from "@/src/lib/format";
-import { socialApi } from "@/src/lib/backend";
+import { socialApi, aiApi } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
 
 export default function ObservationView() {
@@ -32,6 +32,8 @@ export default function ObservationView() {
   const [status, setStatus] = useState<string | null>(null);
   const [published, setPublished] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [aiText, setAiText] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
   const shotRef = useRef<ViewShot>(null);
 
   useEffect(() => { if (id) getObservation(id).then(setObs); }, [id]);
@@ -103,6 +105,28 @@ export default function ObservationView() {
     } catch {
       setStatus("Pubblicazione non riuscita");
     } finally { setPublishing(false); }
+  };
+
+  const explain = async () => {
+    if (!obs?.data) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setAiLoading(true);
+    const d = obs.data;
+    const facts: string[] = [];
+    if (d.lat != null) facts.push(`Coordinate: ${nf(d.lat, 3)}°, ${nf(d.lon ?? 0, 3)}°.`);
+    if (d.cameraAz != null) facts.push(`Direzione fotocamera: ${compassPoint(d.cameraAz)} ${nf(d.cameraAz, 0)}°, elevazione ${nf(d.cameraAlt ?? 0, 0)}°.`);
+    if (d.sun) facts.push(`Sole: ${d.sun.alt > 0 ? `${nf(d.sun.alt, 0)}° sopra l'orizzonte` : "sotto l'orizzonte"}, ${compassPoint(d.sun.az)}.`);
+    if (d.moon) facts.push(`Luna: ${d.moon.phase}, illuminazione ${nf(d.moon.illum * 100, 0)}%.`);
+    if (d.planets?.length) facts.push(`Pianeti presenti: ${d.planets.map((p) => p.name).join(", ")}.`);
+    if (d.constellations?.length) facts.push(`Costellazioni: ${d.constellations.join(", ")}.`);
+    if (d.iss) facts.push(`ISS visibile a ${nf(d.iss.alt, 0)}° verso ${compassPoint(d.iss.az)}.`);
+    if (d.satellites?.length) facts.push(`Satelliti sopra l'osservatore: ${d.satellites.length}.`);
+    if (d.spaceWeather?.kp != null) facts.push(`Meteo spaziale: Kp ${nf(d.spaceWeather.kp, 1)}${d.spaceWeather.level ? ` (${d.spaceWeather.level})` : ""}.`);
+    if (d.weather?.temp != null) facts.push(`Temperatura: ${nf(d.weather.temp, 1)} °C.`);
+    try {
+      const r = await aiApi.explainOpportunity("Osservazione della realtà invisibile", facts, "observation");
+      setAiText(r.text);
+    } catch { setAiText(null); } finally { setAiLoading(false); }
   };
 
   if (!obs || !d) {
@@ -197,6 +221,20 @@ export default function ObservationView() {
           </Pressable>
         )}
 
+        <Pressable testID="explain-observation" style={styles.explainBtn} onPress={explain} disabled={aiLoading}>
+          {aiLoading ? <ActivityIndicator color={colors.brand} /> : (
+            <>
+              <Ionicons name="sparkles" size={18} color={colors.brand} />
+              <Text style={styles.explainText}>Explain this Observation</Text>
+            </>
+          )}
+        </Pressable>
+        {aiText ? (
+          <View style={styles.aiCard}>
+            <Text style={styles.aiText}>{aiText}</Text>
+          </View>
+        ) : null}
+
         {d.lat == null ? (
           <Text style={styles.note}>Posizione non disponibile allo scatto: impossibile ricostruire il cielo di quel momento.</Text>
         ) : null}
@@ -253,6 +291,10 @@ const styles = StyleSheet.create({
   publishText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.base },
   publishedBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.surfaceTertiary, borderRadius: 16, paddingVertical: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.success },
   publishedText: { color: colors.success, fontFamily: fonts.medium, fontSize: type.base },
+  explainBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.tertiary, borderRadius: 16, paddingVertical: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  explainText: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.base },
+  aiCard: { backgroundColor: colors.surfaceSecondary, borderRadius: 16, padding: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  aiText: { color: colors.onSurfaceTertiary, fontFamily: fonts.regular, fontSize: type.base, lineHeight: 22 },
   sectionTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.lg, marginTop: spacing.md },
   dataCard: { backgroundColor: colors.surfaceTertiary, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, paddingHorizontal: spacing.lg },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },

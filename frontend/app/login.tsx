@@ -27,7 +27,7 @@ export default function Login() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       await login(email.trim(), password);
-      router.back();
+      if (router.canGoBack()) router.back(); else router.replace("/home" as never);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Accesso non riuscito.");
     } finally { setBusy(false); }

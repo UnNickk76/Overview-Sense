@@ -14,7 +14,8 @@ import { useObserver, useNow } from "@/src/hooks/useObserver";
 import { useAuth } from "@/src/context/AuthContext";
 import { api, Weather, SpaceWeather, ISS } from "@/src/lib/api";
 import { computeSky } from "@/src/lib/skyObjects";
-import { dayNumber, sun, toHorizontal, moonPhase, earthRotationSpeedKmh, sunLightMinutes, AU_KM } from "@/src/lib/astronomy";
+import { dayNumber, sun, moon, toHorizontal, moonPhase, earthRotationSpeedKmh, sunLightMinutes, AU_KM, EARTH_RADIUS_KM } from "@/src/lib/astronomy";
+import { loadSatrecs, hasSatrecs, satellitesOverhead } from "@/src/lib/satellites";
 import { nf } from "@/src/lib/format";
 
 type Viz = "sun" | "orrery" | "field" | null;
@@ -45,20 +46,30 @@ export default function Home() {
   const [weather, setWeather] = useState<Weather | null>(null);
   const [space, setSpace] = useState<SpaceWeather | null>(null);
   const [iss, setIss] = useState<ISS | null>(null);
-  const [phraseIdx, setPhraseIdx] = useState(0);
+  const [phraseIdx, setPhraseIdx] = useState(() => Math.floor(Math.random() * 8));
+  const [satCount, setSatCount] = useState<number | null>(null);
 
   useEffect(() => {
     api.spaceWeather().then(setSpace).catch(() => {});
     api.iss().then(setIss).catch(() => {});
+    if (!hasSatrecs()) {
+      api.satellites().then((r) => { if (r.available && r.satellites?.length) loadSatrecs(r.satellites); }).catch(() => {});
+    }
   }, []);
   useEffect(() => {
     if (obs.status === "granted") api.weather(obs.lat, obs.lon).then(setWeather).catch(() => {});
+  }, [obs.status, obs.lat, obs.lon]);
+  useEffect(() => {
+    if (obs.status === "granted" && hasSatrecs()) {
+      try { setSatCount(satellitesOverhead(new Date(), obs.lat, obs.lon).length); } catch { /* ignore */ }
+    }
   }, [obs.status, obs.lat, obs.lon]);
 
   const live = useMemo(() => {
     const d = dayNumber(now);
     const ph = moonPhase(d);
     const s = sun(d);
+    const m = moon(d);
     const hasLoc = obs.status === "granted";
     const sunHz = hasLoc ? toHorizontal(s.ra, s.dec, obs.lat, obs.lon, d) : null;
     const objs = hasLoc ? computeSky(now, obs.lat, obs.lon) : [];
@@ -76,20 +87,27 @@ export default function Home() {
       phase: ph, sunAlt: sunHz ? sunHz.alt : null, hasLoc, upCount, highlight,
       rotKmh: hasLoc ? earthRotationSpeedKmh(obs.lat) : null,
       lightMin: sunLightMinutes(s.dist), sunDistM: (s.dist * AU_KM) / 1e6,
+      moonDistKm: m.dist * EARTH_RADIUS_KM,
     };
   }, [now, obs.status, obs.lat, obs.lon]);
 
   const phrases = useMemo(() => {
     const list: string[] = [
-      "In questo momento viaggi a circa 107.000 km/h insieme alla Terra attorno al Sole.",
-      `La luce che ti illumina è partita dal Sole circa ${nf(live.lightMin, 1)} minuti fa.`,
-      "In questo istante miliardi di neutrini solari stanno attraversando il tuo corpo.",
+      "🌍 In questo momento viaggi a circa 107.000 km/h insieme alla Terra attorno al Sole.",
+      `☀️ La luce del Sole impiega circa ${nf(live.lightMin, 1)} minuti per raggiungerti.`,
+      "🌍 La Terra ruota a circa 1.670 km/h all'equatore.",
+      "✨ In questo preciso istante l'Universo sta cambiando, anche se non possiamo accorgercene.",
+      "🌌 Il Sistema Solare sta orbitando attorno al centro della Via Lattea a circa 828.000 km/h.",
+      "📡 La ISS completa un'orbita completa della Terra in circa 90 minuti.",
+      "🌠 Ogni giorno migliaia di piccoli frammenti cosmici entrano nell'atmosfera terrestre.",
+      "🔬 In questo istante miliardi di neutrini solari stanno attraversando il tuo corpo.",
     ];
-    if (live.rotKmh) list.push(`La Terra ruota sotto i tuoi piedi a circa ${nf(live.rotKmh, 0)} km/h.`);
-    if (live.hasLoc) list.push(`In questo momento ${live.upCount} corpi celesti sono sopra il tuo orizzonte.`);
-    if (iss?.available) list.push("La Stazione Spaziale sta orbitando la Terra a circa 27.600 km/h.");
+    list.push(`🌙 La Luna dista in questo momento circa ${nf(live.moonDistKm, 0)} km da te.`);
+    if (live.rotKmh) list.push(`🧭 Alla tua latitudine la rotazione terrestre ti trascina a circa ${nf(live.rotKmh, 0)} km/h.`);
+    if (live.hasLoc) list.push(`🔭 In questo momento ${live.upCount} corpi celesti sono sopra il tuo orizzonte.`);
+    if (satCount != null && satCount > 0) list.push(`🛰️ In questo momento ${satCount} satelliti stanno transitando sopra di te.`);
     return list;
-  }, [live, iss]);
+  }, [live, satCount]);
 
   useEffect(() => {
     const t = setInterval(() => setPhraseIdx((i) => (i + 1) % Math.max(1, phrases.length)), 5000);
@@ -135,10 +153,11 @@ export default function Home() {
             <Ionicons name={user ? "person-circle" : "person-circle-outline"} size={26} color={user ? colors.brand : colors.onSurface} />
           </Pressable>
         </View>
+        <Text style={styles.tagline}>The Invisible Sense</Text>
         <Text style={styles.motto}>The Universe is constantly changing. Don&apos;t miss today&apos;s opportunities.</Text>
         <View style={styles.phraseWrap}>
           <Animated.Text key={phraseIdx} entering={FadeIn.duration(800)} style={styles.phrase}>
-            {phrases[phraseIdx]}
+            {phrases[phraseIdx % phrases.length]}
           </Animated.Text>
         </View>
 
@@ -183,6 +202,7 @@ const styles = StyleSheet.create({
   dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.brand },
   wordmark: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.xl, letterSpacing: 6 },
   profileBtn: { position: "absolute", right: spacing.lg },
+  tagline: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm, letterSpacing: 3, textAlign: "center", marginTop: spacing.xs },
   motto: { color: colors.brand, fontFamily: fonts.regular, fontSize: type.sm, fontStyle: "italic", textAlign: "center", marginTop: spacing.sm, paddingHorizontal: spacing.xl, lineHeight: 18 },
   phraseWrap: { minHeight: 66, justifyContent: "center", paddingHorizontal: spacing.xl, marginTop: spacing.md, marginBottom: spacing.lg },
   phrase: { color: colors.onSurfaceTertiary, fontFamily: fonts.regular, fontSize: type.lg, textAlign: "center", lineHeight: 25 },

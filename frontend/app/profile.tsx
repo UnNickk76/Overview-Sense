@@ -8,7 +8,7 @@ import * as Haptics from "expo-haptics";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
-import { socialApi, Profile as ProfileT, FeedObservation, mediaUrl } from "@/src/lib/backend";
+import { socialApi, authApi, Profile as ProfileT, FeedObservation, mediaUrl } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
 
 export default function Profile() {
@@ -23,6 +23,8 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [bio, setBio] = useState("");
   const [followBusy, setFollowBusy] = useState(false);
+  const [tab, setTab] = useState<"archive" | "collection">("archive");
+  const [collection, setCollection] = useState<FeedObservation[] | null>(null);
 
   const load = useCallback(async () => {
     if (!targetId) { setLoading(false); return; }
@@ -34,6 +36,12 @@ export default function Profile() {
   }, [targetId]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (tab === "collection" && collection === null && targetId) {
+      socialApi.collection(targetId).then((r) => setCollection(r.items)).catch(() => setCollection([]));
+    }
+  }, [tab, collection, targetId]);
 
   const onFollow = async () => {
     if (!user) { router.push("/login" as never); return; }
@@ -50,9 +58,9 @@ export default function Profile() {
 
   const saveBio = async () => {
     try {
-      const u = await socialApi.updateProfile({ bio });
-      if (user) setUser({ ...user, bio: u.bio });
-      if (profile) setProfile({ ...profile, bio: u.bio });
+      const u = await authApi.updateProfile({ bio });
+      if (user) setUser({ ...user, bio: u.bio ?? "" });
+      if (profile) setProfile({ ...profile, bio: u.bio ?? "" });
       setEditing(false);
     } catch { /* ignore */ }
   };
@@ -118,25 +126,36 @@ export default function Profile() {
             )}
           </View>
 
-          <Text style={styles.sectionTitle}>Archivio Observation</Text>
-          {obs.length === 0 ? (
-            <Text style={styles.empty}>Nessuna Observation pubblicata.</Text>
-          ) : (
-            <View style={styles.grid}>
-              {obs.map((o) => (
-                <Pressable key={o.id} style={styles.gridItem} onPress={() => router.push(`/observation-detail?id=${o.id}` as never)}>
-                  {o.image_url ? (
-                    <Image source={{ uri: mediaUrl(o.image_url)! }} style={styles.gridImg} contentFit="cover" />
-                  ) : (
-                    <View style={[styles.gridImg, styles.gridPlaceholder]}>
-                      <Ionicons name={o.media_type === "audio" ? "musical-notes" : "image"} size={24} color={colors.onSurfaceSecondary} />
-                    </View>
-                  )}
-                  <View style={styles.gridSv}><Text style={styles.gridSvText}>{o.scientific_value}</Text></View>
-                </Pressable>
-              ))}
-            </View>
-          )}
+          <View style={styles.tabs}>
+            <Pressable testID="tab-archive" style={[styles.tab, tab === "archive" && styles.tabActive]} onPress={() => setTab("archive")}>
+              <Text style={[styles.tabText, tab === "archive" && styles.tabTextActive]}>Archivio</Text>
+            </Pressable>
+            <Pressable testID="tab-collection" style={[styles.tab, tab === "collection" && styles.tabActive]} onPress={() => setTab("collection")}>
+              <Text style={[styles.tabText, tab === "collection" && styles.tabTextActive]}>My Collection</Text>
+            </Pressable>
+          </View>
+          {(() => {
+            const list = tab === "archive" ? obs : (collection ?? []);
+            if (list.length === 0) {
+              return <Text style={styles.empty}>{tab === "archive" ? "Nessuna Observation pubblicata." : "Nessuna Observation salvata."}</Text>;
+            }
+            return (
+              <View style={styles.grid}>
+                {list.map((o) => (
+                  <Pressable key={o.id} style={styles.gridItem} onPress={() => router.push(`/observation-detail?id=${o.id}` as never)}>
+                    {o.image_url ? (
+                      <Image source={{ uri: mediaUrl(o.image_url)! }} style={styles.gridImg} contentFit="cover" />
+                    ) : (
+                      <View style={[styles.gridImg, styles.gridPlaceholder]}>
+                        <Ionicons name={o.media_type === "audio" ? "musical-notes" : "image"} size={24} color={colors.onSurfaceSecondary} />
+                      </View>
+                    )}
+                    <View style={styles.gridSv}><Text style={styles.gridSvText}>{o.scientific_value}</Text></View>
+                  </Pressable>
+                ))}
+              </View>
+            );
+          })()}
         </ScrollView>
       )}
     </SpaceBackground>
@@ -171,6 +190,11 @@ const styles = StyleSheet.create({
   secondary: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.tertiary, borderRadius: radius.md, paddingVertical: spacing.md, paddingHorizontal: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   secondaryText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.base },
   sectionTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.lg },
+  tabs: { flexDirection: "row", gap: spacing.sm, backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, padding: 4 },
+  tab: { flex: 1, alignItems: "center", paddingVertical: spacing.sm, borderRadius: radius.sm },
+  tabActive: { backgroundColor: colors.tertiary },
+  tabText: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.base },
+  tabTextActive: { color: colors.onSurface },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   gridItem: { width: "31.8%", aspectRatio: 1, borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.tertiary },
   gridImg: { width: "100%", height: "100%" },

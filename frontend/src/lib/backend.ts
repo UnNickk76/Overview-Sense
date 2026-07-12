@@ -28,6 +28,7 @@ export interface FeedObservation {
   categories: string[];
   caption: string;
   scientific_value: number;
+  ai_confidence?: number | null;
   image_url: string | null;
   lat?: number | null;
   lon?: number | null;
@@ -37,8 +38,12 @@ export interface FeedObservation {
   discovery: number;
   learned: number;
   comments_count: number;
+  saves_count: number;
+  repost_count: number;
   created_at: string;
   my_interactions: string[];
+  my_saved: boolean;
+  reposted_by?: string | null;
   author?: { id: string; nickname: string; bio?: string; avatar?: string | null };
 }
 
@@ -89,7 +94,7 @@ export interface FeedFilters {
 export const socialApi = {
   createObservation: (payload: {
     media_type?: string; source?: string; caption?: string;
-    image_base64?: string; data?: ObsData;
+    image_base64?: string; data?: ObsData; ai_confidence?: number;
   }) => apiFetch<FeedObservation>("/observations", {
     method: "POST", body: JSON.stringify(payload),
   }),
@@ -109,6 +114,9 @@ export const socialApi = {
   userObservations: (id: string) => apiFetch<{ items: FeedObservation[] }>(`/users/${id}/observations`),
   follow: (id: string) => apiFetch<{ following: boolean }>(`/users/${id}/follow`, { method: "POST" }),
   unfollow: (id: string) => apiFetch<{ following: boolean }>(`/users/${id}/follow`, { method: "DELETE" }),
+  save: (id: string) => apiFetch<{ saved: boolean }>(`/observations/${id}/save`, { method: "POST" }),
+  repost: (id: string) => apiFetch<{ reposted: boolean }>(`/observations/${id}/repost`, { method: "POST" }),
+  collection: (id: string) => apiFetch<{ items: FeedObservation[] }>(`/users/${id}/collection`),
 };
 
 // ---- AI narration ----

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View, ScrollView, Pressable, ActivityIndicator, Platform, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import Animated, { FadeIn, useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from "react-native-reanimated";
 import Svg, { Circle, G, Line, Defs, RadialGradient, Stop } from "react-native-svg";
 import * as Haptics from "expo-haptics";
@@ -20,6 +21,7 @@ const WEB = Platform.OS === "web";
 
 export default function InvisibleFields() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { width } = useWindowDimensions();
   const obs = useObserver();
   const now = useNow(2000);
@@ -144,8 +146,13 @@ export default function InvisibleFields() {
           <Text style={styles.note}>Magnetometro e sensori di orientamento non sono disponibili in anteprima web. Apri l&apos;app su iPhone per la visualizzazione completa in tempo reale.</Text>
         ) : null}
 
+        <Pressable testID="start-observation" style={styles.startBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); router.push("/invisible-observe" as never); }}>
+          <Ionicons name="scan" size={20} color={colors.onBrand} />
+          <Text style={styles.startText}>Start Observation</Text>
+        </Pressable>
+
         <Pressable testID="explain-viz" style={styles.explainBtn} onPress={explain} disabled={aiLoading}>
-          <Ionicons name="sparkles" size={18} color={colors.onBrand} />
+          <Ionicons name="sparkles" size={18} color={colors.brand} />
           <Text style={styles.explainText}>Explain This Visualization</Text>
         </Pressable>
 
@@ -178,8 +185,10 @@ const styles = StyleSheet.create({
   coreLabel: { position: "absolute", alignItems: "center" },
   coreValue: { color: colors.onSurface, fontFamily: fonts.bold, fontSize: type["3xl"] },
   coreUnit: { color: colors.onSurfaceSecondary, fontFamily: fonts.mono, fontSize: type.sm },
-  explainBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: spacing.lg },
-  explainText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.lg },
+  explainBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.tertiary, borderRadius: radius.md, paddingVertical: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  explainText: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.lg },
+  startBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: spacing.lg },
+  startText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.lg },
   explanationCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   explanationText: { color: colors.onSurfaceTertiary, fontFamily: fonts.regular, fontSize: type.base, lineHeight: 22 },
   sectionTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.lg },

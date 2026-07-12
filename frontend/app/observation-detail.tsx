@@ -9,6 +9,7 @@ import * as Haptics from "expo-haptics";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { InteractionBar } from "@/src/components/InteractionBar";
+import { ActionBar } from "@/src/components/ActionBar";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { socialApi, FeedObservation, Comment, mediaUrl } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
@@ -77,6 +78,7 @@ export default function ObservationDetail() {
         <View style={styles.body}>
           {obs.caption ? <Text style={styles.caption}>{obs.caption}</Text> : null}
           <InteractionBar obs={obs} />
+          <ActionBar obs={obs} />
 
           {d ? (
             <View style={styles.dataCard}>
