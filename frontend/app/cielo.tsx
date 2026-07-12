@@ -10,6 +10,8 @@ import BottomSheet from "@gorhom/bottom-sheet";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { ObjectSheet } from "@/src/components/ObjectSheet";
+import { VisionResult } from "@/src/components/VisionResult";
+import { MODES, MODE_ORDER, VisionMode } from "@/src/lib/visionModes";
 import { colors, fonts, spacing, type } from "@/src/theme";
 import { useObserver, useNow } from "@/src/hooks/useObserver";
 import { useHeading, useAccelerometer } from "@/src/hooks/useSensors";
@@ -37,6 +39,16 @@ export default function Cielo() {
   const accel = useAccelerometer(perm?.granted === true, 120);
   const sheetRef = useRef<BottomSheet>(null);
   const [selected, setSelected] = useState<SkyObject | null>(null);
+  const cameraRef = useRef<CameraView>(null);
+  const [captured, setCaptured] = useState<string | null>(null);
+  const [visionMode, setVisionMode] = useState<VisionMode>("auto");
+
+  const capture = async () => {
+    try {
+      const photo = await cameraRef.current?.takePictureAsync({ quality: 0.9 });
+      if (photo?.uri) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setCaptured(photo.uri); }
+    } catch { /* ignore */ }
+  };
 
   const cameraAlt = useMemo(() => {
     const el = -Math.atan2(accel.z, Math.hypot(accel.x, accel.y)) * (180 / Math.PI);
@@ -88,7 +100,7 @@ export default function Cielo() {
 
   return (
     <View style={styles.root}>
-      <CameraView style={StyleSheet.absoluteFill} facing="back" />
+      <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
       <View style={[StyleSheet.absoluteFill, styles.dim]} pointerEvents="none" />
 
       {/* Sky markers */}
@@ -125,14 +137,43 @@ export default function Cielo() {
         </View>
       </View>
 
-      {/* Bottom info */}
+      {/* Vision mode selector + capture */}
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 10 }]}>
-        <View style={styles.countPill}>
-          <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
-          <Ionicons name="telescope" size={16} color={colors.brand} />
-          <Text style={styles.countText}>{`${visibleCount} oggetti sopra l'orizzonte · muovi il telefono`}</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modeRow}>
+          {MODE_ORDER.map((m) => (
+            <Pressable key={m} testID={`vision-mode-${m}`} onPress={() => { Haptics.selectionAsync(); setVisionMode(m); }} style={[styles.modeChip, visionMode === m && styles.modeChipActive]}>
+              <Ionicons name={MODES[m].icon} size={14} color={visionMode === m ? colors.onBrand : "#fff"} />
+              <Text style={[styles.modeChipText, visionMode === m && { color: colors.onBrand }]}>{MODES[m].label}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+        <View style={styles.captureRow}>
+          <Text style={styles.countInline} numberOfLines={1}>{`${visibleCount} corpi`}</Text>
+          <Pressable testID="capture-button" style={styles.shutter} onPress={capture}>
+            <View style={styles.shutterInner} />
+          </Pressable>
+          <View style={styles.rightSlot}>
+            <Pressable testID="observations-button" style={styles.obsBtn} onPress={() => router.push("/observations" as never)}>
+              <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+              <Ionicons name="images" size={20} color="#fff" />
+            </Pressable>
+          </View>
         </View>
       </View>
+
+      {captured ? (
+        <VisionResult
+          uri={captured}
+          initialMode={visionMode}
+          fieldLines={[
+            `Bussola ${compassPoint(heading)} ${heading.toFixed(0)}°`,
+            `Coord ${obs.lat.toFixed(3)}, ${obs.lon.toFixed(3)}`,
+            `Inclinazione ${cameraAlt.toFixed(0)}°`,
+          ]}
+          realityLines={objects.filter((o) => o.alt > 0).sort((a, b) => b.alt - a.alt).slice(0, 5).map((o) => `${o.name}  ${compassPoint(o.az)} ${o.alt.toFixed(0)}°`)}
+          onClose={() => setCaptured(null)}
+        />
+      ) : null}
 
       <ObjectSheet ref={sheetRef} object={selected} onClose={() => setSelected(null)} />
     </View>
@@ -172,9 +213,17 @@ const styles = StyleSheet.create({
   glassBtn: { width: 40, height: 40, borderRadius: 20, overflow: "hidden", alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   compassPill: { flexDirection: "row", alignItems: "center", borderRadius: 999, overflow: "hidden", paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   compassText: { color: "#fff", fontFamily: fonts.monoMedium, fontSize: type.sm },
-  bottomBar: { position: "absolute", bottom: 0, left: 0, right: 0, alignItems: "center", paddingHorizontal: spacing.lg },
-  countPill: { flexDirection: "row", alignItems: "center", gap: spacing.sm, borderRadius: 999, overflow: "hidden", paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  countText: { color: "#fff", fontFamily: fonts.regular, fontSize: type.sm },
+  bottomBar: { position: "absolute", bottom: 0, left: 0, right: 0, paddingHorizontal: spacing.lg, gap: spacing.md },
+  modeRow: { gap: spacing.sm, paddingVertical: spacing.xs },
+  modeChip: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 0, height: 36, borderRadius: 999, paddingHorizontal: spacing.md, backgroundColor: "rgba(20,22,26,0.7)", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  modeChipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  modeChipText: { color: "#fff", fontFamily: fonts.medium, fontSize: type.sm },
+  captureRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  countInline: { flex: 1, color: "#fff", fontFamily: fonts.regular, fontSize: type.sm - 1, opacity: 0.85 },
+  rightSlot: { flex: 1, alignItems: "flex-end" },
+  shutter: { width: 66, height: 66, borderRadius: 33, borderWidth: 3, borderColor: "#fff", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.15)" },
+  shutterInner: { width: 52, height: 52, borderRadius: 26, backgroundColor: "#fff" },
+  obsBtn: { width: 46, height: 46, borderRadius: 23, overflow: "hidden", alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   listWrap: { alignSelf: "stretch", marginTop: spacing.lg },
   listTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.lg, marginBottom: spacing.sm },
   listItem: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, View, ScrollView, ActivityIndicator, Pressable, Linking } from "react-native";
+import { StyleSheet, Text, View, ScrollView, ActivityIndicator, Pressable, Linking, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
@@ -92,7 +92,9 @@ export default function QuiEOra() {
         <View style={styles.center}>
           <Text style={styles.permTitle}>Serve la posizione</Text>
           <Text style={styles.dim}>Overview usa la tua posizione per calcolare cielo, Sole e Luna reali attorno a te. Nessun dato viene inventato.</Text>
-          {obs.status === "blocked" ? (
+          {Platform.OS === "web" ? (
+            <Text style={styles.dim}>Apri Overview sul tuo iPhone (Expo Go) per concedere la posizione: nell&apos;anteprima web non è possibile.</Text>
+          ) : obs.status === "blocked" ? (
             <Pressable testID="open-settings-button" style={styles.cta} onPress={() => Linking.openSettings()}>
               <Text style={styles.ctaText}>Apri Impostazioni</Text>
             </Pressable>

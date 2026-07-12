@@ -30,7 +30,7 @@ export default function Assistant() {
 
   useEffect(() => {
     (async () => {
-      let sid = await storage.getItem("assistant_session", "");
+      let sid: string = (await storage.getItem<string>("assistant_session", "")) ?? "";
       if (!sid) { sid = `sess_${Date.now()}_${Math.floor(Math.random() * 1e6)}`; await storage.setItem("assistant_session", sid); }
       setSessionId(sid);
     })();

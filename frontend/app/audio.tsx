@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from "expo-audio";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -8,6 +9,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-na
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { GlassCard } from "@/src/components/GlassCard";
+import { ListeningLayer } from "@/src/components/ListeningLayer";
 import { colors, fonts, spacing, type } from "@/src/theme";
 import { useMagnetometer } from "@/src/hooks/useSensors";
 import { api, SpaceWeather } from "@/src/lib/api";
@@ -36,6 +38,8 @@ function Bar({ active }: { active: boolean }) {
 
 export default function AudioModule() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [tab, setTab] = useState<"sonify" | "listen">("sonify");
   const [playing, setPlaying] = useState(false);
   const [mode, setMode] = useState<Mode>("mag");
   const [note, setNote] = useState(0);
@@ -97,7 +101,19 @@ export default function AudioModule() {
 
   return (
     <SpaceBackground>
-      <ScreenHeader title="Sonificazione" subtitle="Ascolta i dati reali" />
+      <ScreenHeader
+        title="Suono"
+        subtitle="Dai dati e dall'ambiente"
+        right={<Pressable testID="obs-link" hitSlop={10} onPress={() => router.push("/observations" as never)}><Ionicons name="images" size={20} color={colors.brand} /></Pressable>}
+      />
+      <View style={styles.topTabs}>
+        {(["sonify", "listen"] as const).map((t) => (
+          <Pressable key={t} testID={`tab-${t}`} onPress={() => setTab(t)} style={[styles.topTab, tab === t && styles.topTabActive]}>
+            <Text style={[styles.topTabText, tab === t && styles.topTabTextActive]}>{t === "sonify" ? "Sonificazione" : "Listening Layer"}</Text>
+          </Pressable>
+        ))}
+      </View>
+      {tab === "listen" ? <ListeningLayer /> : (
       <View style={{ flex: 1, padding: spacing.lg, gap: spacing.md, paddingBottom: insets.bottom + spacing.xl }}>
         <View style={styles.segment}>
           {(["mag", "solar"] as const).map((m) => (
@@ -144,11 +160,17 @@ export default function AudioModule() {
           Questa è una sonificazione: i suoni sono generati a partire da dati reali, non sono registrazioni di onde. Muovi il telefono vicino a un oggetto metallico per sentire cambiare la nota.
         </Text>
       </View>
+      )}
     </SpaceBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  topTabs: { flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.lg, marginBottom: spacing.sm },
+  topTab: { flex: 1, paddingVertical: spacing.sm, borderRadius: 12, alignItems: "center", backgroundColor: colors.tertiary, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  topTabActive: { backgroundColor: colors.surfaceTertiary, borderColor: colors.brand },
+  topTabText: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.base },
+  topTabTextActive: { color: colors.brand },
   segment: { flexDirection: "row", backgroundColor: colors.tertiary, borderRadius: 999, padding: 4 },
   segBtn: { flex: 1, paddingVertical: spacing.sm, borderRadius: 999, alignItems: "center" },
   segActive: { backgroundColor: colors.brand },
