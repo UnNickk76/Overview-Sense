@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, View, ScrollView, useWindowDimensions } from "react-native";
+import { StyleSheet, Text, View, ScrollView, useWindowDimensions, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Line, G, Text as SvgText, Polygon } from "react-native-svg";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
@@ -47,7 +47,13 @@ export default function RealtaInvisibile() {
   return (
     <SpaceBackground>
       <ScreenHeader title="Realtà Invisibile" subtitle="Le forze che non vedi" />
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"], gap: spacing.md }} showsVerticalScrollIndicator={false}>
+      <ScrollView testID="invisible-screen" contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"], gap: spacing.md }} showsVerticalScrollIndicator={false}>
+        {Platform.OS === "web" ? (
+          <GlassCard testID="web-notice">
+            <Text style={styles.cardTitle}>Sensori non disponibili sul web</Text>
+            <Text style={styles.hint}>{"Bussola, magnetometro e gravità richiedono un iPhone reale. Apri Overview sull'app per vedere i valori dal vivo."}</Text>
+          </GlassCard>
+        ) : null}
         <GlassCard testID="compass-card" style={{ alignItems: "center" }}>
           <Text style={styles.cardTitle}>Bussola magnetica</Text>
           <Svg width={size} height={size}>

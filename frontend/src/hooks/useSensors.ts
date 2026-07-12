@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
+import { Platform } from "react-native";
 import { Magnetometer, Accelerometer, DeviceMotion } from "expo-sensors";
+
+const WEB = Platform.OS === "web";
 
 export interface MagReading { x: number; y: number; z: number; magnitude: number }
 
@@ -7,7 +10,7 @@ export interface MagReading { x: number; y: number; z: number; magnitude: number
 export function useMagnetometer(active = true, interval = 200): MagReading {
   const [r, setR] = useState<MagReading>({ x: 0, y: 0, z: 0, magnitude: 0 });
   useEffect(() => {
-    if (!active) return;
+    if (!active || WEB) return;
     Magnetometer.setUpdateInterval(interval);
     const sub = Magnetometer.addListener((d) => {
       const magnitude = Math.sqrt(d.x * d.x + d.y * d.y + d.z * d.z);
@@ -22,7 +25,7 @@ export function useMagnetometer(active = true, interval = 200): MagReading {
 export function useHeading(active = true, interval = 120): number {
   const [heading, setHeading] = useState(0);
   useEffect(() => {
-    if (!active) return;
+    if (!active || WEB) return;
     Magnetometer.setUpdateInterval(interval);
     const sub = Magnetometer.addListener((d) => {
       let angle = Math.atan2(d.y, d.x) * (180 / Math.PI);
@@ -40,7 +43,7 @@ export interface AccelReading { x: number; y: number; z: number; magnitude: numb
 export function useAccelerometer(active = true, interval = 200): AccelReading {
   const [r, setR] = useState<AccelReading>({ x: 0, y: 0, z: 0, magnitude: 0 });
   useEffect(() => {
-    if (!active) return;
+    if (!active || WEB) return;
     Accelerometer.setUpdateInterval(interval);
     const sub = Accelerometer.addListener((d) => {
       const magnitude = Math.sqrt(d.x * d.x + d.y * d.y + d.z * d.z);
@@ -57,7 +60,7 @@ export interface Attitude { pitch: number; roll: number; yaw: number }
 export function useAttitude(active = true, interval = 80): Attitude {
   const [a, setA] = useState<Attitude>({ pitch: 0, roll: 0, yaw: 0 });
   useEffect(() => {
-    if (!active) return;
+    if (!active || WEB) return;
     DeviceMotion.setUpdateInterval(interval);
     const sub = DeviceMotion.addListener((d) => {
       if (d.rotation) setA({ pitch: d.rotation.beta, roll: d.rotation.gamma, yaw: d.rotation.alpha });
