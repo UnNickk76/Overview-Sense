@@ -19,6 +19,7 @@ from auth import auth_router, ensure_auth_indexes, ensure_developer_account
 from social import social_router, ensure_social_indexes
 from ai_features import ai_router
 from events import events_router
+from universe_live import universe_router
 
 ROOT_DIR = Path(__file__).parent
 
@@ -376,6 +377,7 @@ app.include_router(auth_router)
 app.include_router(social_router)
 app.include_router(ai_router)
 app.include_router(events_router)
+app.include_router(universe_router)
 
 app.add_middleware(
     CORSMiddleware,

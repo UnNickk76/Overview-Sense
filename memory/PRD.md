@@ -433,3 +433,17 @@ NB: richiede un nuovo BUILD iOS per test performance/texture su device.
 NB: performance/texture/snapshot nativo si validano su BUILD iOS reale.
 
 DA FARE (prossimo, priorità utente): **1) Cataloghi live** (asteroidi/comete/pulsar/quasar/sonde via API esterne), **2) Modelli 3D glTF** (ISS, sonde). Poi: audio ambientale/sonificazione, ruoli moderatori.
+
+### Universe Explorer — Cataloghi reali live/curati (COMPLETATO E VERIFICATO)
+Backend `universe_live.py` (`universe_router`, registrato in server.py):
+- `GET /api/universe/asteroids`: LIVE da **NASA NeoWs** (`api.nasa.gov`, oggetti near-Earth con passaggio ravvicinato oggi). Usa `NASA_API_KEY` da env (fallback `DEMO_KEY`). Cache in-memory 6h. Se l'API è irraggiungibile/rate-limited → fallback a un catalogo curato di asteroidi reali famosi (Apophis, Bennu, Ryugu, Eros, 1998 OR2) con `live:false`. NB: `ssd-api.jpl.nasa.gov` (comete SBDB) NON è raggiungibile dal sandbox → comete gestite come catalogo curato lato client.
+Frontend `src/lib/liveCatalog.ts`:
+- `fetchAsteroids()` → mappa la risposta backend in `UObject[]` (posizioni deterministiche via hash, scatter su shell), blurb con dati reali (Ø, km/s, ×distanza Luna, data passaggio).
+- Cataloghi reali curati (valori misurati, fonti etichettate): **Comete** (Encke, Tempel-Tuttle, Swift-Tuttle, Hale-Bopp, NEOWISE, 67P — JPL), **Pulsar** (Crab, Vela, B1919+21, J0437-4715, B1257+12 — ATNF), **Quasar** (3C 273, TON 618, ULAS J1342+0928, APM 08279+5255 — SDSS/NASA), **Sonde** (New Horizons, Parker Solar Probe, JWST, Voyager 2, Juno — NASA/ESA).
+- `catalogForScale(scale, asteroids, enabled)` unisce gli oggetti al layout statico per scala; `searchCatalog()` estende la ricerca.
+- Aggiunti kind `pulsar`/`quasar` a `universe.ts` (UKind + KIND_LABEL).
+Frontend `app/universe-explorer.tsx`:
+- fetch asteroidi al mount; oggetti catalogo uniti alla scena per scala; ricerca estesa.
+- Pulsante top-bar "layers" → **pannello "Cataloghi reali"** con toggle per Asteroidi(S1)/Comete(S1)/Sonde(S1)/Pulsar(S3)/Quasar(S5) + nota "Asteroidi live via NASA NeoWs".
+- Verificato (screenshot, NO test agent): pannello toggle, oggetti scatterati in scena, ricerca+fly-to Apophis (dati reali), Crab Pulsar (S3, ATNF), scala 5 quasar senza crash.
+DA FARE ANCORA: ottenere `NASA_API_KEY` reale dall'utente (ora fallback curato). Poi modelli 3D glTF (ISS/sonde) — solo su build nativa.

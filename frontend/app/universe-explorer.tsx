@@ -16,6 +16,9 @@ import {
   UObject, UScale, SCALES, objectsForScale, searchUniverse, KIND_LABEL, REP_LABEL,
   JOURNEYS, Journey,
 } from "@/src/lib/universe";
+import {
+  fetchAsteroids, catalogForScale, searchCatalog, CATALOG_META, CatKey,
+} from "@/src/lib/liveCatalog";
 import { socialApi } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
@@ -48,8 +51,28 @@ export default function UniverseExplorer() {
   const [publishedId, setPublishedId] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
-  const objects = useMemo(() => objectsForScale(scale), [scale]);
+  // Live + curated catalogs
+  const [asteroids, setAsteroids] = useState<UObject[]>([]);
+  const [catEnabled, setCatEnabled] = useState<Set<CatKey>>(
+    () => new Set<CatKey>(["asteroid", "comet", "pulsar", "quasar", "spacecraft"]));
+  const [catPanel, setCatPanel] = useState(false);
+
+  useEffect(() => { fetchAsteroids().then(setAsteroids).catch(() => {}); }, []);
+
+  const objects = useMemo(
+    () => [...objectsForScale(scale), ...catalogForScale(scale, asteroids, catEnabled)],
+    [scale, asteroids, catEnabled],
+  );
   const selected = objects.find((o) => o.id === selectedId) ?? null;
+
+  const toggleCat = (k: CatKey) => {
+    Haptics.selectionAsync();
+    setCatEnabled((prev) => {
+      const n = new Set(prev);
+      if (n.has(k)) n.delete(k); else n.add(k);
+      return n;
+    });
+  };
 
   const ctrl = useRef<ControlState>(makeControls(DEFAULT_RAD[1]));
   const start = useRef({ az: 0, pol: 0, rad: 0 });
@@ -234,6 +257,9 @@ export default function UniverseExplorer() {
               <Pressable testID="u-journey" style={styles.iconBtn} onPress={() => setJourneyPicker(true)}>
                 <Ionicons name="navigate" size={18} color={colors.brand} />
               </Pressable>
+              <Pressable testID="u-catalog" style={styles.iconBtn} onPress={() => setCatPanel((p) => !p)}>
+                <Ionicons name="layers" size={18} color={catPanel ? colors.brand : colors.onSurface} />
+              </Pressable>
               <Pressable testID="u-snapshot" style={styles.iconBtn} onPress={captureSnapshot}>
                 <Ionicons name="camera" size={18} color={colors.onSurface} />
               </Pressable>
@@ -248,6 +274,25 @@ export default function UniverseExplorer() {
               </Pressable>
             </View>
           </View>
+
+          {/* Catalog layers panel */}
+          {catPanel && (
+            <View style={[styles.catPanel, { top: insets.top + 60 }]} pointerEvents="auto">
+              <Text style={styles.catTitle}>Cataloghi reali</Text>
+              {CATALOG_META.map((c) => {
+                const on = catEnabled.has(c.key);
+                return (
+                  <Pressable key={c.key} testID={`cat-${c.key}`} style={styles.catRow} onPress={() => toggleCat(c.key)}>
+                    <Ionicons name={c.icon as never} size={15} color={on ? colors.brand : colors.onSurfaceSecondary} />
+                    <Text style={[styles.catLabel, on && { color: colors.onSurface }]}>{c.label}</Text>
+                    <Text style={styles.catScale}>S{c.scale}</Text>
+                    <View style={[styles.catDot, on && styles.catDotOn]} />
+                  </Pressable>
+                );
+              })}
+              <Text style={styles.catNote}>Asteroidi live via NASA NeoWs · resto da cataloghi reali.</Text>
+            </View>
+          )}
 
           {/* Scale ladder (right) */}
           <View style={[styles.ladder, { top: insets.top + 70 }]} pointerEvents="box-none">
@@ -359,7 +404,7 @@ export default function UniverseExplorer() {
             <Pressable onPress={() => setSearchOpen(false)}><Text style={styles.searchCancel}>Chiudi</Text></Pressable>
           </View>
           <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 360 }}>
-            {(query ? searchUniverse(query) : objects).map((o) => (
+            {(query ? [...searchUniverse(query), ...searchCatalog(query, asteroids)] : objects).map((o) => (
               <Pressable key={o.id} testID={`sr-${o.id}`} style={styles.srRow}
                 onPress={() => { setSearchOpen(false); setQuery(""); goScale(o.scale, o); }}>
                 <View style={[styles.srDot, { backgroundColor: o.color }]} />
@@ -464,6 +509,14 @@ const styles = StyleSheet.create({
   cardBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: 10 },
   cardBtnText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.base },
   showHud: { position: "absolute", right: spacing.lg, width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(10,16,26,0.85)", alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  catPanel: { position: "absolute", left: spacing.lg, width: 210, backgroundColor: "rgba(10,16,26,0.94)", borderRadius: radius.lg, padding: spacing.md, gap: 4, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  catTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.sm, marginBottom: 4 },
+  catRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: 7 },
+  catLabel: { flex: 1, color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm },
+  catScale: { color: colors.onSurfaceTertiary, fontFamily: fonts.regular, fontSize: type.sm - 3 },
+  catDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 1.5, borderColor: colors.border },
+  catDotOn: { backgroundColor: colors.brand, borderColor: colors.brand },
+  catNote: { color: colors.onSurfaceTertiary, fontFamily: fonts.regular, fontSize: type.sm - 3, marginTop: 6, lineHeight: 13 },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.55)" },
   searchSheet: { position: "absolute", top: 0, left: 0, right: 0, backgroundColor: colors.surface, borderBottomLeftRadius: radius.lg, borderBottomRightRadius: radius.lg, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, gap: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   searchRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, paddingHorizontal: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },

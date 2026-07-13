@@ -16,7 +16,7 @@ export const SCALES: { level: UScale; name: string; sub: string }[] = [
 export type UKind =
   | "star" | "planet" | "moon" | "dwarf" | "comet" | "asteroid"
   | "nebula" | "cluster" | "galaxy" | "galaxycluster" | "blackhole"
-  | "spacecraft" | "structure";
+  | "spacecraft" | "structure" | "pulsar" | "quasar";
 
 export type Representation = "photo" | "composite" | "reconstruction" | "illustration" | "model" | "data-viz";
 
@@ -111,6 +111,7 @@ export const KIND_LABEL: Record<UKind, string> = {
   comet: "Cometa", asteroid: "Asteroide", nebula: "Nebulosa", cluster: "Ammasso stellare",
   galaxy: "Galassia", galaxycluster: "Ammasso di galassie", blackhole: "Buco nero",
   spacecraft: "Sonda / Missione", structure: "Struttura cosmica",
+  pulsar: "Pulsar", quasar: "Quasar",
 };
 
 export const REP_LABEL: Record<Representation, string> = {
