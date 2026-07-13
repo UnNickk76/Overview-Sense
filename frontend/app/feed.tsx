@@ -9,6 +9,7 @@ import { ObservationCard } from "@/src/components/ObservationCard";
 import { LiveEarth } from "@/src/components/LiveEarth";
 import { VerifiedEvents } from "@/src/components/VerifiedEvents";
 import { SenseMark } from "@/src/components/SenseMark";
+import { SnapSenseBar } from "@/src/components/SnapSenseBar";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { socialApi, FeedObservation, FeedFilters } from "@/src/lib/backend";
 import { useObserver } from "@/src/hooks/useObserver";
@@ -88,6 +89,9 @@ export default function Feed() {
       <View style={styles.pinnedEarth}>
         <LiveEarth variant="compact" size={132} onExpand={() => setEarthFull(true)} />
       </View>
+
+      {/* SnapSense™ — 24h ephemeral stories */}
+      <SnapSenseBar />
 
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: insets.bottom + spacing["3xl"], gap: spacing.lg }}

@@ -210,6 +210,23 @@ export const eventsApi = {
   chain: (id: string) => apiFetch<ObservationChain>(`/observations/${id}/chain`),
 };
 
+// ---- SnapSense™ (24h ephemeral stories) ----
+export interface SnapItem {
+  id: string; kind: string; media_type: string;
+  image_url: string | null; caption: string | null;
+  bg_color: string | null; source: string | null; created_at: string;
+}
+export interface SnapGroup {
+  user_id: string; nickname: string; avatar_url?: string | null;
+  items: SnapItem[]; latest_at: string;
+}
+export const snapSenseApi = {
+  list: () => apiFetch<{ groups: SnapGroup[] }>("/snapsenses"),
+  create: (payload: { kind?: string; image_base64?: string; caption?: string; bg_color?: string; source?: string }) =>
+    apiFetch<SnapItem>("/snapsenses", { method: "POST", body: JSON.stringify(payload) }),
+  remove: (id: string) => apiFetch<{ ok: boolean }>(`/snapsenses/${id}`, { method: "DELETE" }),
+};
+
 // ---- AI narration ----
 export const aiApi = {
   explainOpportunity: (title: string, facts: string[], kind?: string) =>

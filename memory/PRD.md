@@ -477,3 +477,17 @@ Richiesta utente: l'app deve aprirsi sul social, non sulla Home tecnica. La Home
 - Verificato su web (screenshot): feed-Home con Terra viva + eventi verificati + card Sense + FAB; modal Live Earth full con filtri e globo interattivo. Tutto ok.
 
 PROSSIMO (concordato con utente): **FASE B — SnapSense™** (Storie 24h: barra storie con foto profilo, viewer, pubblicazione rapida temporanea; richiede backend nuovo). Poi FASE C personalizzazione feed. Da NON dimenticare (utente: "completare il vecchio, tenere insieme Satellite"): annotazioni/disegno in SnapshotStudio, Satellite Observation (Terra esplorabile NASA GIBS), Meteo Spaziale vivo, Realtà Invisibile 3D, Timeline con Play, AR (futuro).
+
+### SESSIONE 6c — FASE B: SnapSense™ (Storie 24h)
+Backend `snapsense.py` (`snapsense_router`, registrato + `ensure_snapsense_indexes` in startup):
+- Collezione `snapsenses` {id,user_id,nickname,kind,media_type,has_image,caption,bg_color,source,created_at,expires_at(+24h)}. Immagini in `db.media` (riuso `/api/media/{id}`).
+- `POST /api/snapsenses` (auth): image_base64 o testo, kind∈photo/sense/satellite/universe/timeline/invisible/spaceweather/audio/text; moderazione immagini utente (salta per satellite/dati). `GET /api/snapsenses` (pubblico): gruppi attivi per autore (con avatar, propria ring per prima). `DELETE /api/snapsenses/{id}` (owner).
+- Campo utente avatar = `avatar` (NON avatar_url) — corretto.
+Frontend `src/components/SnapSenseBar.tsx` (nel feed, tra Terra fissa e contenuti):
+- Barra ring orizzontale: ring "SnapSense +" (crea) + ring per autore (avatar o iniziale, bordo oro).
+- **Viewer** full-screen: progress bar per item, auto-advance 5s, tap sinistra/destra per navigare tra item e autori, header autore+tempo+chiudi, elimina (se proprio).
+- **Creazione**: Fotocamera / Galleria (expo-image-picker + manipulate→base64) / Testo (con swatch colori sfondo) + scorciatoia Sense Vision. Gestione permessi contestuale.
+- API in `backend.ts`: `snapSenseApi.list/create/remove` + tipi SnapItem/SnapGroup.
+- Verificato: backend curl (login→create testo→list OK); web screenshot (barra ring nel feed + viewer che mostra la storia testo "Sto osservando il cielo stellato da Milano"). Creazione foto (camera/galleria) richiede auth+device per test pieno; testo verificato e2e.
+
+FATTO in questa sessione: Fase A (feed=Home) + Fase B (SnapSense). PROSSIMO: Fase C (personalizzazione feed) e le voci "vecchie" (SnapshotStudio annotazioni/disegno, Satellite Observation NASA GIBS, Meteo Spaziale vivo, Realtà Invisibile 3D, Timeline Play, AR futuro).
