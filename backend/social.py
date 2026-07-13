@@ -387,6 +387,30 @@ async def feed(
 
     now = datetime.now(timezone.utc)
 
+    # ---- Personalisation: build the viewer's interest profile ----
+    # Categories the viewer creates / saves / engages with are boosted in "smart".
+    interest: dict = {}
+    if viewer and sort == "smart":
+        tally: dict = {}
+        def _add(cats, w):
+            for c in (cats or []):
+                tally[c] = tally.get(c, 0.0) + w
+        # What they publish is the strongest signal.
+        async for o in db.observations.find({"user_id": viewer["id"]}, {"_id": 0, "categories": 1}).limit(200):
+            _add(o.get("categories"), 2.0)
+        # Saves + interactions.
+        eng_ids: set = set()
+        async for sv in db.saves.find({"user_id": viewer["id"]}, {"_id": 0, "obs_id": 1}).limit(300):
+            eng_ids.add(sv["obs_id"])
+        async for it in db.interactions.find({"user_id": viewer["id"]}, {"_id": 0, "obs_id": 1}).limit(500):
+            eng_ids.add(it["obs_id"])
+        if eng_ids:
+            async for o in db.observations.find({"id": {"$in": list(eng_ids)}}, {"_id": 0, "categories": 1}).limit(500):
+                _add(o.get("categories"), 1.0)
+        if tally:
+            mx = max(tally.values())
+            interest = {c: v / mx for c, v in tally.items()}
+
     def recency(o):
         try:
             t = datetime.fromisoformat(o["created_at"])
@@ -408,7 +432,11 @@ async def feed(
         prox = 0.0
         if "_dist" in o:
             prox = max(0.0, 1.0 - o["_dist"] / max(radius_km, 1))
-        return sv * 0.4 + rare * 0.2 + recency(o) * 0.2 + pop * 0.15 + prox * 0.05
+        # Personalised affinity: how well this matches the viewer's interests.
+        aff = 0.0
+        if interest and o.get("user_id") != (viewer or {}).get("id"):
+            aff = min(1.0, sum(interest.get(c, 0.0) for c in cats))
+        return sv * 0.34 + aff * 0.22 + rare * 0.16 + recency(o) * 0.16 + pop * 0.1 + prox * 0.02
 
     if sort == "recent":
         docs.sort(key=lambda o: o.get("created_at", ""), reverse=True)

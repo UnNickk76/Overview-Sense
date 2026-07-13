@@ -491,3 +491,11 @@ Frontend `src/components/SnapSenseBar.tsx` (nel feed, tra Terra fissa e contenut
 - Verificato: backend curl (login→create testo→list OK); web screenshot (barra ring nel feed + viewer che mostra la storia testo "Sto osservando il cielo stellato da Milano"). Creazione foto (camera/galleria) richiede auth+device per test pieno; testo verificato e2e.
 
 FATTO in questa sessione: Fase A (feed=Home) + Fase B (SnapSense). PROSSIMO: Fase C (personalizzazione feed) e le voci "vecchie" (SnapshotStudio annotazioni/disegno, Satellite Observation NASA GIBS, Meteo Spaziale vivo, Realtà Invisibile 3D, Timeline Play, AR futuro).
+
+### SESSIONE 6d — autonomia: Studio→SnapSense, personalizzazione feed, layer satellitari
+- **SnapshotStudio → SnapSense**: aggiunto pulsante "SnapSense 24h" nello SnapshotStudio (pubblica lo snapshot brandizzato come Storia via `snapSenseApi.create`). Nuovo campo `snapKind` in SnapshotInput (Universe Explorer passa "universe"). Ogni esperienza → contenuto → social/storia in un tap.
+- **FASE C — personalizzazione feed** (`social.py /feed`, sort smart): costruito profilo interessi del viewer da ciò che PUBBLICA (peso 2×), salva e con cui interagisce (categorie), normalizzato; nuovo termine `aff` (affinità) nello smart_score (pesi ribilanciati: sv .34, aff .22, rare .16, recency .16, pop .10, prox .02). Non tocca il feed anonimo. Verificato (nessun crash, items OK).
+- **Satellite Observation +3 layer reali** (verificati via GetSnapshot): Aerosol (MODIS_Terra_Aerosol), Nuvole (MODIS_Terra_Cloud_Fraction_Day), Temperatura mare (GHRSST_L4_MUR_SST). Overlay compositi (incendi/pioggia su base) NON affidabili via endpoint snapshot → rimandati alla fase Satellite dedicata.
+- Smoke test feed-Home OK: logo+Home/profilo, Terra fissa che ruota, barra SnapSense, eventi verificati, card, FAB.
+
+RIMANE (fase Satellite dedicata + altro): Terra satellitare esplorabile/zoomabile con divider di confronto e Then/Now continuo; SnapshotStudio annotazioni/disegno (Skia); Meteo Spaziale vivo; Realtà Invisibile 3D immersiva; Timeline con Play; AR (futuro, build nativa).

@@ -195,6 +195,7 @@ export default function UniverseExplorer() {
             : { icon: "🌌", label: cs.name },
         ],
         socialSource: "cosmos",
+        snapKind: "universe",
         data: { from: "universe-explorer", scale, name: selected?.name, cosmicId: selected?.cosmicId },
       });
       setSnapOpen(true);

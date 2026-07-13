@@ -16,6 +16,9 @@ export const GIBS_LAYERS: GibsLayer[] = [
   { id: "MODIS_Terra_Land_Surface_Temp_Day", label: "Termico", emoji: "🌡️", desc: "Temperatura della superficie terrestre di giorno." },
   { id: "MODIS_Terra_NDVI_8Day", label: "Vegetazione", emoji: "🌱", desc: "Indice NDVI: densità e salute della vegetazione." },
   { id: "VIIRS_SNPP_DayNightBand_ENCC", label: "Luci notturne", emoji: "🌃", desc: "Luci artificiali notturne (VIIRS Day/Night Band)." },
+  { id: "MODIS_Terra_Aerosol", label: "Aerosol", emoji: "🌫️", desc: "Spessore ottico degli aerosol: polveri, foschia e inquinamento in atmosfera." },
+  { id: "MODIS_Terra_Cloud_Fraction_Day", label: "Nuvole", emoji: "☁️", desc: "Frazione di copertura nuvolosa diurna (MODIS Terra)." },
+  { id: "GHRSST_L4_MUR_Sea_Surface_Temperature", label: "Temperatura mare", emoji: "🌊", desc: "Temperatura della superficie del mare (GHRSST MUR)." },
 ];
 
 const SNAPSHOT = "https://wvs.earthdata.nasa.gov/api/v1/snapshot";

@@ -14,7 +14,7 @@ import * as MediaLibrary from "expo-media-library";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { SenseMark } from "@/src/components/SenseMark";
-import { socialApi } from "@/src/lib/backend";
+import { socialApi, snapSenseApi } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 
@@ -34,6 +34,7 @@ export interface SnapshotInput {
   dataLines?: SnapshotDataLine[];    // real values to overlay
   socialSource?: string;             // createObservation.source (default "reality")
   data?: Record<string, unknown>;    // extra structured payload
+  snapKind?: string;                 // SnapSense kind (universe/satellite/sense/...)
 }
 
 interface Props {
@@ -119,6 +120,27 @@ export function SnapshotStudio({ visible, input, onClose, onPublished }: Props) 
     } finally { setBusy(false); }
   };
 
+  const publishSnapSense = async () => {
+    if (!user) { onClose(); router.push("/login" as never); return; }
+    if (busy) return;
+    setBusy(true); setStatus(null);
+    try {
+      const out = await composite();
+      if (!out) { setStatus("Impossibile generare lo snapshot"); return; }
+      const caption = [title.trim(), desc.trim()].filter(Boolean).join(" · ") || (input.layerName ?? "");
+      await snapSenseApi.create({
+        kind: input.snapKind ?? "sense",
+        image_base64: out.base64,
+        caption,
+        source: input.socialSource,
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setStatus("SnapSense pubblicato · visibile 24h ✓");
+    } catch {
+      setStatus("SnapSense non riuscito");
+    } finally { setBusy(false); }
+  };
+
   const saveOrShare = async () => {
     setBusy(true);
     try {
@@ -192,10 +214,16 @@ export function SnapshotStudio({ visible, input, onClose, onPublished }: Props) 
               )}
             </Pressable>
           )}
-          <Pressable testID="snapstudio-save" style={styles.ghost} onPress={saveOrShare} disabled={busy}>
-            <Ionicons name="download-outline" size={16} color={colors.onSurface} />
-            <Text style={styles.ghostText}>Salva / Condividi</Text>
-          </Pressable>
+          <View style={styles.actionRow}>
+            <Pressable testID="snapstudio-snapsense" style={[styles.ghost, styles.ghostFlex]} onPress={publishSnapSense} disabled={busy}>
+              <Ionicons name="flash-outline" size={16} color={colors.onSurface} />
+              <Text style={styles.ghostText}>SnapSense 24h</Text>
+            </Pressable>
+            <Pressable testID="snapstudio-save" style={[styles.ghost, styles.ghostFlex]} onPress={saveOrShare} disabled={busy}>
+              <Ionicons name="download-outline" size={16} color={colors.onSurface} />
+              <Text style={styles.ghostText}>Salva / Condividi</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     </Modal>
@@ -225,5 +253,7 @@ const styles = StyleSheet.create({
   primary: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: 13 },
   primaryText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.base },
   ghost: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.tertiary, borderRadius: radius.md, paddingVertical: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, marginTop: spacing.sm },
+  actionRow: { flexDirection: "row", gap: spacing.sm },
+  ghostFlex: { flex: 1 },
   ghostText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.sm },
 });
