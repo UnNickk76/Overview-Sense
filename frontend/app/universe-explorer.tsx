@@ -1,15 +1,23 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { StyleSheet, Text, View, Pressable, TextInput, Modal, ScrollView } from "react-native";
+import { StyleSheet, Text, View, Pressable, TextInput, Modal, ScrollView, ActivityIndicator, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
+import * as MediaLibrary from "expo-media-library";
+import { GLView } from "expo-gl";
 import { GestureDetector, Gesture } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 import { UniverseScene, makeControls, ControlState } from "@/src/components/universe/UniverseScene";
 import {
   UObject, UScale, SCALES, objectsForScale, searchUniverse, KIND_LABEL, REP_LABEL,
+  JOURNEYS, Journey,
 } from "@/src/lib/universe";
+import { socialApi } from "@/src/lib/backend";
+import { useAuth } from "@/src/context/AuthContext";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -23,6 +31,22 @@ export default function UniverseExplorer() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [hudHidden, setHudHidden] = useState(false);
+  const { user } = useAuth();
+
+  // Guided Journey
+  const [journey, setJourney] = useState<Journey | null>(null);
+  const [stepIdx, setStepIdx] = useState(0);
+  const [journeyPlaying, setJourneyPlaying] = useState(false);
+  const [journeyPicker, setJourneyPicker] = useState(false);
+
+  // Snapshot
+  const [snapUri, setSnapUri] = useState<string | null>(null);
+  const [snapB64, setSnapB64] = useState<string | null>(null);
+  const [snapOpen, setSnapOpen] = useState(false);
+  const [snapDesc, setSnapDesc] = useState("");
+  const [publishing, setPublishing] = useState(false);
+  const [publishedId, setPublishedId] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
 
   const objects = useMemo(() => objectsForScale(scale), [scale]);
   const selected = objects.find((o) => o.id === selectedId) ?? null;
@@ -95,7 +119,100 @@ export default function UniverseExplorer() {
     else setSelectedId(o.id); // stays on the in-scene card (no dedicated page yet)
   };
 
+  // ---- Guided Journey ----
+  const startJourney = (j: Journey) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setJourneyPicker(false);
+    setJourney(j);
+    setStepIdx(0);
+    setJourneyPlaying(true);
+  };
+  const exitJourney = () => { setJourney(null); setJourneyPlaying(false); resumeSoon(); };
+
+  // Move the camera to the current step + auto-advance while playing.
+  useEffect(() => {
+    if (!journey) return;
+    const step = journey.steps[stepIdx];
+    const obj = objectsForScale(step.scale).find((o) => o.id === step.objectId);
+    setScale(step.scale);
+    setSelectedId(obj?.id ?? null);
+    if (obj) {
+      ctrl.current.target = obj.pos;
+      ctrl.current.rad = Math.max(obj.size * 4 + 2, 6);
+      ctrl.current.az = 0.6; ctrl.current.pol = 1.15;
+    }
+    if (journeyPlaying) {
+      const t = setTimeout(() => {
+        setStepIdx((i) => {
+          if (i < journey.steps.length - 1) return i + 1;
+          setJourneyPlaying(false);
+          return i;
+        });
+      }, step.dwell ?? 6000);
+      return () => clearTimeout(t);
+    }
+  }, [journey, stepIdx, journeyPlaying]);
+
+  // ---- Snapshot (clean, UI-free 3D capture) ----
+  const captureSnapshot = async () => {
+    const r = ctrl.current.renderer as unknown as { domElement?: HTMLCanvasElement; getContext?: () => unknown };
+    if (!r) { setStatus("Scena non pronta"); return; }
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      if (Platform.OS === "web" && r.domElement) {
+        const dataUrl = r.domElement.toDataURL("image/png");
+        setSnapUri(dataUrl);
+        setSnapB64(dataUrl.split(",")[1] ?? null);
+      } else if (r.getContext) {
+        const snap = await GLView.takeSnapshotAsync(r.getContext() as never, { format: "png" });
+        const uri = typeof snap.uri === "string" ? snap.uri : "";
+        setSnapUri(uri);
+        const b64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+        setSnapB64(b64);
+      }
+      setSnapDesc(selected?.name ? `${selected.name} · Universe Explorer` : "Universe Explorer");
+      setPublishedId(null);
+      setStatus(null);
+      setSnapOpen(true);
+    } catch {
+      setStatus("Snapshot non riuscito");
+    }
+  };
+
+  const publishSnap = async () => {
+    if (!user) { setSnapOpen(false); router.push("/login" as never); return; }
+    if (!snapB64) return;
+    setPublishing(true);
+    try {
+      const created = await socialApi.createObservation({
+        media_type: "image", source: "cosmos",
+        caption: snapDesc.trim() || (selected?.name ?? "Universe Explorer"),
+        image_base64: snapB64,
+        data: { from: "universe-explorer", scale, name: selected?.name, cosmicId: selected?.cosmicId } as never,
+      });
+      setPublishedId(created.id);
+      setStatus("Pubblicato ✓");
+    } catch {
+      setStatus("Pubblicazione non riuscita");
+    } finally { setPublishing(false); }
+  };
+
+  const saveSnap = async () => {
+    if (!snapUri) return;
+    try {
+      let fileUri = snapUri;
+      if (Platform.OS === "web" || snapUri.startsWith("data:")) {
+        fileUri = `${FileSystem.cacheDirectory}snapshot_${Date.now()}.png`;
+        await FileSystem.writeAsStringAsync(fileUri, snapB64 ?? "", { encoding: FileSystem.EncodingType.Base64 });
+      }
+      const perm = await MediaLibrary.requestPermissionsAsync();
+      if (perm.granted) { await MediaLibrary.saveToLibraryAsync(fileUri); setStatus("Salvato in Foto ✓"); }
+      else if (await Sharing.isAvailableAsync()) { await Sharing.shareAsync(fileUri); }
+    } catch { setStatus("Salvataggio non riuscito"); }
+  };
+
   const curScale = SCALES.find((s) => s.level === scale)!;
+  const journeyStep = journey ? journey.steps[stepIdx] : null;
 
   return (
     <View style={styles.root}>
@@ -114,6 +231,12 @@ export default function UniverseExplorer() {
               <Text style={styles.scaleName}>Scala {scale} · {curScale.name}</Text>
             </View>
             <View style={{ flexDirection: "row", gap: spacing.sm }}>
+              <Pressable testID="u-journey" style={styles.iconBtn} onPress={() => setJourneyPicker(true)}>
+                <Ionicons name="navigate" size={18} color={colors.brand} />
+              </Pressable>
+              <Pressable testID="u-snapshot" style={styles.iconBtn} onPress={captureSnapshot}>
+                <Ionicons name="camera" size={18} color={colors.onSurface} />
+              </Pressable>
               <Pressable testID="u-search" style={styles.iconBtn} onPress={() => setSearchOpen(true)}>
                 <Ionicons name="search" size={18} color={colors.onSurface} />
               </Pressable>
@@ -138,50 +261,82 @@ export default function UniverseExplorer() {
 
           {/* Bottom controls */}
           <View style={[styles.bottomBar, { paddingBottom: insets.bottom + spacing.md }]} pointerEvents="box-none">
-            <View style={styles.navRow}>
-              <Pressable testID="u-back-scale" style={styles.navBtn} disabled={scale <= 1}
-                onPress={() => goScale(clamp(scale - 1, 1, 5) as UScale)}>
-                <Ionicons name="chevron-back" size={16} color={scale <= 1 ? colors.onSurfaceTertiary : colors.onSurface} />
-                <Text style={[styles.navText, scale <= 1 && { color: colors.onSurfaceTertiary }]}>Scala prec.</Text>
-              </Pressable>
-              <Pressable testID="u-home" style={styles.homeBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); goScale(1, objectsForScale(1).find((o) => o.id === "earth")); }}>
-                <Ionicons name="earth" size={16} color={colors.onBrand} />
-                <Text style={styles.homeText}>Terra</Text>
-              </Pressable>
-              <Pressable testID="u-fwd-scale" style={styles.navBtn} disabled={scale >= 5}
-                onPress={() => goScale(clamp(scale + 1, 1, 5) as UScale)}>
-                <Text style={[styles.navText, scale >= 5 && { color: colors.onSurfaceTertiary }]}>Scala succ.</Text>
-                <Ionicons name="chevron-forward" size={16} color={scale >= 5 ? colors.onSurfaceTertiary : colors.onSurface} />
-              </Pressable>
-            </View>
-
-            {selected ? (
-              <View style={styles.card} pointerEvents="auto">
-                <View style={styles.cardHead}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.cardName}>{selected.name}</Text>
-                    <Text style={styles.cardKind}>{KIND_LABEL[selected.kind]} · {selected.distanceLabel}</Text>
-                  </View>
-                  <Pressable onPress={() => setSelectedId(null)} hitSlop={8}><Ionicons name="close-circle" size={22} color={colors.onSurfaceSecondary} /></Pressable>
+            {journey && journeyStep ? (
+              <View style={styles.jCard} pointerEvents="auto">
+                <View style={styles.jTop}>
+                  <Text style={styles.jTitle} numberOfLines={1}>{journey.title}</Text>
+                  <Text style={styles.jProg}>{stepIdx + 1}/{journey.steps.length}</Text>
                 </View>
-                <Text style={styles.cardBlurb}>{selected.blurb}</Text>
-                <View style={styles.repRow}>
-                  <Ionicons name="information-circle-outline" size={13} color={colors.onSurfaceSecondary} />
-                  <Text style={styles.repText}>{REP_LABEL[selected.rep]} · {selected.source}</Text>
-                </View>
-                <View style={styles.cardBtns}>
-                  <Pressable testID="u-flyto" style={styles.cardBtnGhost} onPress={() => flyTo(selected)}>
-                    <Ionicons name="rocket-outline" size={15} color={colors.onSurface} />
-                    <Text style={styles.cardBtnGhostText}>Avvicinati</Text>
+                <Text style={styles.jText}>{journeyStep.text}</Text>
+                <View style={styles.jBtns}>
+                  <Pressable testID="j-prev" style={styles.jNav} disabled={stepIdx === 0}
+                    onPress={() => { setJourneyPlaying(false); setStepIdx((i) => Math.max(0, i - 1)); }}>
+                    <Ionicons name="play-skip-back" size={16} color={stepIdx === 0 ? colors.onSurfaceTertiary : colors.onSurface} />
                   </Pressable>
-                  <Pressable testID="u-open-detail" style={styles.cardBtn} onPress={() => openDetail(selected)}>
-                    <Text style={styles.cardBtnText}>Apri scheda</Text>
-                    <Ionicons name="arrow-forward" size={15} color={colors.onBrand} />
+                  <Pressable testID="j-play" style={styles.jPlay} onPress={() => setJourneyPlaying((p) => !p)}>
+                    <Ionicons name={journeyPlaying ? "pause" : "play"} size={18} color={colors.onBrand} />
+                    <Text style={styles.jPlayText}>{journeyPlaying ? "Pausa" : "Riprendi"}</Text>
+                  </Pressable>
+                  <Pressable testID="j-next" style={styles.jNav} disabled={stepIdx >= journey.steps.length - 1}
+                    onPress={() => { setJourneyPlaying(false); setStepIdx((i) => Math.min(journey.steps.length - 1, i + 1)); }}>
+                    <Ionicons name="play-skip-forward" size={16} color={stepIdx >= journey.steps.length - 1 ? colors.onSurfaceTertiary : colors.onSurface} />
+                  </Pressable>
+                  <Pressable testID="j-snap" style={styles.jNav} onPress={captureSnapshot}>
+                    <Ionicons name="camera" size={16} color={colors.onSurface} />
+                  </Pressable>
+                  <Pressable testID="j-exit" style={styles.jExit} onPress={exitJourney}>
+                    <Text style={styles.jExitText}>Esci</Text>
                   </Pressable>
                 </View>
               </View>
             ) : (
-              <Text style={styles.hint}>Trascina per ruotare · pizzica per zoomare · doppio tap su un oggetto</Text>
+              <>
+                <View style={styles.navRow}>
+                  <Pressable testID="u-back-scale" style={styles.navBtn} disabled={scale <= 1}
+                    onPress={() => goScale(clamp(scale - 1, 1, 5) as UScale)}>
+                    <Ionicons name="chevron-back" size={16} color={scale <= 1 ? colors.onSurfaceTertiary : colors.onSurface} />
+                    <Text style={[styles.navText, scale <= 1 && { color: colors.onSurfaceTertiary }]}>Scala prec.</Text>
+                  </Pressable>
+                  <Pressable testID="u-home" style={styles.homeBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); goScale(1, objectsForScale(1).find((o) => o.id === "earth")); }}>
+                    <Ionicons name="earth" size={16} color={colors.onBrand} />
+                    <Text style={styles.homeText}>Terra</Text>
+                  </Pressable>
+                  <Pressable testID="u-fwd-scale" style={styles.navBtn} disabled={scale >= 5}
+                    onPress={() => goScale(clamp(scale + 1, 1, 5) as UScale)}>
+                    <Text style={[styles.navText, scale >= 5 && { color: colors.onSurfaceTertiary }]}>Scala succ.</Text>
+                    <Ionicons name="chevron-forward" size={16} color={scale >= 5 ? colors.onSurfaceTertiary : colors.onSurface} />
+                  </Pressable>
+                </View>
+
+                {selected ? (
+                  <View style={styles.card} pointerEvents="auto">
+                    <View style={styles.cardHead}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.cardName}>{selected.name}</Text>
+                        <Text style={styles.cardKind}>{KIND_LABEL[selected.kind]} · {selected.distanceLabel}</Text>
+                      </View>
+                      <Pressable onPress={() => setSelectedId(null)} hitSlop={8}><Ionicons name="close-circle" size={22} color={colors.onSurfaceSecondary} /></Pressable>
+                    </View>
+                    <Text style={styles.cardBlurb}>{selected.blurb}</Text>
+                    <View style={styles.repRow}>
+                      <Ionicons name="information-circle-outline" size={13} color={colors.onSurfaceSecondary} />
+                      <Text style={styles.repText}>{REP_LABEL[selected.rep]} · {selected.source}</Text>
+                    </View>
+                    <View style={styles.cardBtns}>
+                      <Pressable testID="u-flyto" style={styles.cardBtnGhost} onPress={() => flyTo(selected)}>
+                        <Ionicons name="rocket-outline" size={15} color={colors.onSurface} />
+                        <Text style={styles.cardBtnGhostText}>Avvicinati</Text>
+                      </Pressable>
+                      <Pressable testID="u-open-detail" style={styles.cardBtn} onPress={() => openDetail(selected)}>
+                        <Text style={styles.cardBtnText}>Apri scheda</Text>
+                        <Ionicons name="arrow-forward" size={15} color={colors.onBrand} />
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : (
+                  <Text style={styles.hint}>Trascina per ruotare · pizzica per zoomare · doppio tap su un oggetto</Text>
+                )}
+              </>
             )}
           </View>
         </>
@@ -216,6 +371,62 @@ export default function UniverseExplorer() {
               </Pressable>
             ))}
           </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Journey picker */}
+      <Modal visible={journeyPicker} transparent animationType="slide" onRequestClose={() => setJourneyPicker(false)}>
+        <Pressable style={styles.backdrop} onPress={() => setJourneyPicker(false)} />
+        <View style={[styles.jSheet, { paddingBottom: insets.bottom + spacing.lg }]}>
+          <View style={styles.jHandle} />
+          <Text style={styles.jSheetTitle}>Viaggi guidati</Text>
+          <Text style={styles.jSheetSub}>Overview ti accompagna in un viaggio narrato tra oggetti reali.</Text>
+          <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
+            {JOURNEYS.map((j) => (
+              <Pressable key={j.id} testID={`journey-${j.id}`} style={styles.jRow} onPress={() => startJourney(j)}>
+                <View style={styles.jIcon}><Ionicons name="navigate" size={18} color={colors.brand} /></View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.jRowTitle}>{j.title}</Text>
+                  <Text style={styles.jRowSub}>{j.subtitle} · {j.steps.length} tappe</Text>
+                </View>
+                <Ionicons name="play-circle" size={26} color={colors.brand} />
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Snapshot */}
+      <Modal visible={snapOpen} transparent animationType="fade" onRequestClose={() => setSnapOpen(false)}>
+        <Pressable style={styles.backdrop} onPress={() => setSnapOpen(false)} />
+        <View style={[styles.snapSheet, { paddingBottom: insets.bottom + spacing.lg }]}>
+          <View style={styles.jHandle} />
+          <Text style={styles.jSheetTitle}>Snapshot</Text>
+          {snapUri ? <Image source={{ uri: snapUri }} style={styles.snapPreview} contentFit="cover" transition={150} /> : null}
+          <TextInput testID="snap-desc" style={styles.snapInput} value={snapDesc} onChangeText={setSnapDesc}
+            placeholder="Aggiungi una descrizione…" placeholderTextColor={colors.onSurfaceSecondary} multiline />
+          {status ? <Text style={[styles.snapStatus, status.includes("✓") && { color: colors.brand }]}>{status}</Text> : null}
+          {publishedId ? (
+            <Pressable testID="snap-open" style={styles.snapPrimary} onPress={() => { setSnapOpen(false); router.push(`/observation-detail?id=${publishedId}` as never); }}>
+              <Ionicons name="sparkles" size={16} color={colors.onBrand} />
+              <Text style={styles.snapPrimaryText}>Apri Observation · Sense Vision & Discovery Card</Text>
+            </Pressable>
+          ) : (
+            <Pressable testID="snap-publish" style={styles.snapPrimary} onPress={publishSnap} disabled={publishing}>
+              {publishing ? <ActivityIndicator color={colors.onBrand} /> : (
+                <><Ionicons name="cloud-upload-outline" size={16} color={colors.onBrand} /><Text style={styles.snapPrimaryText}>Pubblica come Observation</Text></>
+              )}
+            </Pressable>
+          )}
+          <View style={styles.snapRow}>
+            <Pressable testID="snap-save" style={styles.snapGhost} onPress={saveSnap}>
+              <Ionicons name="download-outline" size={16} color={colors.onSurface} />
+              <Text style={styles.snapGhostText}>Salva / Condividi</Text>
+            </Pressable>
+            <Pressable testID="snap-close" style={styles.snapGhost} onPress={() => setSnapOpen(false)}>
+              <Text style={styles.snapGhostText}>Chiudi</Text>
+            </Pressable>
+          </View>
         </View>
       </Modal>
     </View>

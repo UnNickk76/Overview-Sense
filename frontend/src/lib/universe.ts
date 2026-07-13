@@ -117,3 +117,68 @@ export const REP_LABEL: Record<Representation, string> = {
   photo: "Foto reale (dettaglio)", composite: "Composizione", reconstruction: "Ricostruzione scientifica",
   illustration: "Illustrazione", model: "Modello 3D", "data-viz": "Visualizzazione basata sui dati",
 };
+
+// ----- Guided Journeys: narrated automatic tours with stops -----
+export interface JourneyStep { scale: UScale; objectId: string; text: string; dwell?: number }
+export interface Journey { id: string; title: string; subtitle: string; steps: JourneyStep[] }
+
+export const JOURNEYS: Journey[] = [
+  {
+    id: "solar-edge", title: "Dalla Terra ai confini del Sistema Solare",
+    subtitle: "Un viaggio tra i pianeti fino allo spazio interstellare",
+    steps: [
+      { scale: 1, objectId: "earth", text: "Partiamo da casa: la Terra, l'unico luogo dove sappiamo esistere la vita." },
+      { scale: 1, objectId: "moon", text: "La Luna, a poco più di un secondo luce da noi." },
+      { scale: 1, objectId: "mars", text: "Marte, il pianeta rosso, meta delle missioni robotiche." },
+      { scale: 1, objectId: "jupiter", text: "Giove, il gigante gassoso che protegge i pianeti interni." },
+      { scale: 1, objectId: "saturn", text: "Saturno e i suoi anelli di ghiaccio e roccia." },
+      { scale: 1, objectId: "neptune", text: "Nettuno, l'ultimo pianeta, nel gelo esterno." },
+      { scale: 1, objectId: "voyager1", text: "Voyager 1: l'oggetto umano più lontano, ormai nello spazio interstellare." },
+    ],
+  },
+  {
+    id: "to-proxima", title: "Viaggio verso Proxima Centauri",
+    subtitle: "Oltre il Sole, fino alla stella più vicina",
+    steps: [
+      { scale: 1, objectId: "sun", text: "Il Sole, la nostra stella. Da qui iniziamo ad allontanarci." },
+      { scale: 2, objectId: "sun2", text: "Cambiamo scala: ora ogni distanza si misura in anni luce." },
+      { scale: 2, objectId: "proxima", text: "Proxima Centauri, a 4,24 anni luce: la stella più vicina a noi." },
+      { scale: 2, objectId: "alphacen", text: "Il sistema di Alpha Centauri, tre stelle legate dalla gravità." },
+      { scale: 2, objectId: "sirius", text: "Sirio, la stella più brillante del nostro cielo notturno." },
+    ],
+  },
+  {
+    id: "inside-milkyway", title: "Dentro la Via Lattea",
+    subtitle: "Nebulose, ammassi e il cuore galattico",
+    steps: [
+      { scale: 3, objectId: "orion-neb", text: "La Nebulosa di Orione: un vivaio dove nascono nuove stelle." },
+      { scale: 3, objectId: "pleiades", text: "Le Pleiadi, giovani stelle azzurre in un ammasso aperto." },
+      { scale: 3, objectId: "crab-neb", text: "La Nebulosa del Granchio, resto di una supernova con una pulsar." },
+      { scale: 3, objectId: "sgra", text: "Sagittarius A*, il buco nero supermassiccio al centro della galassia." },
+      { scale: 3, objectId: "milkyway3", text: "E questa è la Via Lattea: la nostra intera galassia a spirale." },
+    ],
+  },
+  {
+    id: "local-group", title: "Le galassie del Gruppo Locale",
+    subtitle: "Le galassie che viaggiano insieme a noi",
+    steps: [
+      { scale: 4, objectId: "milkyway4", text: "La Via Lattea vista come una singola galassia tra molte." },
+      { scale: 4, objectId: "andromeda", text: "Andromeda, la grande spirale in rotta di collisione con noi." },
+      { scale: 4, objectId: "triangulum", text: "La galassia del Triangolo, terza del Gruppo Locale." },
+      { scale: 4, objectId: "lmc", text: "La Grande Nube di Magellano, nostra vicina satellite." },
+    ],
+  },
+  {
+    id: "to-edge", title: "Dai pianeti all'Universo osservabile",
+    subtitle: "Lo zoom out definitivo, fino al limite del cosmo",
+    steps: [
+      { scale: 1, objectId: "earth", text: "Ripartiamo dalla Terra." },
+      { scale: 2, objectId: "proxima", text: "Le stelle vicine, a pochi anni luce." },
+      { scale: 3, objectId: "milkyway3", text: "La Via Lattea, con centinaia di miliardi di stelle." },
+      { scale: 4, objectId: "andromeda", text: "Il Gruppo Locale di galassie." },
+      { scale: 5, objectId: "virgo", text: "L'Ammasso della Vergine, migliaia di galassie insieme." },
+      { scale: 5, objectId: "laniakea", text: "Il Superammasso Laniakea, la nostra 'casa' cosmica." },
+      { scale: 5, objectId: "cmb", text: "E infine il limite: l'Universo osservabile, raggio ~46 miliardi di anni luce." },
+    ],
+  },
+];

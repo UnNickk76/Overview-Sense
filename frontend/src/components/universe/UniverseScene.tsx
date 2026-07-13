@@ -11,6 +11,7 @@ export interface ControlState {
   rad: number;        // desired distance
   target: [number, number, number];
   screen: { id: string; x: number; y: number; visible: boolean }[];
+  renderer?: THREE.WebGLRenderer | null;   // exposed for clean 3D snapshots
 }
 
 export function makeControls(rad: number): ControlState {
@@ -104,9 +105,11 @@ function Starfield() {
 }
 
 function Rig({ ctrl, objects }: { ctrl: React.MutableRefObject<ControlState>; objects: UObject[] }) {
-  const { camera, size } = useThree();
+  const { camera, size, gl } = useThree();
   const cur = useRef({ az: ctrl.current.az, pol: ctrl.current.pol, rad: ctrl.current.rad, tx: 0, ty: 0, tz: 0 });
   const v = useRef(new THREE.Vector3());
+
+  useEffect(() => { ctrl.current.renderer = gl as unknown as THREE.WebGLRenderer; }, [gl, ctrl]);
 
   useFrame(() => {
     const c = cur.current;
@@ -148,7 +151,7 @@ export function UniverseScene({ objects, selectedId, ctrl }: {
   ctrl: React.MutableRefObject<ControlState>;
 }) {
   return (
-    <Canvas camera={{ position: [0, 6, 30], fov: 55, near: 0.05, far: 2000 }} style={{ flex: 1 }} gl={{ antialias: true }}>
+    <Canvas camera={{ position: [0, 6, 30], fov: 55, near: 0.05, far: 2000 }} style={{ flex: 1 }} gl={{ antialias: true, preserveDrawingBuffer: true }}>
       <color attach="background" args={["#02040a"]} />
       <ambientLight intensity={0.35} />
       <pointLight position={[0, 0, 0]} intensity={2.4} distance={0} decay={0} />
