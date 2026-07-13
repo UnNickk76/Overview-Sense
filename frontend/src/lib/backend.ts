@@ -159,6 +159,10 @@ export const aiApi = {
     apiFetch<{ text: string }>("/ai/explain-visualization", {
       method: "POST", body: JSON.stringify({ fields }),
     }),
+  recognizeSubject: (image_base64: string) =>
+    apiFetch<{ subject: string; label_it: string }>("/ai/recognize-subject", {
+      method: "POST", body: JSON.stringify({ image_base64 }),
+    }),
   analyzeSatellite: (payload: { location: string; date: string; layer: string; layer_desc: string; notes?: string }) =>
     apiFetch<{ observe: string; explanations: string; cannot: string }>("/ai/analyze-satellite", {
       method: "POST", body: JSON.stringify(payload),

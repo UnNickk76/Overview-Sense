@@ -83,6 +83,42 @@ class ExplainOppReq(BaseModel):
     kind: Optional[str] = None
 
 
+RECOGNIZE_SYSTEM = (
+    "You classify the PRIMARY subject of a photo for the Overview app. "
+    "Pick exactly ONE from: sky, moon, sun, person, animal, plant, vehicle, building, landscape, water, object. "
+    "Respond ONLY with compact JSON: {\"subject\": <one of those>, \"label_it\": <2-3 word Italian label>}."
+)
+
+
+class RecognizeReq(BaseModel):
+    image_base64: str
+
+
+@ai_router.post("/recognize-subject")
+async def recognize_subject(req: RecognizeReq):
+    """Best-effort AI subject recognition to SUGGEST layers. Fails open (never blocks)."""
+    import json as _json
+    from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+    raw = req.image_base64
+    if "," in raw and raw.strip().startswith("data:"):
+        raw = raw.split(",", 1)[1]
+    if not EMERGENT_LLM_KEY or not raw:
+        return {"subject": "generic", "label_it": "Realtà"}
+    try:
+        chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=str(uuid.uuid4()),
+                       system_message=RECOGNIZE_SYSTEM).with_model("openai", "gpt-5.4")
+        resp = await chat.send_message(UserMessage(
+            text="Classify the primary subject. Return only the JSON.",
+            file_contents=[ImageContent(image_base64=raw)],
+        ))
+        text = resp if isinstance(resp, str) else (getattr(resp, "text", None) or str(resp))
+        s, e = text.find("{"), text.rfind("}")
+        data = _json.loads(text[s:e + 1]) if s != -1 else {}
+        return {"subject": data.get("subject", "generic"), "label_it": data.get("label_it", "Realtà")}
+    except Exception:
+        return {"subject": "generic", "label_it": "Realtà"}
+
+
 @ai_router.post("/explain-opportunity")
 async def explain_opportunity(req: ExplainOppReq):
     facts = "\n".join(f"- {f}" for f in req.facts if f)

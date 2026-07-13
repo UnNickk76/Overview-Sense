@@ -99,6 +99,26 @@ export const DATA_LAYERS: DataLayerDef[] = [
 
 export interface AvailableDataLayer extends DataLayerDef { current: string }
 
+// Subject → recommended layers (deterministic, honest mapping from AI-detected subject).
+export const SUBJECT_LAYERS: Record<string, { label: string; pixel: SenseVisualLayer[]; data: string[] }> = {
+  sky: { label: "Cielo", pixel: ["Luce", "Contrasto"], data: ["solar", "lunar", "satellite", "universe", "spaceweather", "air", "motion"] },
+  moon: { label: "Luna", pixel: ["Contrasto", "Micro-dettaglio", "Luminanza"], data: ["lunar", "universe", "motion"] },
+  sun: { label: "Sole", pixel: ["Luce", "Contrasto"], data: ["solar", "air"] },
+  person: { label: "Persona", pixel: ["Luce", "Colore", "Micro-dettaglio"], data: ["motion", "air", "magnetic"] },
+  animal: { label: "Animale", pixel: ["Colore", "Micro-dettaglio", "Luce"], data: ["motion", "air"] },
+  plant: { label: "Pianta / fiore", pixel: ["Colore", "Micro-dettaglio"], data: ["air", "solar"] },
+  vehicle: { label: "Veicolo", pixel: ["Luce", "Colore", "Contrasto"], data: ["motion", "magnetic"] },
+  building: { label: "Edificio", pixel: ["Contrasto", "Micro-dettaglio"], data: ["magnetic", "motion"] },
+  landscape: { label: "Paesaggio", pixel: ["Luce", "Colore", "Contrasto"], data: ["solar", "air", "motion", "universe"] },
+  water: { label: "Acqua", pixel: ["Luce", "Colore"], data: ["air", "motion"] },
+  object: { label: "Oggetto", pixel: ["Colore", "Micro-dettaglio"], data: ["magnetic", "motion"] },
+  generic: { label: "Realtà", pixel: ["Luce", "Colore"], data: ["motion"] },
+};
+
+export function recommendedFor(subject: string): { label: string; pixel: SenseVisualLayer[]; data: string[] } {
+  return SUBJECT_LAYERS[subject] ?? SUBJECT_LAYERS.generic;
+}
+
 export function availableDataLayers(d: ObsData | undefined): AvailableDataLayer[] {
   if (!d) return [];
   const out: AvailableDataLayer[] = [];

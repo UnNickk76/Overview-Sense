@@ -22,7 +22,8 @@ import { ApiError } from "@/src/lib/client";
 import { useAuth } from "@/src/context/AuthContext";
 import { SenseCanvas, layerToVisual, SenseVisualLayer } from "@/src/components/SenseCanvas";
 import { SenseLayerBar } from "@/src/components/SenseLayerBar";
-import { availableDataLayers } from "@/src/lib/senseLayers";
+import { availableDataLayers, recommendedFor } from "@/src/lib/senseLayers";
+import * as FileSystem from "expo-file-system/legacy";
 import { SenseMark } from "@/src/components/SenseMark";
 import { DiscoveryCard, CardFormat } from "@/src/components/DiscoveryCard";
 
@@ -41,6 +42,7 @@ export default function ObservationView() {
   const [aiLoading, setAiLoading] = useState(false);
   const [visualLayer, setVisualLayer] = useState<SenseVisualLayer>("Originale");
   const [activeData, setActiveData] = useState<Set<string>>(new Set());
+  const [subject, setSubject] = useState<{ label: string; pixel: SenseVisualLayer[] } | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<CardFormat>("square");
   const [exportStatus, setExportStatus] = useState<string | null>(null);
@@ -167,6 +169,26 @@ export default function ObservationView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [obs?.id]);
 
+  // AI recognises the framed subject to SUGGEST the most useful layers (manual always available).
+  useEffect(() => {
+    if (!obs?.uri || subject) return;
+    let alive = true;
+    (async () => {
+      try {
+        const b64 = await FileSystem.readAsStringAsync(obs.uri, { encoding: FileSystem.EncodingType.Base64 });
+        const r = await aiApi.recognizeSubject(b64);
+        if (!alive) return;
+        const rec = recommendedFor(r.subject);
+        setSubject({ label: r.label_it || rec.label, pixel: rec.pixel });
+        // auto-activate the recommended data layers that actually have real data
+        const avail = new Set(availableDataLayers(obs.data).map((l) => l.key));
+        setActiveData(new Set(rec.data.filter((k) => avail.has(k))));
+      } catch { /* recognition is best-effort */ }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [obs?.id]);
+
   if (!obs || !d) {
     return <SpaceBackground><ScreenHeader title="Observation" /><View style={styles.center}><ActivityIndicator color={colors.brand} /></View></SpaceBackground>;
   }
@@ -242,7 +264,13 @@ export default function ObservationView() {
         </ViewShot>
 
         <View style={styles.layerHint}>
-          <SenseLayerBar value={visualLayer} onChange={setVisualLayer} />
+          {subject ? (
+            <View style={styles.subjectBanner}>
+              <Ionicons name="scan" size={13} color={colors.brand} />
+              <Text style={styles.subjectText}>Soggetto rilevato: <Text style={{ color: colors.brand }}>{subject.label}</Text> · layer consigliati evidenziati</Text>
+            </View>
+          ) : null}
+          <SenseLayerBar value={visualLayer} onChange={setVisualLayer} recommended={subject?.pixel} />
         </View>
 
         {dataLayers.length ? (
@@ -438,6 +466,8 @@ const styles = StyleSheet.create({
   actText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.base },
   status: { color: colors.success, fontFamily: fonts.medium, fontSize: type.base, textAlign: "center" },
   dataOverlay: { position: "absolute", top: 10, left: 10, gap: 5, maxWidth: "70%" },
+  subjectBanner: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: spacing.sm },
+  subjectText: { flex: 1, color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1 },
   dataPill: { alignSelf: "flex-start", backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(212,175,55,0.6)" },
   dataPillText: { color: "#fff", fontFamily: fonts.medium, fontSize: type.sm - 1 },
   dataSection: { gap: spacing.sm },

@@ -331,3 +331,21 @@ auto/fiore) per proporre automaticamente i layer migliori — attivazione manual
   assente → `/before-you-begin`; "Ho capito, procedi" salva il flag e va a `/welcome`. Se già visto → welcome.
 - **Sempre consultabile** da About Overview: riga "Before You Begin" (`?from=about`) → modalità consultazione
   con "Chiudi" (nessun gate). Verificata in preview (IT+EN).
+
+---
+
+## SESSIONE 12 — Icona Sense Vision + auto-riconoscimento AI (2026-06)
+
+- **Icona ufficiale Sense Vision** impostata come `assets/images/sense-mark.png` (anello dorato + iride
+  spettrale, fornita dall'utente) → appare ovunque via `SenseMark` (gate/pulsante/created/badge Home/
+  viewer/Universe). L'icona app launcher resta il brand Overview (anello).
+- **Auto-riconoscimento soggetto (AI vision)**: `POST /api/ai/recognize-subject` (gpt-5.4 vision) →
+  {subject, label_it}, fail-open. `senseLayers.SUBJECT_LAYERS` mappa il soggetto → layer consigliati
+  (pixel + dati) in modo deterministico e onesto. Nel viewer Sense: legge base64 della foto, riconosce
+  il soggetto, mostra banner "Soggetto rilevato: …", **evidenzia i layer consigliati** (dot) nella
+  SenseLayerBar e **auto-attiva i data-layer consigliati disponibili**. Attivazione manuale sempre libera.
+  Verificato: cerchio bianco su sfondo scuro → "moon / luna piena".
+- Device-only: la lettura base64 della foto (per il riconoscimento) richiede un Sense catturato sul dispositivo.
+
+Ancora in sospeso: deep-link QR "apri nell'app" (universal/app links) → richiede il dominio definitivo
+DOPO il deploy (associazione dominio iOS/Android). Il QR web funziona già.

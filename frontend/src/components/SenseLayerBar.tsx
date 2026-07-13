@@ -10,10 +10,11 @@ interface Props {
   value: SenseVisualLayer;
   onChange: (v: SenseVisualLayer) => void;
   compact?: boolean;
+  recommended?: SenseVisualLayer[];
 }
 
 // The universal Sense Vision toggle — reused wherever the app creates an image.
-export function SenseLayerBar({ value, onChange, compact }: Props) {
+export function SenseLayerBar({ value, onChange, compact, recommended }: Props) {
   const active = layerMeta(value);
   return (
     <View style={styles.wrap}>
@@ -26,13 +27,15 @@ export function SenseLayerBar({ value, onChange, compact }: Props) {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
         {SENSE_LAYER_META.map((m) => {
           const on = m.key === value;
+          const rec = recommended?.includes(m.key);
           return (
             <Pressable
               key={m.key}
               testID={`sense-layer-${m.key}`}
               onPress={() => { Haptics.selectionAsync(); onChange(m.key); }}
-              style={[styles.chip, on && styles.chipActive]}
+              style={[styles.chip, on && styles.chipActive, !on && rec && styles.chipRec]}
             >
+              {rec && !on ? <View style={styles.recDot} /> : null}
               <Text style={styles.chipEmoji}>{m.emoji}</Text>
               <Text style={[styles.chipText, on && styles.chipTextActive]}>{m.label}</Text>
             </Pressable>
@@ -51,6 +54,8 @@ const styles = StyleSheet.create({
   row: { gap: spacing.sm, paddingVertical: 2 },
   chip: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.tertiary, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 7, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  chipRec: { borderColor: colors.brand },
+  recDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.brand },
   chipEmoji: { fontSize: 13 },
   chipText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.sm },
   chipTextActive: { color: colors.onBrand },
