@@ -190,6 +190,52 @@ export function getObject(id: string): CosmicObject | undefined {
   return COSMIC_OBJECTS.find((o) => o.id === id);
 }
 
+// English search terms for the NASA Images API (best real imagery per object).
+export const NASA_QUERY: Record<string, string> = {
+  sun: "sun sdo",
+  moon: "moon apollo",
+  mercury: "mercury planet messenger",
+  venus: "venus planet magellan",
+  mars: "mars planet",
+  jupiter: "jupiter planet juno",
+  saturn: "saturn cassini",
+  proxima: "proxima centauri",
+  sirius: "sirius star",
+  betelgeuse: "betelgeuse orion",
+  milkyway: "milky way galaxy",
+  andromeda: "andromeda galaxy m31",
+  "orion-nebula": "orion nebula",
+  sgra: "sagittarius a black hole",
+  iss: "international space station",
+  voyager1: "voyager 1 spacecraft",
+  halley: "halley comet",
+  pluto: "pluto new horizons",
+};
+
+export function nasaQueryFor(obj: CosmicObject): string {
+  return NASA_QUERY[obj.id] ?? obj.name;
+}
+
+// Earth reference constants for visual comparisons.
+const EARTH = { diameterKm: 12742, gravityMs2: 9.807, massKg: 5.972e24, tempK: 288 };
+
+export function compareWithEarth(obj: CosmicObject): { label: string; value: string }[] {
+  const out: { label: string; value: string }[] = [];
+  if (obj.diameterKm) {
+    const r = obj.diameterKm / EARTH.diameterKm;
+    out.push({ label: "Dimensione vs Terra", value: r >= 1 ? `${r.toFixed(r < 10 ? 1 : 0)}× più grande` : `${(1 / r).toFixed(1)}× più piccolo` });
+  }
+  if (obj.gravityMs2) {
+    const r = obj.gravityMs2 / EARTH.gravityMs2;
+    out.push({ label: "Peso vs Terra", value: `${(r * 100).toFixed(0)}% (70 kg → ${(70 * r).toFixed(0)} kg)` });
+  }
+  if (obj.massKg) {
+    const r = obj.massKg / EARTH.massKg;
+    out.push({ label: "Massa vs Terra", value: r >= 1 ? `${r < 100 ? r.toFixed(1) : r.toExponential(1)}× più massiccio` : `${(r * 100).toFixed(1)}% della Terra` });
+  }
+  return out;
+}
+
 // ----- Formatting helpers -----
 export function formatDistanceKm(km: number): string {
   if (km === 0) return "—";

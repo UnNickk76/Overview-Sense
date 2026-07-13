@@ -256,3 +256,23 @@ app.json (best practice). App verificata funzionante in preview dopo il downgrad
   `captureRef(cardRef)`.
 - Verifica: lint + tsc puliti; app carica in preview. Export end-to-end (capture PNG + share/save)
   testabile solo su **build nativa** (serve un Sense catturato in-app e permesso Foto).
+---
+
+## SESSIONE 8 — Universe Explorer: da database a esperienza (FASE 1, 2026-06)
+
+Visione utente: Universe non deve sembrare una lista, ma un'esplorazione reale. Confermato piano a fasi.
+FASE 1 (fatta):
+- **Backend** `GET /api/cosmos-images?q=&limit=`: proxy a NASA Images API (pubblico dominio) → lista
+  immagini reali {thumb,image,title,description,center,date}. Testato (Jupiter/Saturn OK).
+- **`cosmos.ts`**: `NASA_QUERY` per oggetto + `nasaQueryFor()` + `compareWithEarth()` (dimensione/peso/massa).
+- **`ImageZoomViewer.tsx`**: viewer full-screen, swipe tra immagini + pinch-zoom + doppio-tap + pan
+  (gesture-handler/reanimated), supporta rotazione.
+- **`cosmic-object.tsx` riscritto**: hero foto reale + watermark (snapshot-ready), **galleria reale**
+  (thumbnail → viewer), confronto con la Terra, Travel Here, curiosità, **Snapshot** (condividi/salva via
+  view-shot, senza UI), campo **"Aggiungi descrizione"** + **Pubblica come Observation** (scarica img NASA
+  → base64 → createObservation source="cosmos", passa dalla moderazione).
+- Verifica: lint+tsc puliti; scheda Saturno mostra 12 immagini reali NASA in preview.
+
+Prossime fasi: F2 Sense Layers cosmici (multi-wavelength reale + overlay etichettati) + modalità Confronta;
+F3 mappa immersiva pan/pinch multi-scala + Esplora intorno; F4 Viaggio animato + Timeline + Community
+Observations per oggetto. Nota: capture/publish/zoom si validano a pieno su build nativa.

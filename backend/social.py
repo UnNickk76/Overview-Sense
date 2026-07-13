@@ -19,6 +19,44 @@ from auth import get_current_user, get_optional_user
 
 social_router = APIRouter(prefix="/api", tags=["social"])
 
+
+@social_router.get("/cosmos-images")
+async def cosmos_images(q: str, limit: int = 8):
+    """Real, public-domain imagery for a cosmic object from the NASA Images API."""
+    import asyncio
+    import json as _json
+    import urllib.request
+    import urllib.parse
+    url = "https://images-api.nasa.gov/search?" + urllib.parse.urlencode(
+        {"q": q, "media_type": "image", "page_size": max(1, min(limit, 20))})
+
+    def fetch():
+        req = urllib.request.Request(url, headers={"User-Agent": "Overview/1.0"})
+        with urllib.request.urlopen(req, timeout=12) as r:
+            return _json.loads(r.read().decode())
+
+    try:
+        data = await asyncio.to_thread(fetch)
+    except Exception:
+        return {"images": []}
+    out = []
+    for it in data.get("collection", {}).get("items", []):
+        links = it.get("links") or []
+        meta = (it.get("data") or [{}])[0]
+        href = links[0].get("href") if links else None
+        if not href:
+            continue
+        full = href.replace("~thumb", "~medium").replace("~small", "~medium")
+        out.append({
+            "thumb": href,
+            "image": full,
+            "title": meta.get("title", ""),
+            "description": (meta.get("description") or "")[:700],
+            "center": meta.get("center"),
+            "date": meta.get("date_created"),
+        })
+    return {"images": out}
+
 INTERACTIONS = ("observed", "discovery", "learned")
 CATEGORY_PRIORITY = [
     "ISS", "Aurore", "Via Lattea", "Pianeti", "Luna", "Sole",

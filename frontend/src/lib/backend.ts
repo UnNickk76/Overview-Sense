@@ -51,8 +51,16 @@ export interface FeedObservation {
   author?: { id: string; nickname: string; bio?: string; avatar?: string | null };
 }
 
-export interface DiscoveryLevel {
-  key: string;
+export interface CosmicImage {
+  thumb: string;
+  image: string;
+  title: string;
+  description: string;
+  center?: string | null;
+  date?: string | null;
+}
+
+export interface DiscoveryLevel {  key: string;
   title: string;
   points: number;
   index: number;
@@ -122,6 +130,8 @@ export const socialApi = {
   observation: (id: string) => apiFetch<FeedObservation>(`/observations/${id}`),
   observationOfTheDay: () =>
     apiFetch<{ observation: FeedObservation | null }>("/observation-of-the-day"),
+  cosmosImages: (q: string, limit = 10) =>
+    apiFetch<{ images: CosmicImage[] }>(`/cosmos-images?q=${encodeURIComponent(q)}&limit=${limit}`),
   interact: (id: string, type: InteractionType) =>
     apiFetch<{ active: boolean; type: string; count: number }>(
       `/observations/${id}/interact`, { method: "POST", body: JSON.stringify({ type }) }),
