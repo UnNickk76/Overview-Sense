@@ -20,9 +20,9 @@ import { SenseLayerBar } from "@/src/components/SenseLayerBar";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import {
   getObject, formatDistanceKm, lightTravelTime, travelTime, TRAVEL_SPEEDS,
-  nasaQueryFor, compareWithEarth,
+  nasaQueryFor, compareWithEarth, OBJECT_EXTRAS, comparableFields, COSMIC_OBJECTS,
 } from "@/src/lib/cosmos";
-import { socialApi, CosmicImage } from "@/src/lib/backend";
+import { socialApi, CosmicImage, FeedObservation, mediaUrl } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
 
 export default function CosmicObjectScreen() {
@@ -42,7 +42,16 @@ export default function CosmicObjectScreen() {
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [compareId, setCompareId] = useState<string | null>(null);
+  const [community, setCommunity] = useState<FeedObservation[]>([]);
   const snapRef = useRef<ViewShot>(null);
+
+  useEffect(() => {
+    if (!obj) return;
+    socialApi.feed({ category: obj.category, sort: "recent" })
+      .then((r) => setCommunity(r.items.slice(0, 12)))
+      .catch(() => {});
+  }, [obj]);
 
   useEffect(() => {
     if (!obj) return;
@@ -73,6 +82,12 @@ export default function CosmicObjectScreen() {
   const distStr = obj.distanceLabel ?? formatDistanceKm(obj.distanceKm);
 
   const openViewer = (i: number) => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setViewerIndex(i); setViewerOpen(true); };
+
+  const extras = OBJECT_EXTRAS[obj.id];
+  const compareObj = compareId ? getObject(compareId) : undefined;
+  const cmpRows = compareObj ? comparableFields(obj, compareObj) : [];
+  const others = COSMIC_OBJECTS.filter((o) => o.id !== obj.id);
+  const aroundObjs = (extras?.around ?? []).map(getObject).filter(Boolean) as typeof COSMIC_OBJECTS;
 
   const snapshot = async (mode: "share" | "save") => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -207,6 +222,100 @@ export default function CosmicObjectScreen() {
           </View>
         ) : null}
 
+        {/* Timeline */}
+        {extras?.timeline?.length ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>TIMELINE · SCOPERTE E MISSIONI</Text>
+            {extras.timeline.map((t, i) => (
+              <View key={i} style={styles.tlRow}>
+                <View style={styles.tlLeft}>
+                  <View style={styles.tlDot} />
+                  {i < extras.timeline!.length - 1 ? <View style={styles.tlLine} /> : null}
+                </View>
+                <View style={styles.tlBody}>
+                  <Text style={styles.tlYear}>{t.year}</Text>
+                  <Text style={styles.tlText}>{t.text}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {/* Compare mode (object vs object) */}
+        <View style={styles.section}>
+          <View style={styles.travelHead}>
+            <Ionicons name="git-compare" size={16} color={colors.brand} />
+            <Text style={styles.travelTitle}>COMPARE · {obj.name.toUpperCase()} VS…</Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
+            {others.map((o) => (
+              <Pressable key={o.id} testID={`compare-${o.id}`}
+                onPress={() => { Haptics.selectionAsync(); setCompareId(compareId === o.id ? null : o.id); }}
+                style={[styles.speedChip, compareId === o.id && styles.speedActive]}>
+                <Text style={[styles.speedText, compareId === o.id && { color: colors.onBrand }]}>{o.emoji} {o.name}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+          {compareObj ? (
+            <View style={styles.cmpTable}>
+              <View style={styles.cmpHead}>
+                <Text style={[styles.cmpCol, styles.cmpColLabel]} />
+                <Text style={[styles.cmpCol, styles.cmpColHead]}>{obj.emoji} {obj.name}</Text>
+                <Text style={[styles.cmpCol, styles.cmpColHead]}>{compareObj.emoji} {compareObj.name}</Text>
+              </View>
+              {cmpRows.map((r, i) => (
+                <View key={i} style={styles.cmpTableRow}>
+                  <Text style={[styles.cmpCol, styles.cmpColLabel]}>{r.label}</Text>
+                  <Text style={styles.cmpCol}>{r.a}</Text>
+                  <Text style={styles.cmpCol}>{r.b}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.note}>Scegli un oggetto per confrontarlo con {obj.name}.</Text>
+          )}
+        </View>
+
+        {/* Explore Around */}
+        {aroundObjs.length ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>ESPLORA INTORNO</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
+              {aroundObjs.map((o) => (
+                <Pressable key={o.id} testID={`around-${o.id}`}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(`/cosmic-object?id=${o.id}` as never); }}
+                  style={styles.aroundChip}>
+                  <Text style={styles.aroundEmoji}>{o.emoji}</Text>
+                  <Text style={styles.aroundName}>{o.name}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
+
+        {/* Community Observations attached to this object */}
+        {community.length ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>OSSERVAZIONI DELLA COMMUNITY · {obj.category.toUpperCase()}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
+              {community.map((c) => {
+                const uri = mediaUrl(c.image_url);
+                return (
+                  <Pressable key={c.id} testID={`community-${c.id}`}
+                    onPress={() => router.push(`/observation-detail?id=${c.id}` as never)} style={styles.commCard}>
+                    {uri ? (
+                      <Image source={{ uri }} style={styles.commThumb} contentFit="cover" transition={150} />
+                    ) : (
+                      <View style={[styles.commThumb, styles.commEmpty]}><Text style={{ fontSize: 26 }}>{obj.emoji}</Text></View>
+                    )}
+                    <Text style={styles.commNick} numberOfLines={1}>{c.nickname}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        ) : null}
+
         {/* Snapshot + share */}
         <View style={styles.actions}>
           <Pressable testID="cosmic-snapshot-share" style={styles.actBtn} onPress={() => snapshot("share")} disabled={!hero}>
@@ -292,6 +401,26 @@ const styles = StyleSheet.create({
   factRow: { flexDirection: "row", gap: spacing.sm, alignItems: "flex-start" },
   dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.brand, marginTop: 7 },
   fact: { color: colors.onSurfaceTertiary, fontFamily: fonts.regular, fontSize: type.base, lineHeight: 21, flex: 1 },
+  tlRow: { flexDirection: "row", gap: spacing.md },
+  tlLeft: { alignItems: "center", width: 14 },
+  tlDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.brand, marginTop: 4 },
+  tlLine: { width: 2, flex: 1, backgroundColor: colors.border, marginVertical: 2 },
+  tlBody: { flex: 1, paddingBottom: spacing.md },
+  tlYear: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.sm },
+  tlText: { color: colors.onSurfaceTertiary, fontFamily: fonts.regular, fontSize: type.base, lineHeight: 20, marginTop: 2 },
+  cmpTable: { marginTop: spacing.sm, borderRadius: radius.md, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  cmpHead: { flexDirection: "row", backgroundColor: colors.surfaceTertiary, paddingVertical: spacing.sm },
+  cmpTableRow: { flexDirection: "row", paddingVertical: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
+  cmpCol: { flex: 1, color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.sm - 1, textAlign: "center", paddingHorizontal: 4 },
+  cmpColLabel: { flex: 1.1, color: colors.onSurfaceSecondary, fontFamily: fonts.regular, textAlign: "left", paddingLeft: spacing.sm },
+  cmpColHead: { color: colors.brand, fontFamily: fonts.semibold },
+  aroundChip: { alignItems: "center", justifyContent: "center", gap: 4, backgroundColor: colors.tertiary, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, minWidth: 84 },
+  aroundEmoji: { fontSize: 24 },
+  aroundName: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.sm - 1, textAlign: "center" },
+  commCard: { width: 96, gap: 4 },
+  commThumb: { width: 96, height: 96, borderRadius: radius.md, backgroundColor: colors.tertiary },
+  commEmpty: { alignItems: "center", justifyContent: "center" },
+  commNick: { color: colors.onSurfaceTertiary, fontFamily: fonts.mono, fontSize: type.sm - 2, textAlign: "center" },
   actions: { flexDirection: "row", gap: spacing.md },
   actBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.tertiary, borderRadius: radius.md, paddingVertical: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   actText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.base },

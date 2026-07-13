@@ -190,6 +190,123 @@ export function getObject(id: string): CosmicObject | undefined {
   return COSMIC_OBJECTS.find((o) => o.id === id);
 }
 
+// ----- Phase 2: Timelines + related objects (curated, real events) -----
+export interface TimelineEvent { year: string; text: string }
+export interface ObjectExtras { timeline?: TimelineEvent[]; around?: string[] }
+
+export const OBJECT_EXTRAS: Record<string, ObjectExtras> = {
+  sun: {
+    timeline: [
+      { year: "~4,6 mld fa", text: "Nascita del Sole dal collasso di una nube molecolare." },
+      { year: "1610", text: "Galileo osserva le macchie solari col telescopio." },
+      { year: "1995", text: "Lancio di SOHO, osservatorio solare ESA/NASA." },
+      { year: "2018", text: "Parker Solar Probe: prima sonda a 'toccare' il Sole." },
+    ],
+    around: ["mercury", "venus", "mars", "jupiter", "saturn"],
+  },
+  moon: {
+    timeline: [
+      { year: "~4,5 mld fa", text: "Formazione dopo l'impatto gigante con la Terra." },
+      { year: "1959", text: "Luna 3 fotografa il lato nascosto." },
+      { year: "1969", text: "Apollo 11: primi esseri umani sulla Luna." },
+      { year: "2024+", text: "Programma Artemis: ritorno umano previsto." },
+    ],
+    around: ["sun", "mars", "iss"],
+  },
+  mars: {
+    timeline: [
+      { year: "1965", text: "Mariner 4: primi close-up di Marte." },
+      { year: "1976", text: "Viking 1 e 2 atterrano sulla superficie." },
+      { year: "2012", text: "Curiosity atterra nel cratere Gale." },
+      { year: "2021", text: "Perseverance e l'elicottero Ingenuity." },
+    ],
+    around: ["jupiter", "venus", "sun"],
+  },
+  jupiter: {
+    timeline: [
+      { year: "1610", text: "Galileo scopre le 4 lune maggiori." },
+      { year: "1979", text: "Voyager 1 e 2 rivelano gli anelli e i vulcani di Io." },
+      { year: "1995", text: "Galileo entra in orbita gioviana." },
+      { year: "2016", text: "Juno inizia lo studio ravvicinato." },
+    ],
+    around: ["saturn", "mars", "sun"],
+  },
+  saturn: {
+    timeline: [
+      { year: "1610", text: "Galileo osserva le 'anse' (gli anelli)." },
+      { year: "1655", text: "Huygens comprende la natura degli anelli e scopre Titano." },
+      { year: "2004", text: "Cassini-Huygens entra in orbita." },
+      { year: "2017", text: "Gran finale di Cassini nell'atmosfera." },
+    ],
+    around: ["jupiter", "sun"],
+  },
+  pluto: {
+    timeline: [
+      { year: "1930", text: "Clyde Tombaugh scopre Plutone." },
+      { year: "2006", text: "Riclassificato come pianeta nano." },
+      { year: "2015", text: "New Horizons: primo sorvolo ravvicinato." },
+    ],
+    around: ["voyager1", "saturn"],
+  },
+  iss: {
+    timeline: [
+      { year: "1998", text: "Lancio del primo modulo (Zarya)." },
+      { year: "2000", text: "Primo equipaggio permanente a bordo." },
+      { year: "oggi", text: "Ricerca continua in microgravità." },
+    ],
+    around: ["moon", "voyager1"],
+  },
+  voyager1: {
+    timeline: [
+      { year: "1977", text: "Lancio verso il Sistema Solare esterno." },
+      { year: "1990", text: "Scatta 'Pale Blue Dot'." },
+      { year: "2012", text: "Entra nello spazio interstellare." },
+    ],
+    around: ["halley", "pluto"],
+  },
+  andromeda: {
+    timeline: [
+      { year: "964", text: "Al-Sufi la descrive come 'piccola nube'." },
+      { year: "1923", text: "Hubble dimostra che è una galassia esterna." },
+      { year: "+4,5 mld", text: "Prevista fusione con la Via Lattea." },
+    ],
+    around: ["milkyway", "orion-nebula"],
+  },
+  milkyway: {
+    timeline: [
+      { year: "1610", text: "Galileo risolve la Via Lattea in stelle." },
+      { year: "1920", text: "Grande Dibattito sulla natura delle galassie." },
+      { year: "2022", text: "Prima immagine di Sagittarius A* (EHT)." },
+    ],
+    around: ["sgra", "andromeda", "orion-nebula"],
+  },
+};
+
+// Side-by-side comparison between two cosmic objects (real values only).
+export function comparableFields(a: CosmicObject, b: CosmicObject): { label: string; a: string; b: string }[] {
+  const rows: { label: string; a: string; b: string }[] = [];
+  const dash = "—";
+  rows.push({ label: "Tipo", a: a.type, b: b.type });
+  rows.push({ label: "Distanza dalla Terra", a: a.distanceLabel ?? formatDistanceKm(a.distanceKm), b: b.distanceLabel ?? formatDistanceKm(b.distanceKm) });
+  rows.push({
+    label: "Diametro",
+    a: a.diameterKm ? `${a.diameterKm.toLocaleString("it-IT", { maximumFractionDigits: 0 })} km` : dash,
+    b: b.diameterKm ? `${b.diameterKm.toLocaleString("it-IT", { maximumFractionDigits: 0 })} km` : dash,
+  });
+  rows.push({
+    label: "Gravità",
+    a: a.gravityMs2 ? `${a.gravityMs2.toLocaleString("it-IT", { maximumFractionDigits: 2 })} m/s²` : dash,
+    b: b.gravityMs2 ? `${b.gravityMs2.toLocaleString("it-IT", { maximumFractionDigits: 2 })} m/s²` : dash,
+  });
+  rows.push({
+    label: "Temperatura",
+    a: a.tempK ? `${(a.tempK - 273.15).toLocaleString("it-IT", { maximumFractionDigits: 0 })} °C` : dash,
+    b: b.tempK ? `${(b.tempK - 273.15).toLocaleString("it-IT", { maximumFractionDigits: 0 })} °C` : dash,
+  });
+  rows.push({ label: "Periodo orbitale", a: a.orbitalPeriod ?? dash, b: b.orbitalPeriod ?? dash });
+  return rows;
+}
+
 // English search terms for the NASA Images API (best real imagery per object).
 export const NASA_QUERY: Record<string, string> = {
   sun: "sun sdo",

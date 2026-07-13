@@ -388,3 +388,15 @@ NOTA: pinch-zoom e dettagli-su-zoom si testano al meglio su dispositivo reale (i
 - Utenti normali: profilo modificabile liberamente (avatar/nickname/bio/password). Nessuna modifica email per nessuno.
 - app.json: aggiunti NSPhotoLibraryUsageDescription + plugin expo-image-picker.
 - Nota futura utente: creare ruoli "moderatori".
+
+### Universe Explorer Fase 2 (P1) — COMPLETATA
+`app/cosmic-object.tsx` + `src/lib/cosmos.ts`:
+- **Snapshot con watermark**: già presente (SenseMark + nome/layer/distanza), condivisione + salvataggio.
+- **Compare mode** (oggetto vs oggetto): picker orizzontale + tabella `comparableFields()` (tipo, distanza, diametro, gravità, temperatura, periodo orbitale). Verificato Sole vs Marte.
+- **Object Timeline**: `OBJECT_EXTRAS[id].timeline` (scoperte/missioni reali) per Sole, Luna, Marte, Giove, Saturno, Plutone, ISS, Voyager1, Andromeda, Via Lattea.
+- **Explore Around**: `OBJECT_EXTRAS[id].around` → chip navigabili verso oggetti correlati.
+- **Community Observations**: `socialApi.feed({category})` → strip di osservazioni della community collegate all'oggetto, tap → observation-detail.
+- **Journey/Travel Here**: già presente (tempi di viaggio a varie velocità).
+Nessun dato inventato: timeline curate da eventi storici reali, confronti da valori astronomici reali.
+
+STATO P1: tutti i punti completati (Verified Events, Live Earth interattivo, Observation Chains, Universe Explorer Fase 2).
