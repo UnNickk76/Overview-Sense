@@ -95,24 +95,39 @@ export const DATA_LAYERS: DataLayerDef[] = [
     reveals: "Direzione ed elevazione reali della fotocamera (bussola + accelerometro).",
     value: (d) => (d.cameraAz != null ? `${compass(d.cameraAz)} ${Math.round(d.cameraAz)}° · elev ${Math.round(d.cameraAlt ?? 0)}°` : null),
   },
+  {
+    key: "altitude", emoji: "📈", label: "Altitudine",
+    reveals: "Quota reale sul livello del mare (GPS del dispositivo).",
+    value: (d) => (d.altitude != null ? `${Math.round(d.altitude)} m s.l.m.` : null),
+  },
+  {
+    key: "location", emoji: "📍", label: "Posizione",
+    reveals: "Coordinate geografiche reali del luogo dello scatto.",
+    value: (d) => (d.lat != null ? `${d.lat.toFixed(2)}°, ${(d.lon ?? 0).toFixed(2)}°` : null),
+  },
 ];
 
 export interface AvailableDataLayer extends DataLayerDef { current: string }
 
 // Subject → recommended layers (deterministic, honest mapping from AI-detected subject).
+// Only layers with REAL data actually appear (availableDataLayers filters). The order
+// here defines which 2-3 layers are surfaced first on the Sense.
 export const SUBJECT_LAYERS: Record<string, { label: string; pixel: SenseVisualLayer[]; data: string[] }> = {
-  sky: { label: "Cielo", pixel: ["Luce", "Contrasto"], data: ["solar", "lunar", "satellite", "universe", "spaceweather", "air", "motion"] },
+  sky: { label: "Cielo", pixel: ["Luce", "Contrasto"], data: ["universe", "satellite", "spaceweather", "lunar", "solar", "air", "motion"] },
   moon: { label: "Luna", pixel: ["Contrasto", "Micro-dettaglio", "Luminanza"], data: ["lunar", "universe", "motion"] },
-  sun: { label: "Sole", pixel: ["Luce", "Contrasto"], data: ["solar", "air"] },
-  person: { label: "Persona", pixel: ["Luce", "Colore", "Micro-dettaglio"], data: ["motion", "air", "magnetic"] },
-  animal: { label: "Animale", pixel: ["Colore", "Micro-dettaglio", "Luce"], data: ["motion", "air"] },
-  plant: { label: "Pianta / fiore", pixel: ["Colore", "Micro-dettaglio"], data: ["air", "solar"] },
-  vehicle: { label: "Veicolo", pixel: ["Luce", "Colore", "Contrasto"], data: ["motion", "magnetic"] },
-  building: { label: "Edificio", pixel: ["Contrasto", "Micro-dettaglio"], data: ["magnetic", "motion"] },
-  landscape: { label: "Paesaggio", pixel: ["Luce", "Colore", "Contrasto"], data: ["solar", "air", "motion", "universe"] },
-  water: { label: "Acqua", pixel: ["Luce", "Colore"], data: ["air", "motion"] },
+  sun: { label: "Sole", pixel: ["Luce", "Contrasto"], data: ["solar", "spaceweather", "air"] },
+  person: { label: "Persona", pixel: ["Luce", "Colore", "Micro-dettaglio"], data: ["magnetic", "air", "solar", "lunar", "motion"] },
+  animal: { label: "Animale", pixel: ["Colore", "Micro-dettaglio", "Luce"], data: ["motion", "air", "solar"] },
+  plant: { label: "Pianta / fiore", pixel: ["Colore", "Micro-dettaglio"], data: ["air", "solar", "location"] },
+  vehicle: { label: "Veicolo", pixel: ["Luce", "Colore", "Contrasto"], data: ["motion", "magnetic", "location"] },
+  building: { label: "Edificio", pixel: ["Contrasto", "Micro-dettaglio"], data: ["magnetic", "motion", "location"] },
+  landscape: { label: "Paesaggio", pixel: ["Luce", "Colore", "Contrasto"], data: ["altitude", "air", "solar", "motion", "location"] },
+  mountain: { label: "Montagna", pixel: ["Contrasto", "Luce"], data: ["altitude", "air", "solar", "motion"] },
+  forest: { label: "Foresta", pixel: ["Colore", "Micro-dettaglio"], data: ["air", "solar", "location", "altitude"] },
+  city: { label: "Città", pixel: ["Contrasto", "Luce", "Colore"], data: ["air", "satellite", "location", "motion"] },
+  water: { label: "Mare / acqua", pixel: ["Luce", "Colore"], data: ["lunar", "air", "motion", "location"] },
   object: { label: "Oggetto", pixel: ["Colore", "Micro-dettaglio"], data: ["magnetic", "motion"] },
-  generic: { label: "Realtà", pixel: ["Luce", "Colore"], data: ["motion"] },
+  generic: { label: "Realtà", pixel: ["Luce", "Colore"], data: ["motion", "air", "location"] },
 };
 
 export function recommendedFor(subject: string): { label: string; pixel: SenseVisualLayer[]; data: string[] } {
@@ -127,4 +142,16 @@ export function availableDataLayers(d: ObsData | undefined): AvailableDataLayer[
     if (v) out.push({ ...l, current: v });
   }
   return out;
+}
+
+// Available layers ordered by the subject's recommendation (so the first 2-3 shown
+// directly on the Sense are the most relevant). Unrecommended-but-available follow.
+export function orderedDataLayers(d: ObsData | undefined, recData?: string[]): AvailableDataLayer[] {
+  const avail = availableDataLayers(d);
+  if (!recData?.length) return avail;
+  const byKey = new Map(avail.map((l) => [l.key, l] as const));
+  const ordered: AvailableDataLayer[] = [];
+  for (const k of recData) { const l = byKey.get(k); if (l) { ordered.push(l); byKey.delete(k); } }
+  for (const l of byKey.values()) ordered.push(l);
+  return ordered;
 }

@@ -85,7 +85,10 @@ class ExplainOppReq(BaseModel):
 
 RECOGNIZE_SYSTEM = (
     "You classify the PRIMARY subject of a photo for the Overview app. "
-    "Pick exactly ONE from: sky, moon, sun, person, animal, plant, vehicle, building, landscape, water, object. "
+    "Pick exactly ONE from: sky, moon, sun, person, animal, plant, vehicle, building, "
+    "landscape, mountain, forest, city, water, object. "
+    "Use 'water' for sea/lake/river, 'city' for urban skylines/streets, 'mountain' for peaks/ranges, "
+    "'forest' for woods/dense trees. "
     "Respond ONLY with compact JSON: {\"subject\": <one of those>, \"label_it\": <2-3 word Italian label>}."
 )
 

@@ -22,7 +22,9 @@ import { ApiError } from "@/src/lib/client";
 import { useAuth } from "@/src/context/AuthContext";
 import { SenseCanvas, layerToVisual, SenseVisualLayer } from "@/src/components/SenseCanvas";
 import { SenseLayerBar } from "@/src/components/SenseLayerBar";
-import { availableDataLayers, recommendedFor } from "@/src/lib/senseLayers";
+import { availableDataLayers, orderedDataLayers, recommendedFor } from "@/src/lib/senseLayers";
+import { SenseSurface } from "@/src/components/SenseSurface";
+import { LinearGradient } from "expo-linear-gradient";
 import * as FileSystem from "expo-file-system/legacy";
 import { SenseMark } from "@/src/components/SenseMark";
 import { DiscoveryCard, CardFormat } from "@/src/components/DiscoveryCard";
@@ -42,7 +44,9 @@ export default function ObservationView() {
   const [aiLoading, setAiLoading] = useState(false);
   const [visualLayer, setVisualLayer] = useState<SenseVisualLayer>("Originale");
   const [activeData, setActiveData] = useState<Set<string>>(new Set());
-  const [subject, setSubject] = useState<{ label: string; pixel: SenseVisualLayer[] } | null>(null);
+  const [subject, setSubject] = useState<{ label: string; pixel: SenseVisualLayer[]; data: string[] } | null>(null);
+  const [layersVisible, setLayersVisible] = useState(true);
+  const [showAll, setShowAll] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<CardFormat>("square");
   const [exportStatus, setExportStatus] = useState<string | null>(null);
@@ -179,10 +183,10 @@ export default function ObservationView() {
         const r = await aiApi.recognizeSubject(b64);
         if (!alive) return;
         const rec = recommendedFor(r.subject);
-        setSubject({ label: r.label_it || rec.label, pixel: rec.pixel });
-        // auto-activate the recommended data layers that actually have real data
+        setSubject({ label: r.label_it || rec.label, pixel: rec.pixel, data: rec.data });
+        // auto-activate the first 2-3 recommended layers that actually have real data
         const avail = new Set(availableDataLayers(obs.data).map((l) => l.key));
-        setActiveData(new Set(rec.data.filter((k) => avail.has(k))));
+        setActiveData(new Set(rec.data.filter((k) => avail.has(k)).slice(0, 3)));
       } catch { /* recognition is best-effort */ }
     })();
     return () => { alive = false; };
@@ -195,7 +199,7 @@ export default function ObservationView() {
 
   const dateStr = new Date(d.ts).toLocaleString([], { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
   const qrValue = `frontend://observation?id=${obs.id}`;
-  const dataLayers = availableDataLayers(d);
+  const dataLayers = orderedDataLayers(d, subject?.data);
 
   return (
     <SpaceBackground>
@@ -208,60 +212,75 @@ export default function ObservationView() {
         </View>
 
         <ViewShot ref={shotRef} style={{ width: cardW, height: cardH, alignSelf: "center", borderRadius: 18, overflow: "hidden" }}>
-          <SenseCanvas uri={obs.uri} width={cardW} height={cardH} layer={visualLayer} />
+          <SenseSurface
+            width={cardW}
+            height={cardH}
+            radius={18}
+            fullscreenUri={obs.uri}
+            layersVisible={layersVisible}
+            onToggleLayers={() => setLayersVisible((v) => !v)}
+            photo={<SenseCanvas uri={obs.uri} width={cardW} height={cardH} layer={visualLayer} />}
+            overlay={
+              <>
+                {reveal && overlay ? (
+                  <Svg width={cardW} height={cardH} style={StyleSheet.absoluteFill}>
+                    {overlay.lines.map((l, i) => (
+                      <Line key={`l${i}`} x1={l.a.x} y1={l.a.y} x2={l.b.x} y2={l.b.y} stroke="#5AB0FF" strokeWidth={1.2} opacity={0.7} />
+                    ))}
+                    {overlay.stars.map((s, i) => (
+                      <Circle key={`st${i}`} cx={s.x} cy={s.y} r={2.2} fill="#EAF2FF" />
+                    ))}
+                    {overlay.planets.map((pl, i) => (
+                      <G key={`pl${i}`}>
+                        <Circle cx={pl.pt.x} cy={pl.pt.y} r={5} fill="#D4AF37" />
+                        <SvgText x={pl.pt.x + 8} y={pl.pt.y + 4} fill="#D4AF37" fontSize={11} fontWeight="600">{pl.name}</SvgText>
+                      </G>
+                    ))}
+                    {overlay.satellites.map((s, i) => (
+                      <G key={`sat${i}`}>
+                        <SvgRect x={s.pt.x - 3} y={s.pt.y - 3} width={6} height={6} fill="#0A84FF" />
+                        <SvgText x={s.pt.x + 7} y={s.pt.y + 3} fill="#8FD0FF" fontSize={9}>{s.name}</SvgText>
+                      </G>
+                    ))}
+                    {overlay.iss?.pt ? (
+                      <G>
+                        <Circle cx={overlay.iss.pt.x} cy={overlay.iss.pt.y} r={6} fill="none" stroke="#D4AF37" strokeWidth={2} />
+                        <SvgText x={overlay.iss.pt.x + 9} y={overlay.iss.pt.y + 4} fill="#D4AF37" fontSize={11} fontWeight="700">ISS</SvgText>
+                      </G>
+                    ) : null}
+                    {overlay.moon ? <SvgText x={overlay.moon.x} y={overlay.moon.y} fill="#fff" fontSize={16}>☾</SvgText> : null}
+                    {overlay.gc ? <SvgText x={overlay.gc.x - 20} y={overlay.gc.y} fill="#F0C674" fontSize={10}>◄ Via Lattea</SvgText> : null}
+                  </Svg>
+                ) : null}
 
-          {reveal && overlay ? (
-            <Svg width={cardW} height={cardH} style={StyleSheet.absoluteFill}>
-              {overlay.lines.map((l, i) => (
-                <Line key={`l${i}`} x1={l.a.x} y1={l.a.y} x2={l.b.x} y2={l.b.y} stroke="#5AB0FF" strokeWidth={1.2} opacity={0.7} />
-              ))}
-              {overlay.stars.map((s, i) => (
-                <Circle key={`st${i}`} cx={s.x} cy={s.y} r={2.2} fill="#EAF2FF" />
-              ))}
-              {overlay.planets.map((pl, i) => (
-                <G key={`pl${i}`}>
-                  <Circle cx={pl.pt.x} cy={pl.pt.y} r={5} fill="#D4AF37" />
-                  <SvgText x={pl.pt.x + 8} y={pl.pt.y + 4} fill="#D4AF37" fontSize={11} fontWeight="600">{pl.name}</SvgText>
-                </G>
-              ))}
-              {overlay.satellites.map((s, i) => (
-                <G key={`sat${i}`}>
-                  <SvgRect x={s.pt.x - 3} y={s.pt.y - 3} width={6} height={6} fill="#0A84FF" />
-                  <SvgText x={s.pt.x + 7} y={s.pt.y + 3} fill="#8FD0FF" fontSize={9}>{s.name}</SvgText>
-                </G>
-              ))}
-              {overlay.iss?.pt ? (
-                <G>
-                  <Circle cx={overlay.iss.pt.x} cy={overlay.iss.pt.y} r={6} fill="none" stroke="#D4AF37" strokeWidth={2} />
-                  <SvgText x={overlay.iss.pt.x + 9} y={overlay.iss.pt.y + 4} fill="#D4AF37" fontSize={11} fontWeight="700">ISS</SvgText>
-                </G>
-              ) : null}
-              {overlay.moon ? <SvgText x={overlay.moon.x} y={overlay.moon.y} fill="#fff" fontSize={16}>☾</SvgText> : null}
-              {overlay.gc ? <SvgText x={overlay.gc.x - 20} y={overlay.gc.y} fill="#F0C674" fontSize={10}>◄ Via Lattea</SvgText> : null}
-            </Svg>
-          ) : null}
+                {activeData.size ? (
+                  <View style={styles.dataOverlay} pointerEvents="none">
+                    {dataLayers.filter((l) => activeData.has(l.key)).map((l) => (
+                      <View key={l.key} style={styles.dataPill}>
+                        <Text style={styles.dataPillEmoji}>{l.emoji}</Text>
+                        <Text style={styles.dataPillText}>{l.current}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
 
-          {activeData.size ? (
-            <View style={styles.dataOverlay} pointerEvents="none">
-              {dataLayers.filter((l) => activeData.has(l.key)).map((l) => (
-                <View key={l.key} style={styles.dataPill}>
-                  <Text style={styles.dataPillText}>{l.emoji} {l.current}</Text>
+                {/* Elegant, slim watermark bar */}
+                <View style={styles.watermark} pointerEvents="none">
+                  <LinearGradient colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.55)"]} style={StyleSheet.absoluteFill} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.wmBrand}>Overview <Text style={styles.wmDot}>•</Text> The Invisible Sense</Text>
+                    <Text style={styles.wmMeta}>{observationCode(obs.seq)}{d.lat != null ? `  ·  ${nf(d.lat, 2)}°, ${nf(d.lon!, 2)}°` : ""}</Text>
+                  </View>
+                  <View style={styles.qrBox}>
+                    <QRCode value={qrValue} size={30} color="#0A0A0A" backgroundColor="#FFFFFF" />
+                  </View>
                 </View>
-              ))}
-            </View>
-          ) : null}
-
-          {/* Elegant watermark bar */}
-          <View style={styles.watermark}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.wmBrand}>Overview <Text style={styles.wmDot}>•</Text> The Invisible Sense</Text>
-              <Text style={styles.wmMeta}>{observationCode(obs.seq)}  ·  {dateStr}{d.lat != null ? `  ·  ${nf(d.lat, 2)}°, ${nf(d.lon!, 2)}°` : ""}</Text>
-            </View>
-            <View style={styles.qrBox}>
-              <QRCode value={qrValue} size={44} color="#0A0A0A" backgroundColor="#FFFFFF" />
-            </View>
-          </View>
+              </>
+            }
+          />
         </ViewShot>
+
+        <Text style={styles.gestureHint}>👆 Tap: mostra/nascondi i dati · 👆👆 Doppio tap: Pure Sense™ a schermo intero</Text>
 
         <View style={styles.layerHint}>
           {subject ? (
@@ -275,9 +294,9 @@ export default function ObservationView() {
 
         {dataLayers.length ? (
           <View style={styles.dataSection}>
-            <Text style={styles.dataTitle}>DATI REALI RILEVATI · tocca per sovrapporli</Text>
+            <Text style={styles.dataTitle}>SENSE LAYER · dati reali di questa scena · tocca per sovrapporli</Text>
             <View style={styles.dataChips}>
-              {dataLayers.map((l) => {
+              {(showAll ? dataLayers : dataLayers.slice(0, 3)).map((l) => {
                 const on = activeData.has(l.key);
                 return (
                   <Pressable
@@ -285,6 +304,7 @@ export default function ObservationView() {
                     testID={`data-layer-${l.key}`}
                     onPress={() => {
                       Haptics.selectionAsync();
+                      setLayersVisible(true);
                       setActiveData((prev) => {
                         const next = new Set(prev);
                         if (next.has(l.key)) next.delete(l.key); else next.add(l.key);
@@ -299,11 +319,17 @@ export default function ObservationView() {
                 );
               })}
             </View>
+            {dataLayers.length > 3 ? (
+              <Pressable testID="show-all-layers" style={styles.showAllBtn} onPress={() => { Haptics.selectionAsync(); setShowAll((s) => !s); }}>
+                <Text style={styles.showAllText}>{showAll ? "Mostra meno" : `Mostra tutti i Sense Layer (${dataLayers.length})`}</Text>
+                <Ionicons name={showAll ? "chevron-up" : "chevron-down"} size={14} color={colors.brand} />
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
 
         <View style={styles.actions}>
-          <Pressable testID="reveal-toggle" style={[styles.revealBtn, reveal && styles.revealActive]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setReveal((r) => !r); }}>
+          <Pressable testID="reveal-toggle" style={[styles.revealBtn, reveal && styles.revealActive]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setLayersVisible(true); setReveal((r) => !r); }}>
             <Ionicons name={reveal ? "eye" : "eye-outline"} size={18} color={reveal ? colors.onBrand : colors.onSurface} />
             <Text style={[styles.revealText, reveal && { color: colors.onBrand }]}>What You Couldn&apos;t See</Text>
           </Pressable>
@@ -453,11 +479,12 @@ const styles = StyleSheet.create({
   layerChipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
   layerChipText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.sm - 1 },
   layerChipTextActive: { color: colors.onBrand },
-  watermark: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "center", gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, backgroundColor: "rgba(0,0,0,0.42)" },
-  wmBrand: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.base, letterSpacing: 0.3 },
+  watermark: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "center", gap: spacing.md, paddingHorizontal: spacing.md, paddingVertical: 8 },
+  wmBrand: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.sm, letterSpacing: 0.3 },
   wmDot: { color: colors.brand },
-  wmMeta: { color: "rgba(255,255,255,0.75)", fontFamily: fonts.mono, fontSize: type.sm - 3, marginTop: 2 },
-  qrBox: { padding: 3, backgroundColor: "#fff", borderRadius: 6 },
+  wmMeta: { color: "rgba(255,255,255,0.75)", fontFamily: fonts.mono, fontSize: type.sm - 3, marginTop: 1 },
+  qrBox: { padding: 2, backgroundColor: "#fff", borderRadius: 5 },
+  gestureHint: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 2, textAlign: "center", opacity: 0.65, marginTop: -spacing.xs },
   actions: { flexDirection: "row", gap: spacing.md },
   revealBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.tertiary, borderRadius: 16, paddingVertical: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.borderStrong },
   revealActive: { backgroundColor: colors.brand, borderColor: colors.brand },
@@ -465,12 +492,15 @@ const styles = StyleSheet.create({
   actBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.tertiary, borderRadius: 16, paddingVertical: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   actText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.base },
   status: { color: colors.success, fontFamily: fonts.medium, fontSize: type.base, textAlign: "center" },
-  dataOverlay: { position: "absolute", top: 10, left: 10, gap: 5, maxWidth: "70%" },
+  dataOverlay: { position: "absolute", top: 12, left: 12, gap: 6, maxWidth: "72%" },
   subjectBanner: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: spacing.sm },
   subjectText: { flex: 1, color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1 },
-  dataPill: { alignSelf: "flex-start", backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(212,175,55,0.6)" },
-  dataPillText: { color: "#fff", fontFamily: fonts.medium, fontSize: type.sm - 1 },
+  dataPill: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", backgroundColor: "rgba(10,12,16,0.44)", borderRadius: 7, paddingHorizontal: 9, paddingVertical: 4, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(212,175,55,0.55)", borderLeftWidth: 2, borderLeftColor: colors.brand },
+  dataPillEmoji: { fontSize: 12 },
+  dataPillText: { color: "#fff", fontFamily: fonts.mono, fontSize: type.sm - 1, letterSpacing: 0.2 },
   dataSection: { gap: spacing.sm },
+  showAllBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: spacing.sm },
+  showAllText: { color: colors.brand, fontFamily: fonts.medium, fontSize: type.sm },
   dataTitle: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm - 2, letterSpacing: 0.8 },
   dataChips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   dataChip: { backgroundColor: colors.tertiary, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },

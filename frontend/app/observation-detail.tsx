@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { StyleSheet, Text, View, ScrollView, ActivityIndicator, Pressable, TextInput } from "react-native";
+import { StyleSheet, Text, View, ScrollView, ActivityIndicator, Pressable, TextInput, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
@@ -15,10 +15,13 @@ import { socialApi, FeedObservation, Comment, mediaUrl } from "@/src/lib/backend
 import { eventsApi, ObservationChain } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
 import { nf, compassPoint } from "@/src/lib/format";
+import { SenseSurface } from "@/src/components/SenseSurface";
+import { orderedDataLayers } from "@/src/lib/senseLayers";
 
 export default function ObservationDetail() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { width } = useWindowDimensions();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const [obs, setObs] = useState<FeedObservation | null>(null);
@@ -27,6 +30,7 @@ export default function ObservationDetail() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [layersVisible, setLayersVisible] = useState(true);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -60,6 +64,7 @@ export default function ObservationDetail() {
 
   const d = obs.data;
   const uri = mediaUrl(obs.image_url);
+  const dataLayers = orderedDataLayers(d).slice(0, 4);
 
   return (
     <SpaceBackground>
@@ -71,12 +76,34 @@ export default function ObservationDetail() {
         </Pressable>
 
         {uri ? (
-          <Image source={{ uri }} style={styles.image} contentFit="cover" transition={200} />
+          <SenseSurface
+            width={width}
+            height={width}
+            radius={0}
+            fullscreenUri={uri}
+            layersVisible={layersVisible}
+            onToggleLayers={() => setLayersVisible((v) => !v)}
+            photo={<Image source={{ uri }} style={styles.image} contentFit="cover" transition={200} />}
+            overlay={dataLayers.length ? (
+              <View style={styles.dataOverlay} pointerEvents="none">
+                {dataLayers.map((l) => (
+                  <View key={l.key} style={styles.dataPill}>
+                    <Text style={styles.dataPillEmoji}>{l.emoji}</Text>
+                    <Text style={styles.dataPillText}>{l.current}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : undefined}
+          />
         ) : (
           <View style={[styles.image, styles.placeholder]}>
             <Ionicons name={obs.media_type === "audio" ? "musical-notes" : "image"} size={48} color={colors.onSurfaceSecondary} />
           </View>
         )}
+
+        {uri && dataLayers.length ? (
+          <Text style={styles.gestureHint}>👆 Tap: Reality Sense™ · 👆👆 Doppio tap: Pure Sense™</Text>
+        ) : null}
 
         <View style={styles.body}>
           {obs.caption ? <Text style={styles.caption}>{obs.caption}</Text> : null}
@@ -218,6 +245,11 @@ const styles = StyleSheet.create({
   scoreBitValue: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.lg },
   scoreBitLabel: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 2, marginTop: 1 },
   dataCard: { backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, paddingHorizontal: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  dataOverlay: { position: "absolute", top: 12, left: 12, gap: 6, maxWidth: "72%" },
+  dataPill: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", backgroundColor: "rgba(10,12,16,0.44)", borderRadius: 7, paddingHorizontal: 9, paddingVertical: 4, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(212,175,55,0.55)", borderLeftWidth: 2, borderLeftColor: colors.brand },
+  dataPillEmoji: { fontSize: 12 },
+  dataPillText: { color: "#fff", fontFamily: fonts.mono, fontSize: type.sm - 1, letterSpacing: 0.2 },
+  gestureHint: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 2, textAlign: "center", opacity: 0.65, paddingVertical: spacing.sm },
   row: { flexDirection: "row", justifyContent: "space-between", paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },
   rowLabel: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.base },
   rowValue: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.base, flexShrink: 1, textAlign: "right" },

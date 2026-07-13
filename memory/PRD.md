@@ -539,3 +539,26 @@ Visione: non consultare mappe, ma "avere la sensazione di esserci". Esplorazione
 - Onestà risoluzione: nota su fonte/satellite/data, nessun dettaglio inventato. Tutte fonti GRATUITE (NASA GIBS, OS geocoder).
 - Cleanup timer su unmount. Lint/tsc clean. Home card "satellite" → questa schermata; link ad Analisi AI classica.
 FUTURO (predisposto): auto-refresh immagini su nuovi passaggi satellitari; rotazione (non significativa su imagery 2D piatta, valutare globo 3D).
+
+### SESSIONE 7 (fork) — Sense: gesture universali Pure/Reality + Layer contestuali + ritocchi card
+
+Richiesta utente: la foto deve restare protagonista; ogni Sense deve avere due anime raggiungibili con un gesto.
+
+**Standard gesture universale — `src/components/SenseSurface.tsx` (NUOVO, riutilizzabile):**
+- Doppio tap -> Pure Sense(TM): il Senshot a schermo intero (Modal nero, contentFit:contain), nessuna UI/dato/layer; secondo doppio tap torna. Flash brandizzato ~650ms (SenseMark + "Pure Sense") con ZoomIn/FadeOut (reanimated).
+- Tap singolo -> Reality Sense(TM): mostra/nasconde TUTTI i Sense Layer (overlay dati/watermark) con transizione fluida FadeIn/FadeOut. Flash "Reality Sense" quando si attivano.
+- Gesti via react-native-gesture-handler Gesture.Exclusive(doubleTap, singleTap) (callback su JS thread). layersVisible controllato dal parent.
+- Integrato in app/observation.tsx (viewer Sense principale, dentro il ViewShot per l'export) e app/observation-detail.tsx (viewer feed remoto). Verificato su web: badge dati HUD, hint gesture, tap singolo nasconde i dati (Pure).
+
+**Sense Layer dinamici e contestuali (AI):**
+- Backend ai_features.RECOGNIZE_SYSTEM: aggiunte categorie soggetto mountain, forest, city (+ water=mare/lago).
+- src/lib/senseLayers.ts: SUBJECT_LAYERS riscritto per persona/cielo/mare/montagna/foresta/citta. Nuovi DATA_LAYERS onesti: Altitudine (d.altitude), Posizione (d.lat/lon). orderedDataLayers(d, recData) ordina i layer disponibili secondo il soggetto: primi 2-3 mostrati diretti, gli altri sotto "Mostra tutti i Sense Layer (N)".
+- observation.tsx: auto-attiva solo i primi 3 layer consigliati disponibili; sezione chips con espansione showAll.
+
+**Ritocchi grafici card Senshot (observation.tsx):**
+- Fascia watermark inferiore piu sottile (gradient trasparente->nero, padding ridotto, font piu piccoli).
+- QR ridotto 44->30px. Badge dati stile HUD/AR (sfondo translucido, bordo oro + accento oro a sinistra, valore monospace).
+
+NOTA onesta: i data-layer compaiono solo se il valore reale esiste (maree/UV/vegetazione non presenti -> non mostrati).
+
+RIMANE: standard gesture sulla card scrollabile del feed (ObservationCard) se desiderato; SnapshotStudio annotazioni/disegno (Skia); Meteo Spaziale vivo; Realta Invisibile 3D; Timeline con Play; Colonna sonora (Sense Match, royalty-free); AR (build nativa).
