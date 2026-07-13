@@ -31,6 +31,8 @@ export default function ObservationDetail() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [layersVisible, setLayersVisible] = useState(true);
+  const [gallery, setGallery] = useState<string[]>([]);
+  const [galleryIndex, setGalleryIndex] = useState(0);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -38,6 +40,15 @@ export default function ObservationDetail() {
       const [o, c] = await Promise.all([socialApi.observation(id), socialApi.comments(id)]);
       setObs(o); setComments(c.items);
       eventsApi.chain(id).then(setChain).catch(() => {});
+      // Build an immersive vertical-swipe gallery from recent community Senshots.
+      socialApi.feed({ sort: "recent" }).then((f) => {
+        const withImg = f.items.filter((it) => it.image_url);
+        const uris = withImg.map((it) => mediaUrl(it.image_url)).filter((u): u is string => !!u);
+        let idx = withImg.findIndex((it) => it.id === o.id);
+        const curUri = mediaUrl(o.image_url);
+        if (idx < 0 && curUri) { uris.unshift(curUri); idx = 0; }
+        setGallery(uris); setGalleryIndex(Math.max(0, idx));
+      }).catch(() => {});
     } catch { /* ignore */ } finally { setLoading(false); }
   }, [id]);
 
@@ -83,6 +94,8 @@ export default function ObservationDetail() {
             fullscreenUri={uri}
             layersVisible={layersVisible}
             onToggleLayers={() => setLayersVisible((v) => !v)}
+            gallery={gallery}
+            initialIndex={galleryIndex}
             photo={<Image source={{ uri }} style={styles.image} contentFit="cover" transition={200} />}
             overlay={dataLayers.length ? (
               <View style={styles.dataOverlay} pointerEvents="none">

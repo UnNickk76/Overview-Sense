@@ -562,3 +562,16 @@ Richiesta utente: la foto deve restare protagonista; ogni Sense deve avere due a
 NOTA onesta: i data-layer compaiono solo se il valore reale esiste (maree/UV/vegetazione non presenti -> non mostrati).
 
 RIMANE: standard gesture sulla card scrollabile del feed (ObservationCard) se desiderato; SnapshotStudio annotazioni/disegno (Skia); Meteo Spaziale vivo; Realta Invisibile 3D; Timeline con Play; Colonna sonora (Sense Match, royalty-free); AR (build nativa).
+
+### SESSIONE 7b (fork) — Pure Sense immersive gallery + REGOLA "LOOK UP / GO INSIDE"
+
+**FATTO — Immersive swipe in Pure Sense (SenseSurface):** props gallery[] + initialIndex. In Pure Sense, swipe verticale (Gesture.Pan) naviga tra i Senshot recenti della community (translateY + opacity, reanimated); contatore "n / N"; doppio tap chiude. observation-detail costruisce la gallery da socialApi.feed(sort=recent) con l'obs corrente come indice iniziale. Verificato su web (Pure Sense + counter 3/3 + swipe hint).
+
+**NUOVA REGOLA FONDAMENTALE UTENTE (da implementare, in coda):**
+"Cambia cio che possiamo vedere, non cio che possiamo fare." Overview non deve solo dire DOVE guardare, deve permettere di ANDARCI.
+Ogni oggetto / fenomeno / luogo indicato dall'app deve SEMPRE offrire una struttura di scheda coerente in tutta l'app:
+- LOOK UP: osserva dalla tua posizione ora (fotocamera + cielo reale + bussola + GPS + sensori + costellazioni/satelliti/pianeti). = sense-vision / invisible-observe attuale (resta come UNA delle opzioni, non l'unica).
+- GO INSIDE: esperienza immersiva dedicata all'oggetto (muoversi, ruotare, pinch-zoom, avvicinarsi/allontanarsi, selezionare oggetti, schede, immagini reali, distinguere foto/mosaici/ricostruzioni/arte, Sense Layers, Manual Explore o Guided Journey, Senshot, descrizione, publish). Per la Via Lattea: entrare nella galassia ricostruita (universe-explorer scala Via Lattea) con trasparenza scientifica (non fingere una foto esterna della nostra galassia). Fonti: cataloghi stellari, coordinate reali, NASA/ESA/Gaia/SIMBAD, mappe cielo, modelli 3D, ricostruzioni dichiarate.
+- Guided Journey, Senshot, Add Description, Publish to Overview Sense Universe.
+Vale ovunque: stella/pianeta/luna/nebulosa/galassia/satellite/luogo terrestre/evento atmosferico/fenomeno invisibile.
+Piano suggerito: componente riusabile SenseActionBar (LOOK UP / GO INSIDE / Guided Journey / Senshot / Add Description / Publish) da inserire in opportunity.tsx, cosmic-object.tsx, e schede oggetto; routing: LOOK UP -> sense-vision; GO INSIDE cosmico -> universe-explorer con fly-to alla scala/oggetto; GO INSIDE terrestre -> satellite-explore Journey; Senshot -> SnapshotStudio. Trasparenza rappresentazione (photo/mosaic/reconstruction/art) sempre etichettata.
