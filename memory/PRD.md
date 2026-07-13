@@ -225,3 +225,18 @@ non è nei typings v5 → sostituito con conversione inline `* 180/π`. `npx exp
 `dist/` generato correttamente. Anche i config plugin (expo-camera/location/media-library) restano in
 app.json (best practice). App verificata funzionante in preview dopo il downgrade.
 
+---
+
+## SESSIONE 6 — Beta + moderazione contenuti + policy foto (2026-06)
+
+- **Avviso Beta**: banner "BETA · versione in fase di sviluppo" su `login.tsx` e pill "BETA · IN
+  SVILUPPO" su `welcome.tsx`.
+- **Moderazione anti-nudità** (App Store compliance): alla pubblicazione di una foto utente
+  (`create_observation`, source != satellite) il backend invia l'immagine base64 a **OpenAI gpt-5.4
+  (vision)** via emergentintegrations `ImageContent` (`ai_features.moderate_image_safe`) → JSON
+  {nudity, sexual, safe}. Se non safe → **HTTP 422** e pubblicazione bloccata (nessun media salvato).
+  NASA GIBS (satellite) salta il controllo. Fail-OPEN sugli errori tecnici. Testato: immagine benigna
+  → {safe:True, checked:True}. Frontend (`observation.tsx`) mostra il messaggio di blocco 422.
+- **Solo foto in-app pubblicabili**: garantito by design (nessun picker di galleria; pubblicazione
+  solo dal viewer del Sense catturato o da immagini satellitari NASA). Nota di policy aggiunta.
+- Playbook test immagini in `/app/image_testing.md`.

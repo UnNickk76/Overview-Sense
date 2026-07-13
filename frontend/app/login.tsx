@@ -41,6 +41,11 @@ export default function Login() {
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"], gap: spacing.lg }}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.betaBanner}>
+          <Text style={styles.betaTag}>BETA</Text>
+          <Text style={styles.betaText}>Versione beta · app in fase di sviluppo. Funzioni e dati possono cambiare.</Text>
+        </View>
+
         <Text style={styles.lead}>Bentornato esploratore. Accedi per pubblicare le tue Observation e seguire la community.</Text>
 
         <View style={styles.field}>
@@ -71,6 +76,9 @@ export default function Login() {
 
 const styles = StyleSheet.create({
   lead: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.base, lineHeight: 21 },
+  betaBanner: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
+  betaTag: { color: colors.onBrand, backgroundColor: colors.brand, fontFamily: fonts.bold, fontSize: type.sm - 2, letterSpacing: 1, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, overflow: "hidden" },
+  betaText: { flex: 1, color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, lineHeight: 16 },
   field: { gap: spacing.sm },
   label: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm, letterSpacing: 0.5 },
   input: { backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, color: colors.onSurface, fontFamily: fonts.regular, fontSize: type.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },

@@ -41,6 +41,7 @@ export default function Welcome() {
             <Text style={styles.wordmark}>OVERVIEW</Text>
           </View>
           <Text style={styles.tagline}>The Invisible Sense</Text>
+          <View style={styles.betaPill}><Text style={styles.betaPillText}>BETA · IN SVILUPPO</Text></View>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.duration(700).delay(300)} style={styles.copy}>
@@ -75,6 +76,8 @@ const styles = StyleSheet.create({
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.brand },
   wordmark: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type["2xl"], letterSpacing: 8 },
   tagline: { color: colors.brand, fontFamily: fonts.regular, fontSize: type.base, letterSpacing: 4, textAlign: "center", marginTop: spacing.sm, fontStyle: "italic" },
+  betaPill: { marginTop: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 3 },
+  betaPillText: { color: colors.brand, fontFamily: fonts.medium, fontSize: type.sm - 3, letterSpacing: 2 },
   copy: { alignItems: "center", gap: spacing.lg, paddingHorizontal: spacing.xl },
   lead: { color: colors.onSurfaceTertiary, fontFamily: fonts.regular, fontSize: type.lg, lineHeight: 26, textAlign: "center", letterSpacing: 1 },
   signature: { color: colors.brand, fontFamily: fonts.regular, fontSize: type.base, fontStyle: "italic", textAlign: "center", opacity: 0.85 },

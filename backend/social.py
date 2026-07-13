@@ -253,10 +253,20 @@ async def create_observation(req: CreateObs, user: dict = Depends(get_current_us
             raw = raw.split(",", 1)[1]
         try:
             base64.b64decode(raw)  # validate
-            await db.media.insert_one({"id": oid, "content_type": "image/jpeg", "data": raw})
-            has_image = True
         except Exception:
             raise HTTPException(status_code=400, detail="Immagine non valida")
+        # Content moderation: user photos must never contain nudity/explicit content.
+        # NASA satellite imagery is public data and skips this check.
+        if req.source != "satellite":
+            from ai_features import moderate_image_safe
+            verdict = await moderate_image_safe(raw)
+            if not verdict["safe"]:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Questa immagine non può essere pubblicata: contenuti di nudità o sessualmente espliciti non sono ammessi su Overview.",
+                )
+        await db.media.insert_one({"id": oid, "content_type": "image/jpeg", "data": raw})
+        has_image = True
 
     primary, cats = derive_categories(data, req.source)
     doc = {

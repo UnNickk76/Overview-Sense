@@ -38,6 +38,45 @@ async def llm_complete(system: str, prompt: str) -> str:
     return getattr(resp, "text", None) or getattr(resp, "content", None) or str(resp)
 
 
+MODERATION_SYSTEM = (
+    "You are a strict image safety classifier for Overview, a science observation app. "
+    "Analyze the given image and decide if it violates the no-nudity / no-sexual-content policy. "
+    "Respond with ONLY a compact JSON object, no prose, in this exact shape: "
+    '{\"nudity\": <bool>, \"sexual\": <bool>, \"safe\": <bool>}. '
+    "Set nudity=true if the image shows exposed genitalia, exposed female breasts, exposed buttocks, "
+    "or explicit sexual acts. Set sexual=true for pornographic or sexually explicit content. "
+    "safe MUST be false if nudity or sexual is true, otherwise safe=true. "
+    "Ordinary scenes (nature, sky, people clothed, objects, art, science) are safe."
+)
+
+
+async def moderate_image_safe(image_base64: str) -> dict:
+    """Returns {"safe": bool, "checked": bool}. Fails OPEN on technical errors so the
+    app keeps working if the AI is unavailable, but blocks anything flagged as nudity."""
+    import json
+    from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+    if not EMERGENT_LLM_KEY or not image_base64:
+        return {"safe": True, "checked": False}
+    try:
+        chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=str(uuid.uuid4()),
+                       system_message=MODERATION_SYSTEM).with_model("openai", "gpt-5.4")
+        resp = await chat.send_message(UserMessage(
+            text="Classify this image for the no-nudity policy. Return only the JSON.",
+            file_contents=[ImageContent(image_base64=image_base64)],
+        ))
+        text = resp if isinstance(resp, str) else (
+            getattr(resp, "text", None) or getattr(resp, "content", None) or str(resp))
+        start, end = text.find("{"), text.rfind("}")
+        if start == -1 or end == -1:
+            return {"safe": True, "checked": False}
+        data = json.loads(text[start:end + 1])
+        safe = bool(data.get("safe", True)) and not data.get("nudity") and not data.get("sexual")
+        return {"safe": safe, "checked": True}
+    except Exception:
+        # Technical failure -> fail open (do not block legitimate science photos).
+        return {"safe": True, "checked": False}
+
+
 class ExplainOppReq(BaseModel):
     title: str
     facts: List[str]

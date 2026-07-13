@@ -19,6 +19,7 @@ import { CONSTELLATION_LINES } from "@/src/lib/stars";
 import { project } from "@/src/lib/project";
 import { nf, compassPoint } from "@/src/lib/format";
 import { socialApi, aiApi } from "@/src/lib/backend";
+import { ApiError } from "@/src/lib/client";
 import { useAuth } from "@/src/context/AuthContext";
 import { SenseCanvas, VISUAL_LAYERS, layerToVisual, SenseVisualLayer } from "@/src/components/SenseCanvas";
 import { SenseMark } from "@/src/components/SenseMark";
@@ -106,8 +107,11 @@ export default function ObservationView() {
         caption: "", image_base64: manipulated.base64 ?? undefined, data: obs.data,
       });
       setPublished(created.id);
-    } catch {
-      setStatus("Pubblicazione non riuscita");
+    } catch (e) {
+      const msg = e instanceof ApiError && e.status === 422
+        ? e.message
+        : "Pubblicazione non riuscita";
+      setStatus(msg);
     } finally { setPublishing(false); }
   };
 
@@ -247,6 +251,7 @@ export default function ObservationView() {
           </Pressable>
         )}
         <Text style={styles.note}>⭐ Diventerà una Verified Observation quando altri osservatori confermeranno lo stesso fenomeno.</Text>
+        <Text style={styles.note}>Solo i Sense catturati con l&apos;app possono essere pubblicati. Le immagini con contenuti di nudità o sessualmente espliciti non sono ammesse e vengono bloccate automaticamente.</Text>
 
         <Pressable testID="explain-observation" style={styles.explainBtn} onPress={explain} disabled={aiLoading}>
           {aiLoading ? <ActivityIndicator color={colors.brand} /> : (
