@@ -3,7 +3,9 @@ import { StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from "react-native-reanimated";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/src/context/AuthContext";
+import { SEEN_INTRO_KEY } from "@/app/before-you-begin";
 
 const SPLASH = require("../assets/images/overview-splash.png");
 const SPLASH_MS = 4000;
@@ -24,7 +26,12 @@ export default function Splash() {
   useEffect(() => {
     if (elapsed && !loading && !routed.current) {
       routed.current = true;
-      router.replace(user ? "/home" : "/welcome");
+      (async () => {
+        if (user) { router.replace("/home"); return; }
+        let seen = false;
+        try { seen = (await AsyncStorage.getItem(SEEN_INTRO_KEY)) === "1"; } catch { /* ignore */ }
+        router.replace(seen ? "/welcome" : "/before-you-begin");
+      })();
     }
   }, [elapsed, loading, user, router]);
 

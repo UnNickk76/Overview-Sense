@@ -319,3 +319,15 @@ Prossime slice (stessa direzione, da confermare/costruire):
 
 Rimane da fare (stessa direzione): **auto-riconoscimento del soggetto via AI vision** (cielo/Luna/persona/
 auto/fiore) per proporre automaticamente i layer migliori — attivazione manuale già completa.
+
+---
+
+## SESSIONE 11 — Schermata "Before You Begin" (2026-06)
+
+- **`app/before-you-begin.tsx`**: manifesto/filosofia premium (sfondo scuro stellato, SenseMark dorato,
+  titolo con rule oro, paragrafi con fade-in scaglionato, chiusura "Explore your reality / Discover the
+  invisible / Overview — The Invisible Sense"). **Toggle lingua IT/EN** (testi ufficiali forniti dall'utente).
+- **Gate primo avvio**: `index.tsx` dopo lo splash → se non loggato e flag AsyncStorage `overview_seen_intro`
+  assente → `/before-you-begin`; "Ho capito, procedi" salva il flag e va a `/welcome`. Se già visto → welcome.
+- **Sempre consultabile** da About Overview: riga "Before You Begin" (`?from=about`) → modalità consultazione
+  con "Chiudi" (nessun gate). Verificata in preview (IT+EN).

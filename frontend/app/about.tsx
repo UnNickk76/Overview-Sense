@@ -2,6 +2,7 @@ import React from "react";
 import { StyleSheet, Text, View, ScrollView, Pressable, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
@@ -24,6 +25,7 @@ function Chip({ label }: { label: string }) {
 
 export default function About() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   return (
     <SpaceBackground>
@@ -39,6 +41,15 @@ export default function About() {
             dispositivo o calcoli astronomici verificabili.
           </Text>
         </Animated.View>
+
+        <Pressable testID="about-before-you-begin" style={styles.introLink} onPress={() => router.push("/before-you-begin?from=about" as never)}>
+          <Ionicons name="shield-checkmark-outline" size={18} color={colors.brand} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.introLinkTitle}>Before You Begin</Text>
+            <Text style={styles.introLinkSub}>La filosofia e i principi di Overview</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />
+        </Pressable>
 
         <Section title="CREATOR" delay={80}>
           <Text style={styles.big}>Fabio Andreola</Text>
@@ -102,6 +113,9 @@ export default function About() {
 
 const styles = StyleSheet.create({
   hero: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.lg },
+  introLink: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
+  introLinkTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
+  introLinkSub: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm, marginTop: 1 },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.brand },
   wordmark: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type["2xl"], letterSpacing: 7 },
   tagline: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.base, letterSpacing: 3 },
