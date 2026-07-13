@@ -603,6 +603,9 @@ async def get_profile(user_id: str, viewer: Optional[dict] = Depends(get_optiona
     return {
         "id": u["id"], "nickname": u["nickname"], "bio": u.get("bio", ""),
         "avatar": u.get("avatar"), "created_at": u.get("created_at"),
+        "role": u.get("role", "user"),
+        "verified_badge": u.get("verified_badge"),
+        "protected": u.get("protected", False),
         "stats": {"observations": obs_count, "followers": followers, "following": following},
         "discovery_level": compute_discovery_level(points),
         "is_following": is_following,
@@ -704,6 +707,9 @@ async def update_me(req: ProfileUpdate, user: dict = Depends(get_current_user)):
     if req.bio is not None:
         updates["bio"] = req.bio.strip()[:280]
     if req.nickname is not None:
+        # Protected (developer/founder) accounts have an immutable nickname.
+        if user.get("protected") and req.nickname.strip() != user.get("nickname"):
+            raise HTTPException(status_code=403, detail="Il nickname di questo account è protetto e non modificabile")
         nn = req.nickname.strip()
         exists = await db.users.find_one({"nickname_lower": nn.lower(), "id": {"$ne": user["id"]}})
         if exists:
@@ -713,3 +719,32 @@ async def update_me(req: ProfileUpdate, user: dict = Depends(get_current_user)):
     await db.users.update_one({"id": user["id"]}, {"$set": updates})
     u = await db.users.find_one({"id": user["id"]})
     return {"id": u["id"], "nickname": u["nickname"], "bio": u.get("bio", ""), "avatar": u.get("avatar")}
+
+
+class AvatarReq(BaseModel):
+    image_base64: str
+
+
+@social_router.post("/users/me/avatar")
+async def update_avatar(req: AvatarReq, user: dict = Depends(get_current_user)):
+    raw = req.image_base64
+    if "," in raw and raw.strip().startswith("data:"):
+        raw = raw.split(",", 1)[1]
+    try:
+        base64.b64decode(raw)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Immagine non valida")
+    # Avatars must always pass the nudity/obscenity filter.
+    from ai_features import moderate_image_safe
+    verdict = await moderate_image_safe(raw)
+    if not verdict["safe"]:
+        raise HTTPException(status_code=422,
+                            detail="Questa immagine non può essere usata: contenuti non ammessi su Overview.")
+    avatar_id = f"avatar_{user['id']}"
+    await db.media.update_one({"id": avatar_id},
+                              {"$set": {"id": avatar_id, "content_type": "image/jpeg", "data": raw}},
+                              upsert=True)
+    avatar_url = f"/api/media/{avatar_id}?v={uuid.uuid4().hex[:8]}"
+    await db.users.update_one({"id": user["id"]},
+                              {"$set": {"avatar": avatar_url, "updated_at": datetime.now(timezone.utc).isoformat()}})
+    return {"avatar": avatar_url}

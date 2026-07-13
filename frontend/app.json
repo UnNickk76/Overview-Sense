@@ -16,6 +16,7 @@
         "NSCameraUsageDescription": "Overlay real stars and planets on the sky",
         "NSMotionUsageDescription": "Point at the sky and sense magnetic fields",
         "NSMicrophoneUsageDescription": "Analyse the real soundscape around you",
+        "NSPhotoLibraryUsageDescription": "Choose a photo for your profile avatar",
         "NSPhotoLibraryAddUsageDescription": "Save your enhanced observations to Photos"
       }
     },
@@ -58,6 +59,13 @@
         {
           "photosPermission": "Save your Sense observations to Photos",
           "savePhotosPermission": "Save your Sense observations to Photos"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose a photo for your profile avatar",
+          "cameraPermission": "Take a photo for your profile avatar"
         }
       ],
       [

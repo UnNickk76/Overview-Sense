@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 import requests
 
 from database import db, client, EMERGENT_LLM_KEY
-from auth import auth_router, ensure_auth_indexes
+from auth import auth_router, ensure_auth_indexes, ensure_developer_account
 from social import social_router, ensure_social_indexes
 from ai_features import ai_router
 from events import events_router
@@ -391,6 +391,7 @@ async def _startup_indexes():
     try:
         await ensure_auth_indexes()
         await ensure_social_indexes()
+        await ensure_developer_account()
     except Exception as e:
         logger.warning(f"index creation failed: {e}")
 

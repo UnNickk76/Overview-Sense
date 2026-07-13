@@ -50,8 +50,37 @@ def public_user(doc: dict) -> dict:
         "nickname": doc.get("nickname"),
         "bio": doc.get("bio", ""),
         "avatar": doc.get("avatar"),
+        "role": doc.get("role", "user"),
+        "protected": doc.get("protected", False),
+        "verified": doc.get("verified", False),
+        "verified_badge": doc.get("verified_badge"),
         "created_at": doc.get("created_at"),
     }
+
+
+# ---------------------------------------------------------------------------
+# Protected developer/founder account — flagged server-side only
+# ---------------------------------------------------------------------------
+DEVELOPER_EMAIL = "fandrex1@gmail.com"
+DEVELOPER_BADGE = "Creator"
+
+# Brute-force protection
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_MINUTES = 15
+
+
+async def ensure_developer_account():
+    """Idempotently blind the founder account: immutable credentials + Creator badge.
+    Password stays owner-changeable; email/nickname become immutable; not deletable."""
+    await db.users.update_one(
+        {"email_lower": DEVELOPER_EMAIL},
+        {"$set": {
+            "role": "developer",
+            "protected": True,
+            "verified": True,
+            "verified_badge": DEVELOPER_BADGE,
+        }},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -121,16 +150,48 @@ async def login(req: LoginReq):
     doc = await db.users.find_one({"email_lower": email})
     if not doc:
         raise HTTPException(status_code=401, detail="Email o password non corretti")
+
+    # Account lockout (brute-force protection)
+    now = datetime.now(timezone.utc)
+    lock = doc.get("lockout_until")
+    if lock:
+        try:
+            lock_dt = datetime.fromisoformat(lock)
+            if lock_dt > now:
+                mins = max(1, int((lock_dt - now).total_seconds() // 60) + 1)
+                raise HTTPException(status_code=429,
+                                    detail=f"Account temporaneamente bloccato. Riprova tra {mins} min.")
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
     pw_provider = next((p for p in doc.get("auth_providers", []) if p.get("provider") == "password"), None)
     if not pw_provider or not verify_password(req.password, pw_provider.get("password_hash", "")):
+        attempts = int(doc.get("failed_login_attempts", 0)) + 1
+        upd: dict = {"failed_login_attempts": attempts}
+        if attempts >= MAX_FAILED_ATTEMPTS:
+            upd["lockout_until"] = (now + timedelta(minutes=LOCKOUT_MINUTES)).isoformat()
+            upd["failed_login_attempts"] = 0
+        await db.users.update_one({"id": doc["id"]}, {"$set": upd})
+        if "lockout_until" in upd:
+            raise HTTPException(status_code=429,
+                                detail=f"Troppi tentativi. Account bloccato per {LOCKOUT_MINUTES} min.")
         raise HTTPException(status_code=401, detail="Email o password non corretti")
-    now = datetime.now(timezone.utc).isoformat()
+
+    now_iso = now.isoformat()
     await db.users.update_one(
         {"id": doc["id"], "auth_providers.provider": "password"},
-        {"$set": {"auth_providers.$.last_login_at": now, "updated_at": now}},
+        {"$set": {"auth_providers.$.last_login_at": now_iso, "updated_at": now_iso,
+                  "failed_login_attempts": 0, "lockout_until": None}},
     )
     token = create_access_token(doc["id"])
     return {"access_token": token, "token_type": "bearer", "user": public_user(doc)}
+
+
+class ChangePasswordReq(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=6, max_length=128)
 
 
 # ---------------------------------------------------------------------------
@@ -168,3 +229,21 @@ async def get_optional_user(creds: Optional[HTTPAuthorizationCredentials] = Depe
 @auth_router.get("/me")
 async def me(user: dict = Depends(get_current_user)):
     return public_user(user)
+
+
+@auth_router.post("/change-password")
+async def change_password(req: ChangePasswordReq, user: dict = Depends(get_current_user)):
+    pw_provider = next((p for p in user.get("auth_providers", []) if p.get("provider") == "password"), None)
+    if not pw_provider:
+        raise HTTPException(status_code=400, detail="Account senza password")
+    if not verify_password(req.current_password, pw_provider.get("password_hash", "")):
+        raise HTTPException(status_code=400, detail="Password attuale non corretta")
+    if verify_password(req.new_password, pw_provider.get("password_hash", "")):
+        raise HTTPException(status_code=400, detail="La nuova password deve essere diversa da quella attuale")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one(
+        {"id": user["id"], "auth_providers.provider": "password"},
+        {"$set": {"auth_providers.$.password_hash": hash_password(req.new_password),
+                  "auth_providers.$.password_changed_at": now_iso, "updated_at": now_iso}},
+    )
+    return {"ok": True}

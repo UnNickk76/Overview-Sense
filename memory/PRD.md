@@ -378,3 +378,13 @@ Nuovo modulo backend: `/app/backend/events.py` (registrato in server.py).
 - Backend `live-earth` arricchito con `image_url`/`nickname`.
 - Scroll del feed disabilitato durante l'interazione col globo (prop `onInteracting`).
 NOTA: pinch-zoom e dettagli-su-zoom si testano al meglio su dispositivo reale (il preview web non emula il pinch a due dita).
+
+### Profilo utente + Account Developer blindato
+- **Account developer/founder** `fandrex1@gmail.com` (nickname NeoMorpheus): flag lato server `role=developer, protected=true, verified_badge="Creator"` via `ensure_developer_account()` in auth.py (idempotente, allo startup). Email + nickname IMMUTABILI (PATCH /users/me rifiuta con 403 se protected). Password cambiabile sempre dal proprietario. Badge "Creator" mostrato nel profilo (non falsificabile, solo server).
+- **Cambio password**: `POST /api/auth/change-password` (verifica password attuale, deve differire, bcrypt). 
+- **Anti brute-force login**: `failed_login_attempts` + `lockout_until` sul doc utente; 5 tentativi → blocco 15 min (429); reset al login corretto. Verificato via curl.
+- **Avatar**: `POST /api/users/me/avatar` (base64 → moderazione anti-nudità `moderate_image_safe` → salvato in media `avatar_{uid}`), servito da `/api/media/{id}`. Frontend: expo-image-picker (galleria + fotocamera) con flusso permessi contestuale.
+- **Schermata `app/edit-profile.tsx`**: avatar (galleria/fotocamera), nickname (bloccato+lucchetto per account protetti), bio, cambio password. `profile.tsx` mostra avatar+badge e "Modifica profilo" → edit-profile (reload al focus).
+- Utenti normali: profilo modificabile liberamente (avatar/nickname/bio/password). Nessuna modifica email per nessuno.
+- app.json: aggiunti NSPhotoLibraryUsageDescription + plugin expo-image-picker.
+- Nota futura utente: creare ruoli "moderatori".

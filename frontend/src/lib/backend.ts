@@ -9,6 +9,9 @@ export interface AuthUser {
   nickname: string;
   bio?: string;
   avatar?: string | null;
+  role?: string;
+  verified_badge?: string | null;
+  protected?: boolean;
   created_at?: string;
 }
 
@@ -76,6 +79,9 @@ export interface Profile {
   bio: string;
   avatar?: string | null;
   created_at?: string;
+  role?: string;
+  verified_badge?: string | null;
+  protected?: boolean;
   stats: { observations: number; followers: number; following: number };
   discovery_level?: DiscoveryLevel;
   is_following: boolean;
@@ -101,6 +107,14 @@ export const authApi = {
   me: () => apiFetch<AuthUser>("/auth/me"),
   updateProfile: (data: { bio?: string; nickname?: string }) =>
     apiFetch<AuthUser>("/users/me", { method: "PATCH", body: JSON.stringify(data) }),
+  changePassword: (current_password: string, new_password: string) =>
+    apiFetch<{ ok: boolean }>("/auth/change-password", {
+      method: "POST", body: JSON.stringify({ current_password, new_password }),
+    }),
+  updateAvatar: (image_base64: string) =>
+    apiFetch<{ avatar: string }>("/users/me/avatar", {
+      method: "POST", body: JSON.stringify({ image_base64 }),
+    }),
 };
 
 // ---- Social ----

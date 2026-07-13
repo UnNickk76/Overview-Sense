@@ -1,27 +1,25 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { StyleSheet, Text, View, ScrollView, ActivityIndicator, Pressable, TextInput } from "react-native";
+import { StyleSheet, Text, View, ScrollView, ActivityIndicator, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
-import { socialApi, authApi, Profile as ProfileT, FeedObservation, mediaUrl } from "@/src/lib/backend";
+import { socialApi, Profile as ProfileT, FeedObservation, mediaUrl } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
 
 export default function Profile() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { user, logout, setUser } = useAuth();
+  const { user, logout } = useAuth();
   const targetId = id || user?.id;
   const [profile, setProfile] = useState<ProfileT | null>(null);
   const [obs, setObs] = useState<FeedObservation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
-  const [bio, setBio] = useState("");
   const [followBusy, setFollowBusy] = useState(false);
   const [tab, setTab] = useState<"archive" | "collection">("archive");
   const [collection, setCollection] = useState<FeedObservation[] | null>(null);
@@ -31,11 +29,13 @@ export default function Profile() {
     setLoading(true);
     try {
       const [p, o] = await Promise.all([socialApi.profile(targetId), socialApi.userObservations(targetId)]);
-      setProfile(p); setObs(o.items); setBio(p.bio);
+      setProfile(p); setObs(o.items);
     } catch { /* ignore */ } finally { setLoading(false); }
   }, [targetId]);
 
   useEffect(() => { load(); }, [load]);
+  // Refresh when returning from the edit screen so avatar/bio/nickname update.
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   useEffect(() => {
     if (tab === "collection" && collection === null && targetId) {
@@ -54,15 +54,6 @@ export default function Profile() {
       setProfile({ ...profile, is_following: !profile.is_following,
         stats: { ...profile.stats, followers: profile.stats.followers + (profile.is_following ? -1 : 1) } });
     } catch { /* ignore */ } finally { setFollowBusy(false); }
-  };
-
-  const saveBio = async () => {
-    try {
-      const u = await authApi.updateProfile({ bio });
-      if (user) setUser({ ...user, bio: u.bio ?? "" });
-      if (profile) setProfile({ ...profile, bio: u.bio ?? "" });
-      setEditing(false);
-    } catch { /* ignore */ }
   };
 
   if (!targetId) {
@@ -100,8 +91,20 @@ export default function Profile() {
       ) : (
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"], gap: spacing.lg }} showsVerticalScrollIndicator={false} testID="profile-view">
           <View style={styles.headerCard}>
-            <View style={styles.avatar}><Text style={styles.avatarText}>{profile.nickname[0].toUpperCase()}</Text></View>
-            <Text style={styles.nick}>{profile.nickname}</Text>
+            {profile.avatar ? (
+              <Image source={{ uri: mediaUrl(profile.avatar)! }} style={styles.avatar} contentFit="cover" transition={150} />
+            ) : (
+              <View style={styles.avatar}><Text style={styles.avatarText}>{profile.nickname[0].toUpperCase()}</Text></View>
+            )}
+            <View style={styles.nickRow}>
+              <Text style={styles.nick}>{profile.nickname}</Text>
+              {profile.verified_badge ? (
+                <View style={styles.badge}>
+                  <Ionicons name="shield-checkmark" size={12} color={colors.brand} />
+                  <Text style={styles.badgeText}>{profile.verified_badge}</Text>
+                </View>
+              ) : null}
+            </View>
             {profile.discovery_level ? (
               <View style={styles.levelWrap}>
                 <View style={styles.levelBadge}>
@@ -123,12 +126,7 @@ export default function Profile() {
                 )}
               </View>
             ) : null}
-            {editing ? (
-              <View style={{ width: "100%", gap: spacing.sm }}>
-                <TextInput style={styles.bioInput} value={bio} onChangeText={setBio} multiline placeholder="Scrivi qualcosa su di te…" placeholderTextColor={colors.onSurfaceSecondary} />
-                <Pressable style={styles.primary} onPress={saveBio}><Text style={styles.primaryText}>Salva</Text></Pressable>
-              </View>
-            ) : profile.bio ? (
+            {profile.bio ? (
               <Text style={styles.bio}>{profile.bio}</Text>
             ) : null}
 
@@ -139,9 +137,9 @@ export default function Profile() {
             </View>
 
             {profile.is_me ? (
-              <Pressable testID="profile-edit" style={styles.secondary} onPress={() => setEditing((e) => !e)}>
+              <Pressable testID="profile-edit" style={styles.secondary} onPress={() => router.push("/edit-profile" as never)}>
                 <Ionicons name="create-outline" size={16} color={colors.onSurface} />
-                <Text style={styles.secondaryText}>{editing ? "Annulla" : "Modifica bio"}</Text>
+                <Text style={styles.secondaryText}>Modifica profilo</Text>
               </Pressable>
             ) : (
               <Pressable testID="profile-follow" style={[styles.primary, profile.is_following && styles.following]} onPress={onFollow}>
@@ -203,7 +201,10 @@ const styles = StyleSheet.create({
   headerCard: { alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.xl, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   avatar: { width: 76, height: 76, borderRadius: 38, backgroundColor: colors.tertiary, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.brand },
   avatarText: { color: colors.brand, fontFamily: fonts.bold, fontSize: type["2xl"] },
+  nickRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flexWrap: "wrap", justifyContent: "center" },
   nick: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.xl },
+  badge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.tertiary, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 3, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
+  badgeText: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.sm - 2, letterSpacing: 0.3 },
   levelWrap: { width: "100%", alignItems: "center", gap: spacing.sm },
   levelBadge: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.tertiary, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 5, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
   levelTitle: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.base },
