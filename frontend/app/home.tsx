@@ -216,7 +216,8 @@ export default function Home() {
               <Pressable testID={`module-${l.key}`} onPress={() => go(l.route)}>
                 <GlassCard style={styles.card}>
                   <View style={styles.cardTop}>
-                    {l.viz === "sun" ? <MiniSun size={42} kp={space?.kp_index?.value ?? 0} />
+                    {l.key === "feed" ? <SenseMark size={42} />
+                      : l.viz === "sun" ? <MiniSun size={42} kp={space?.kp_index?.value ?? 0} />
                       : l.viz === "orrery" ? <MiniOrrery size={42} />
                       : l.viz === "field" ? <MiniField size={42} />
                       : (

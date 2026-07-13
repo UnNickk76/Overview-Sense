@@ -1,13 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { StyleSheet, Text, View, Pressable, TextInput, Modal, ScrollView, ActivityIndicator, Platform } from "react-native";
+import { StyleSheet, Text, View, Pressable, TextInput, Modal, ScrollView, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import * as FileSystem from "expo-file-system/legacy";
-import * as Sharing from "expo-sharing";
-import * as MediaLibrary from "expo-media-library";
 import { GLView } from "expo-gl";
 import { GestureDetector, Gesture } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
@@ -19,8 +16,7 @@ import {
 import {
   fetchAsteroids, catalogForScale, searchCatalog, CATALOG_META, CatKey,
 } from "@/src/lib/liveCatalog";
-import { socialApi } from "@/src/lib/backend";
-import { useAuth } from "@/src/context/AuthContext";
+import { SnapshotStudio, SnapshotInput } from "@/src/components/SnapshotStudio";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -34,7 +30,6 @@ export default function UniverseExplorer() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [hudHidden, setHudHidden] = useState(false);
-  const { user } = useAuth();
 
   // Guided Journey
   const [journey, setJourney] = useState<Journey | null>(null);
@@ -42,14 +37,9 @@ export default function UniverseExplorer() {
   const [journeyPlaying, setJourneyPlaying] = useState(false);
   const [journeyPicker, setJourneyPicker] = useState(false);
 
-  // Snapshot
-  const [snapUri, setSnapUri] = useState<string | null>(null);
-  const [snapB64, setSnapB64] = useState<string | null>(null);
+  // Snapshot (shared SnapshotStudio engine)
   const [snapOpen, setSnapOpen] = useState(false);
-  const [snapDesc, setSnapDesc] = useState("");
-  const [publishing, setPublishing] = useState(false);
-  const [publishedId, setPublishedId] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
+  const [snapInput, setSnapInput] = useState<SnapshotInput | null>(null);
 
   // Live + curated catalogs
   const [asteroids, setAsteroids] = useState<UObject[]>([]);
@@ -176,62 +166,39 @@ export default function UniverseExplorer() {
     }
   }, [journey, stepIdx, journeyPlaying]);
 
-  // ---- Snapshot (clean, UI-free 3D capture) ----
+  // ---- Snapshot (clean, UI-free 3D capture → shared SnapshotStudio) ----
   const captureSnapshot = async () => {
     const r = ctrl.current.renderer as unknown as { domElement?: HTMLCanvasElement; getContext?: () => unknown };
-    if (!r) { setStatus("Scena non pronta"); return; }
+    if (!r) return;
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      let uri = ""; let base64: string | undefined;
       if (Platform.OS === "web" && r.domElement) {
-        const dataUrl = r.domElement.toDataURL("image/png");
-        setSnapUri(dataUrl);
-        setSnapB64(dataUrl.split(",")[1] ?? null);
+        uri = r.domElement.toDataURL("image/png");
+        base64 = uri.split(",")[1];
       } else if (r.getContext) {
         const snap = await GLView.takeSnapshotAsync(r.getContext() as never, { format: "png" });
-        const uri = typeof snap.uri === "string" ? snap.uri : "";
-        setSnapUri(uri);
-        const b64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-        setSnapB64(b64);
+        uri = typeof snap.uri === "string" ? snap.uri : "";
+        base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
       }
-      setSnapDesc(selected?.name ? `${selected.name} · Universe Explorer` : "Universe Explorer");
-      setPublishedId(null);
-      setStatus(null);
-      setSnapOpen(true);
-    } catch {
-      setStatus("Snapshot non riuscito");
-    }
-  };
-
-  const publishSnap = async () => {
-    if (!user) { setSnapOpen(false); router.push("/login" as never); return; }
-    if (!snapB64) return;
-    setPublishing(true);
-    try {
-      const created = await socialApi.createObservation({
-        media_type: "image", source: "cosmos",
-        caption: snapDesc.trim() || (selected?.name ?? "Universe Explorer"),
-        image_base64: snapB64,
-        data: { from: "universe-explorer", scale, name: selected?.name, cosmicId: selected?.cosmicId } as never,
+      if (!uri) return;
+      const cs = SCALES.find((s) => s.level === scale)!;
+      setSnapInput({
+        uri, base64,
+        title: selected?.name ?? `Universe Explorer · ${cs.name}`,
+        layerName: `Scala ${scale} · ${cs.name}`,
+        source: selected?.source ?? "Universe Explorer · visualizzazione basata sui dati",
+        hashtags: ["UniverseExplorer", "Cosmos", ...(selected?.name ? [selected.name.replace(/[^\p{L}\p{N}]/gu, "")] : [])],
+        dataLines: [
+          selected
+            ? { icon: "🪐", label: `${selected.name} · ${selected.distanceLabel}` }
+            : { icon: "🌌", label: cs.name },
+        ],
+        socialSource: "cosmos",
+        data: { from: "universe-explorer", scale, name: selected?.name, cosmicId: selected?.cosmicId },
       });
-      setPublishedId(created.id);
-      setStatus("Pubblicato ✓");
-    } catch {
-      setStatus("Pubblicazione non riuscita");
-    } finally { setPublishing(false); }
-  };
-
-  const saveSnap = async () => {
-    if (!snapUri) return;
-    try {
-      let fileUri = snapUri;
-      if (Platform.OS === "web" || snapUri.startsWith("data:")) {
-        fileUri = `${FileSystem.cacheDirectory}snapshot_${Date.now()}.png`;
-        await FileSystem.writeAsStringAsync(fileUri, snapB64 ?? "", { encoding: FileSystem.EncodingType.Base64 });
-      }
-      const perm = await MediaLibrary.requestPermissionsAsync();
-      if (perm.granted) { await MediaLibrary.saveToLibraryAsync(fileUri); setStatus("Salvato in Foto ✓"); }
-      else if (await Sharing.isAvailableAsync()) { await Sharing.shareAsync(fileUri); }
-    } catch { setStatus("Salvataggio non riuscito"); }
+      setSnapOpen(true);
+    } catch { /* ignore */ }
   };
 
   const curScale = SCALES.find((s) => s.level === scale)!;
@@ -441,39 +408,8 @@ export default function UniverseExplorer() {
         </View>
       </Modal>
 
-      {/* Snapshot */}
-      <Modal visible={snapOpen} transparent animationType="fade" onRequestClose={() => setSnapOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setSnapOpen(false)} />
-        <View style={[styles.snapSheet, { paddingBottom: insets.bottom + spacing.lg }]}>
-          <View style={styles.jHandle} />
-          <Text style={styles.jSheetTitle}>Snapshot</Text>
-          {snapUri ? <Image source={{ uri: snapUri }} style={styles.snapPreview} contentFit="cover" transition={150} /> : null}
-          <TextInput testID="snap-desc" style={styles.snapInput} value={snapDesc} onChangeText={setSnapDesc}
-            placeholder="Aggiungi una descrizione…" placeholderTextColor={colors.onSurfaceSecondary} multiline />
-          {status ? <Text style={[styles.snapStatus, status.includes("✓") && { color: colors.brand }]}>{status}</Text> : null}
-          {publishedId ? (
-            <Pressable testID="snap-open" style={styles.snapPrimary} onPress={() => { setSnapOpen(false); router.push(`/observation-detail?id=${publishedId}` as never); }}>
-              <Ionicons name="sparkles" size={16} color={colors.onBrand} />
-              <Text style={styles.snapPrimaryText}>Apri Observation · Sense Vision & Discovery Card</Text>
-            </Pressable>
-          ) : (
-            <Pressable testID="snap-publish" style={styles.snapPrimary} onPress={publishSnap} disabled={publishing}>
-              {publishing ? <ActivityIndicator color={colors.onBrand} /> : (
-                <><Ionicons name="cloud-upload-outline" size={16} color={colors.onBrand} /><Text style={styles.snapPrimaryText}>Pubblica come Observation</Text></>
-              )}
-            </Pressable>
-          )}
-          <View style={styles.snapRow}>
-            <Pressable testID="snap-save" style={styles.snapGhost} onPress={saveSnap}>
-              <Ionicons name="download-outline" size={16} color={colors.onSurface} />
-              <Text style={styles.snapGhostText}>Salva / Condividi</Text>
-            </Pressable>
-            <Pressable testID="snap-close" style={styles.snapGhost} onPress={() => setSnapOpen(false)}>
-              <Text style={styles.snapGhostText}>Chiudi</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+      {/* Snapshot — shared engine */}
+      <SnapshotStudio visible={snapOpen} input={snapInput} onClose={() => setSnapOpen(false)} />
     </View>
   );
 }
