@@ -595,3 +595,11 @@ NOTA IMPL: universe-explorer deve accettare deep-link con viewpoint completo (sc
 - Verificato (screenshot, NO test agent): /universe-explorer?focus=milkyway apre Scala 3 Via Lattea con label trasparenza "Ricostruzione scientifica"; SenseActionBar visibile su cosmic-object Via Lattea (LOOK UP + GO INSIDE + Guided Journey).
 
 RIMANE (coda aggiornata): estendere SenseActionBar a satellite-explore/oggetti terrestri e schede satellite; azione "Go There" completa (View Senshot vs Go There nel viewer, ricrea viewpoint da data.viewpoint); principio DOCUMENTED REALITY (luoghi documentati: oceano/Everest/piramidi/ISS/Marte/Amazzonia/relitti); Senshot=punto di vista ovunque (salvare viewpoint anche in sense-vision/satellite); Meteo Spaziale vivo; Realta Invisibile 3D; Timeline Play; annotazioni Skia; colonna sonora Sense Match; AR.
+
+### SESSIONE 9 (fork) — "Go There" (Senshot = punto di vista) FATTO e verificato
+- observation-detail.tsx: nuova sezione "Questo Senshot e un punto di vista" con View Senshot (immagine, gia mostrata) + Go There (ricrea il viewpoint originale). goThereRoute(d) costruisce la rotta da obs.data: universe -> /universe-explorer?focus&scale&az&pol&rad; satellite -> /satellite-explore?lat&lon&zoom&layer. Frase invito utente inclusa.
+- satellite-explore.tsx: deep-link useLocalSearchParams { lat, lon, zoom, layer } applicato al mount (centro/zoom/layer). Aggiunto zoom nei data del Senshot satellitare.
+- universe-explorer gia salvava data.viewpoint (sessione 8) e accetta az/pol/rad.
+- Verificato (screenshot): /universe-explorer?focus=milkyway -> Scala 3 Via Lattea; /satellite-explore?lat=27.99&lon=86.93&zoom=5&layer=VIIRS... -> Everest z6 True Color HD. Il bottone Go There compare solo per Senshot con viewpoint (universe/satellite nuovi); onesto per i vecchi senza dati.
+
+RIMANE: DOCUMENTED REALITY (luoghi documentati esplorabili); estendere SenseActionBar a satellite/luoghi terrestri + salvare viewpoint anche in sense-vision; Meteo Spaziale vivo; Realta Invisibile 3D; Timeline Play; annotazioni Skia; colonna sonora Sense Match; AR.

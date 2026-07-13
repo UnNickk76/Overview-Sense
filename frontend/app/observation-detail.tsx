@@ -18,6 +18,31 @@ import { nf, compassPoint } from "@/src/lib/format";
 import { SenseSurface } from "@/src/components/SenseSurface";
 import { orderedDataLayers } from "@/src/lib/senseLayers";
 
+// Compute the "Go There" route that recreates a Senshot's original viewpoint.
+function goThereRoute(d: Record<string, unknown> | null | undefined): string | null {
+  if (!d) return null;
+  const vp = d.viewpoint as { focus?: string; scale?: number; az?: number; pol?: number; rad?: number } | undefined;
+  if (d.from === "universe-explorer" || vp) {
+    const focus = vp?.focus ?? (d.cosmicId as string | undefined);
+    if (!focus && vp?.scale == null) return null;
+    const q = new URLSearchParams();
+    if (focus) q.set("focus", String(focus));
+    if (vp?.scale != null) q.set("scale", String(vp.scale));
+    if (vp?.az != null) q.set("az", String(vp.az));
+    if (vp?.pol != null) q.set("pol", String(vp.pol));
+    if (vp?.rad != null) q.set("rad", String(vp.rad));
+    return `/universe-explorer?${q.toString()}`;
+  }
+  if (d.from === "satellite-explore" && d.lat != null && d.lon != null) {
+    const q = new URLSearchParams();
+    q.set("lat", String(d.lat)); q.set("lon", String(d.lon));
+    if (d.zoom != null) q.set("zoom", String(d.zoom));
+    if (d.layer) q.set("layer", String(d.layer));
+    return `/satellite-explore?${q.toString()}`;
+  }
+  return null;
+}
+
 export default function ObservationDetail() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -76,6 +101,7 @@ export default function ObservationDetail() {
   const d = obs.data;
   const uri = mediaUrl(obs.image_url);
   const dataLayers = orderedDataLayers(d).slice(0, 4);
+  const goThere = goThereRoute(d as unknown as Record<string, unknown>);
 
   return (
     <SpaceBackground>
@@ -116,6 +142,23 @@ export default function ObservationDetail() {
 
         {uri && dataLayers.length ? (
           <Text style={styles.gestureHint}>👆 Tap: Reality Sense™ · 👆👆 Doppio tap: Pure Sense™</Text>
+        ) : null}
+
+        {goThere ? (
+          <View style={styles.goThereWrap}>
+            <Text style={styles.goThereLabel}>Questo Senshot è un punto di vista. Puoi viverlo tu stesso.</Text>
+            <View style={styles.goThereRow}>
+              <View style={styles.viewSenshot}>
+                <Ionicons name="image-outline" size={16} color={colors.onSurface} />
+                <Text style={styles.viewSenshotText}>View Senshot</Text>
+              </View>
+              <Pressable testID="go-there" style={styles.goThereBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); router.push(goThere as never); }}>
+                <Ionicons name="rocket" size={16} color={colors.onBrand} />
+                <Text style={styles.goThereText}>Go There</Text>
+              </Pressable>
+            </View>
+            <Text style={styles.goThereNote}>“Vieni a vedere ciò che ho visto io… oppure continua il viaggio da qui.”</Text>
+          </View>
         ) : null}
 
         <View style={styles.body}>
@@ -263,6 +306,14 @@ const styles = StyleSheet.create({
   dataPillEmoji: { fontSize: 12 },
   dataPillText: { color: "#fff", fontFamily: fonts.mono, fontSize: type.sm - 1, letterSpacing: 0.2 },
   gestureHint: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 2, textAlign: "center", opacity: 0.65, paddingVertical: spacing.sm },
+  goThereWrap: { marginHorizontal: spacing.lg, marginTop: spacing.sm, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand, gap: spacing.sm },
+  goThereLabel: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base, lineHeight: 20 },
+  goThereRow: { flexDirection: "row", gap: spacing.md },
+  viewSenshot: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.tertiary, borderRadius: radius.md, paddingVertical: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.borderStrong },
+  viewSenshotText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.base },
+  goThereBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: spacing.md },
+  goThereText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.base },
+  goThereNote: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, fontStyle: "italic", opacity: 0.75 },
   row: { flexDirection: "row", justifyContent: "space-between", paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },
   rowLabel: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.base },
   rowValue: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.base, flexShrink: 1, textAlign: "right" },

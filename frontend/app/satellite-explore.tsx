@@ -1,10 +1,10 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   StyleSheet, Text, View, Pressable, ScrollView, useWindowDimensions, Modal, TextInput, ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as FileSystem from "expo-file-system/legacy";
@@ -60,6 +60,8 @@ export default function SatelliteExplore() {
   const observer = useObserver();
   const { width } = useWindowDimensions();
   const SIZE = Math.min(width - spacing.lg * 2, 460);
+  // Go There deep-link: recreate a shared Senshot's viewpoint (place, zoom, layer).
+  const goParams = useLocalSearchParams<{ lat?: string; lon?: string; zoom?: string; layer?: string }>();
 
   const startLat = observer.status === "granted" ? observer.lat : 41.9;
   const startLon = observer.status === "granted" ? observer.lon : 12.5;
@@ -87,6 +89,19 @@ export default function SatelliteExplore() {
   const layer = GIBS_LAYERS[layerIdx];
   const cmpLayer = GIBS_LAYERS[cmpLayerIdx];
   const date = dateDaysAgo(days);
+
+  // Apply Go There deep-link once (recreate the shared Senshot's exact viewpoint).
+  const goDone = useRef(false);
+  useEffect(() => {
+    if (goDone.current || goParams.lat == null || goParams.lon == null) return;
+    const lat = Number(goParams.lat), lon = Number(goParams.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    goDone.current = true;
+    setCenter({ lat, lon });
+    if (goParams.zoom != null) { const z = Number(goParams.zoom); if (Number.isFinite(z)) setZoom(clamp(Math.round(z), 0, DELTAS.length - 1)); }
+    if (goParams.layer) { const i = GIBS_LAYERS.findIndex((l) => l.id === goParams.layer); if (i >= 0) setLayerIdx(i); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goParams.lat, goParams.lon]);
 
   const nowUrl = useMemo(() => gibsSnapshotUrl(center.lat, center.lon, date, layer.id, delta, 720),
     [center.lat, center.lon, date, layer.id, delta]);
@@ -199,7 +214,7 @@ export default function SatelliteExplore() {
         { icon: "🗓️", label: `Acquisizione: ${date} · zoom ${zoom + 1}/${DELTAS.length}` },
       ],
       socialSource: "satellite", snapKind: "satellite",
-      data: { from: "satellite-explore", place, lat: center.lat, lon: center.lon, layer: layer.id, satellite: sat, date, senshot: true },
+      data: { from: "satellite-explore", place, lat: center.lat, lon: center.lon, zoom, layer: layer.id, satellite: sat, date, senshot: true },
     });
     setSnapOpen(true);
   }, [nowUrl, layer.label, layer.id, center.lat, center.lon, date, zoom]);
