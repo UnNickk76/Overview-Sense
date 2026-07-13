@@ -34,8 +34,8 @@ export function computeSatellites(date: Date, lat: number, lon: number, altKm = 
       out.push({
         id: `sat-${s.id}`,
         name: s.name.replace(/\s*\(.*\)$/, ""),
-        az: (satellite.radiansToDegrees(look.azimuth) + 360) % 360,
-        alt: satellite.radiansToDegrees(look.elevation),
+        az: ((Number(look.azimuth) * 180) / Math.PI + 360) % 360,
+        alt: (Number(look.elevation) * 180) / Math.PI,
         rangeKm: look.rangeSat,
       });
     } catch { /* skip */ }

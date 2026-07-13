@@ -215,3 +215,13 @@ appare il gate permessi "Make a Sense".
   `pull_source: activity error` (DEPLOY/HEALTH_CHECK/MANAGE_SECRETS/MONGODB_MIGRATE) sono lato
   piattaforma/infra (pull sorgente da GCS) → retry + support.
 
+### FIX DEPLOY DEFINITIVO (causa reale del Cloud Build fallito)
+Riprodotto in locale `npx expo export --platform web` → falliva con:
+`SyntaxError: node_modules/satellite.js/wasm-build/pthreads-release/index.js: Unexpected token «require»`.
+Causa: **satellite.js 7.0.1** include un build WASM (emscripten) che il minifier di Metro non riesce a
+parsare durante l'export di produzione (in dev non veniva minificato → preview ok, deploy ko).
+Fix: **downgrade a satellite.js 5.0.0** (JS puro, stessa API SGP4, nessun WASM). `radiansToDegrees`
+non è nei typings v5 → sostituito con conversione inline `* 180/π`. `npx expo export` ora EXIT 0,
+`dist/` generato correttamente. Anche i config plugin (expo-camera/location/media-library) restano in
+app.json (best practice). App verificata funzionante in preview dopo il downgrade.
+
