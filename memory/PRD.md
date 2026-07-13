@@ -400,3 +400,11 @@ NOTA: pinch-zoom e dettagli-su-zoom si testano al meglio su dispositivo reale (i
 Nessun dato inventato: timeline curate da eventi storici reali, confronti da valori astronomici reali.
 
 STATO P1: tutti i punti completati (Verified Events, Live Earth interattivo, Observation Chains, Universe Explorer Fase 2).
+
+### FIX login su build TestFlight/produzione (DB separato)
+Causa: il build TestFlight usa il BACKEND DI PRODUZIONE, con MongoDB SEPARATO dal preview. Gli account creati via preview (founder + revisione Apple) non esistevano in produzione → login "email o password errati".
+Fix (auth.py): `ensure_developer_account()` ora fa **seeding idempotente** all'avvio del backend in OGNI ambiente:
+- Founder: `fandrex1@gmail.com` / `Overview.Sense76` / nick NeoMorpheus / badge Creator + protected.
+- Revisione Apple: `apple@overview.app` / `Overview.Apple2026` / nick Apple (utente normale).
+Helper `_seed_password_user()`: crea se mancante, altrimenti riapplica solo i flag; **non sovrascrive mai la password** (resta modificabile dal proprietario).
+NB: è un fix SOLO BACKEND → basta un **Redeploy** perché il build TestFlight attuale possa loggarsi (non serve nuovo build iOS per questo).

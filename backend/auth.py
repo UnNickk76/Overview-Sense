@@ -62,25 +62,56 @@ def public_user(doc: dict) -> dict:
 # Protected developer/founder account — flagged server-side only
 # ---------------------------------------------------------------------------
 DEVELOPER_EMAIL = "fandrex1@gmail.com"
+DEVELOPER_NICK = "NeoMorpheus"
+DEVELOPER_PASSWORD = "Overview.Sense76"  # seed only; owner-changeable afterwards
 DEVELOPER_BADGE = "Creator"
 
 # Brute-force protection
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
 
+DEVELOPER_FLAGS = {"role": "developer", "protected": True, "verified": True, "verified_badge": DEVELOPER_BADGE}
+
+# Apple App Store review account (normal user) — must exist in production for review.
+REVIEW_EMAIL = "apple@overview.app"
+REVIEW_NICK = "Apple"
+REVIEW_PASSWORD = "Overview.Apple2026"
+
+
+async def _seed_password_user(email: str, nick: str, password: str, flags: dict):
+    """Create the account with the seed password if missing; if it already exists,
+    only (re)apply flags. The password is NEVER overwritten (owner-changeable)."""
+    existing = await db.users.find_one({"email_lower": email})
+    if existing:
+        if flags:
+            await db.users.update_one({"email_lower": email}, {"$set": flags})
+        return
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "id": str(uuid.uuid4()),
+        "email": email, "email_lower": email,
+        "nickname": nick, "nickname_lower": nick.lower(),
+        "bio": "", "avatar": None,
+        "auth_providers": [
+            {"provider": "password", "password_hash": hash_password(password),
+             "created_at": now, "last_login_at": now},
+        ],
+        "created_at": now, "updated_at": now,
+        **flags,
+    }
+    try:
+        await db.users.insert_one(doc)
+    except DuplicateKeyError:
+        if flags:
+            await db.users.update_one({"email_lower": email}, {"$set": flags})
+
 
 async def ensure_developer_account():
-    """Idempotently blind the founder account: immutable credentials + Creator badge.
-    Password stays owner-changeable; email/nickname become immutable; not deletable."""
-    await db.users.update_one(
-        {"email_lower": DEVELOPER_EMAIL},
-        {"$set": {
-            "role": "developer",
-            "protected": True,
-            "verified": True,
-            "verified_badge": DEVELOPER_BADGE,
-        }},
-    )
+    """Seed + blind the founder account AND the Apple review account in EVERY
+    environment (preview + production). Runs at startup; idempotent; never
+    overwrites an existing password."""
+    await _seed_password_user(DEVELOPER_EMAIL, DEVELOPER_NICK, DEVELOPER_PASSWORD, DEVELOPER_FLAGS)
+    await _seed_password_user(REVIEW_EMAIL, REVIEW_NICK, REVIEW_PASSWORD, {})
 
 
 # ---------------------------------------------------------------------------
