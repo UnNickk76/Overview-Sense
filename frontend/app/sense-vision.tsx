@@ -122,6 +122,7 @@ export default function SenseVision() {
           };
         }
         data.senseLayer = layer.label;
+        data.magnetic = { magnitude: mag.magnitude };
         const saved = await saveObservation(photo.uri, data);
         setCreated(true);
         setTimeout(() => router.replace(`/observation?id=${saved.id}` as never), 850);

@@ -300,3 +300,22 @@ Prossime slice (stessa direzione, da confermare/costruire):
 - Auto-riconoscimento del soggetto (AI vision) → propone i layer più utili (cielo/Luna/persona/auto/fiore).
 - Spiegazione AI automatica dopo ogni Sense (rigorosa, mai "aura"): descrive layer attivi + dati reali.
 - Estendere la barra a Snapshot/Discovery Card/confronti.
+
+---
+
+## SESSIONE 10 — Sense Layers DATI + spiegazione AI automatica (2026-06)
+
+- **Layer-dati per-contesto** (`senseLayers.ts` → `DATA_LAYERS` + `availableDataLayers(d)`): 🧲 Magnetico,
+  ☀️ Solare, 🌙 Lunare, 🛰 Satelliti, 🌌 Universo, 🌬 Atmosfera, ☄️ Meteo spaziale, 🧭 Orientamento.
+  Ogni layer estrae il valore REALE da ObsData; **mostrato solo se il dato esiste** (mai inventato).
+  🌡 Heat e 🎧 Audio restano nascosti per foto (hardware/contesto non disponibile) → onestà.
+- **Viewer Sense** (`observation.tsx`): sezione "DATI REALI RILEVATI" con chip toggle (solo disponibili);
+  attivandoli compaiono **pill con i valori reali sovrapposte alla foto** (catturate anche nell'export).
+- **Magnetometro** ora salvato in `ObsData.magnetic` alla cattura (sense-vision + invisible-observe).
+- **Spiegazione AI automatica** dopo ogni Sense: parte al caricamento, usa `/ai/explain-visualization`
+  (system: "NON è un'aura, non paranormale — resa grafica di dati reali"). Verificata via curl: rigorosa,
+  cita solo dati reali, nessuna pseudoscienza.
+- **Barra Sense estesa** al modale Discovery Card (cambio layer per la card esportata).
+
+Rimane da fare (stessa direzione): **auto-riconoscimento del soggetto via AI vision** (cielo/Luna/persona/
+auto/fiore) per proporre automaticamente i layer migliori — attivazione manuale già completa.

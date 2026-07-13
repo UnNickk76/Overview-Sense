@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View, Pressable, ScrollView, useWindowDimensions, ActivityIndicator, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Image } from "expo-image";
 import Svg, { Line, Circle, Rect as SvgRect, Text as SvgText, G } from "react-native-svg";
 import ViewShot, { captureRef } from "react-native-view-shot";
 import QRCode from "react-native-qrcode-svg";
@@ -13,7 +12,7 @@ import * as ImageManipulator from "expo-image-manipulator";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
-import { colors, fonts, spacing, type } from "@/src/theme";
+import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { getObservation, observationCode, Observation, ObsPoint } from "@/src/lib/gallery";
 import { CONSTELLATION_LINES } from "@/src/lib/stars";
 import { project } from "@/src/lib/project";
@@ -23,6 +22,7 @@ import { ApiError } from "@/src/lib/client";
 import { useAuth } from "@/src/context/AuthContext";
 import { SenseCanvas, layerToVisual, SenseVisualLayer } from "@/src/components/SenseCanvas";
 import { SenseLayerBar } from "@/src/components/SenseLayerBar";
+import { availableDataLayers } from "@/src/lib/senseLayers";
 import { SenseMark } from "@/src/components/SenseMark";
 import { DiscoveryCard, CardFormat } from "@/src/components/DiscoveryCard";
 
@@ -40,6 +40,7 @@ export default function ObservationView() {
   const [aiText, setAiText] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [visualLayer, setVisualLayer] = useState<SenseVisualLayer>("Originale");
+  const [activeData, setActiveData] = useState<Set<string>>(new Set());
   const [exportOpen, setExportOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<CardFormat>("square");
   const [exportStatus, setExportStatus] = useState<string | null>(null);
@@ -147,22 +148,24 @@ export default function ObservationView() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setAiLoading(true);
     const d = obs.data;
-    const facts: string[] = [];
-    if (d.lat != null) facts.push(`Coordinate: ${nf(d.lat, 3)}°, ${nf(d.lon ?? 0, 3)}°.`);
-    if (d.cameraAz != null) facts.push(`Direzione fotocamera: ${compassPoint(d.cameraAz)} ${nf(d.cameraAz, 0)}°, elevazione ${nf(d.cameraAlt ?? 0, 0)}°.`);
-    if (d.sun) facts.push(`Sole: ${d.sun.alt > 0 ? `${nf(d.sun.alt, 0)}° sopra l'orizzonte` : "sotto l'orizzonte"}, ${compassPoint(d.sun.az)}.`);
-    if (d.moon) facts.push(`Luna: ${d.moon.phase}, illuminazione ${nf(d.moon.illum * 100, 0)}%.`);
-    if (d.planets?.length) facts.push(`Pianeti presenti: ${d.planets.map((p) => p.name).join(", ")}.`);
-    if (d.constellations?.length) facts.push(`Costellazioni: ${d.constellations.join(", ")}.`);
-    if (d.iss) facts.push(`ISS visibile a ${nf(d.iss.alt, 0)}° verso ${compassPoint(d.iss.az)}.`);
-    if (d.satellites?.length) facts.push(`Satelliti sopra l'osservatore: ${d.satellites.length}.`);
-    if (d.spaceWeather?.kp != null) facts.push(`Meteo spaziale: Kp ${nf(d.spaceWeather.kp, 1)}${d.spaceWeather.level ? ` (${d.spaceWeather.level})` : ""}.`);
-    if (d.weather?.temp != null) facts.push(`Temperatura: ${nf(d.weather.temp, 1)} °C.`);
+    const fields: { label: string; value: string }[] = [];
+    fields.push({ label: "Layer visivo attivo", value: `${visualLayer} (rimappa reale dei pixel)` });
+    if (d.senseLayer) fields.push({ label: "Sense Layer alla cattura", value: d.senseLayer });
+    for (const l of availableDataLayers(d)) fields.push({ label: l.label, value: l.current });
+    if (d.sun) fields.push({ label: "Sole", value: d.sun.alt > 0 ? `${nf(d.sun.alt, 0)}° sopra l'orizzonte` : "sotto l'orizzonte" });
+    if (d.moon) fields.push({ label: "Luna", value: `${d.moon.phase}, ${nf(d.moon.illum * 100, 0)}%` });
+    if (d.lat != null) fields.push({ label: "Coordinate", value: `${nf(d.lat, 3)}°, ${nf(d.lon ?? 0, 3)}°` });
     try {
-      const r = await aiApi.explainOpportunity("Osservazione della realtà invisibile", facts, "observation");
+      const r = await aiApi.explainVisualization(fields);
       setAiText(r.text);
     } catch { setAiText(null); } finally { setAiLoading(false); }
   };
+
+  // AI explains every Sense automatically (rigorous, based only on real data).
+  useEffect(() => {
+    if (obs?.data && !aiText && !aiLoading) { explain(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [obs?.id]);
 
   if (!obs || !d) {
     return <SpaceBackground><ScreenHeader title="Observation" /><View style={styles.center}><ActivityIndicator color={colors.brand} /></View></SpaceBackground>;
@@ -170,6 +173,7 @@ export default function ObservationView() {
 
   const dateStr = new Date(d.ts).toLocaleString([], { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
   const qrValue = `frontend://observation?id=${obs.id}`;
+  const dataLayers = availableDataLayers(d);
 
   return (
     <SpaceBackground>
@@ -215,6 +219,16 @@ export default function ObservationView() {
             </Svg>
           ) : null}
 
+          {activeData.size ? (
+            <View style={styles.dataOverlay} pointerEvents="none">
+              {dataLayers.filter((l) => activeData.has(l.key)).map((l) => (
+                <View key={l.key} style={styles.dataPill}>
+                  <Text style={styles.dataPillText}>{l.emoji} {l.current}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
           {/* Elegant watermark bar */}
           <View style={styles.watermark}>
             <View style={{ flex: 1 }}>
@@ -230,6 +244,35 @@ export default function ObservationView() {
         <View style={styles.layerHint}>
           <SenseLayerBar value={visualLayer} onChange={setVisualLayer} />
         </View>
+
+        {dataLayers.length ? (
+          <View style={styles.dataSection}>
+            <Text style={styles.dataTitle}>DATI REALI RILEVATI · tocca per sovrapporli</Text>
+            <View style={styles.dataChips}>
+              {dataLayers.map((l) => {
+                const on = activeData.has(l.key);
+                return (
+                  <Pressable
+                    key={l.key}
+                    testID={`data-layer-${l.key}`}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setActiveData((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(l.key)) next.delete(l.key); else next.add(l.key);
+                        return next;
+                      });
+                    }}
+                    style={[styles.dataChip, on && styles.dataChipActive]}
+                  >
+                    <Text style={[styles.dataChipText, on && styles.dataChipTextActive]}>{l.emoji} {l.label}</Text>
+                    <Text style={[styles.dataChipVal, on && { color: colors.onBrand }]}>{l.current}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
 
         <View style={styles.actions}>
           <Pressable testID="reveal-toggle" style={[styles.revealBtn, reveal && styles.revealActive]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setReveal((r) => !r); }}>
@@ -334,6 +377,9 @@ export default function ObservationView() {
             </View>
 
             <ScrollView contentContainerStyle={styles.previewWrap} showsVerticalScrollIndicator={false}>
+              <View style={{ width: "100%", marginBottom: spacing.md }}>
+                <SenseLayerBar value={visualLayer} onChange={setVisualLayer} compact />
+              </View>
               <ViewShot ref={cardRef}>
                 <DiscoveryCard obs={obs} publishedId={published} visualLayer={visualLayer}
                   format={exportFormat} width={exportFormat === "square" ? width - spacing.lg * 2 : (width - spacing.lg * 2) * 0.62} />
@@ -391,6 +437,17 @@ const styles = StyleSheet.create({
   actBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.tertiary, borderRadius: 16, paddingVertical: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   actText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.base },
   status: { color: colors.success, fontFamily: fonts.medium, fontSize: type.base, textAlign: "center" },
+  dataOverlay: { position: "absolute", top: 10, left: 10, gap: 5, maxWidth: "70%" },
+  dataPill: { alignSelf: "flex-start", backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(212,175,55,0.6)" },
+  dataPillText: { color: "#fff", fontFamily: fonts.medium, fontSize: type.sm - 1 },
+  dataSection: { gap: spacing.sm },
+  dataTitle: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm - 2, letterSpacing: 0.8 },
+  dataChips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  dataChip: { backgroundColor: colors.tertiary, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  dataChipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  dataChipText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.sm },
+  dataChipTextActive: { color: colors.onBrand },
+  dataChipVal: { color: colors.onSurfaceSecondary, fontFamily: fonts.mono, fontSize: type.sm - 2, marginTop: 1 },
   exportBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brand, borderRadius: 16, paddingVertical: spacing.md },
   exportText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.base },
   modalRoot: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },

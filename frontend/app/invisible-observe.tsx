@@ -17,7 +17,7 @@ import { compassPoint, nf } from "@/src/lib/format";
 import { api, Weather, SpaceWeather } from "@/src/lib/api";
 import { loadSatrecs, computeSatellites, SatPos, hasSatrecs } from "@/src/lib/satellites";
 import { buildObservation } from "@/src/lib/observationData";
-import { saveObservation } from "@/src/lib/gallery";
+import { saveObservation, type ObsData } from "@/src/lib/gallery";
 
 type Mode = { key: string; label: string; tint: string; color: string };
 const MODES: Mode[] = [
@@ -95,6 +95,7 @@ export default function InvisibleObserve() {
               spaceWeather: space?.kp_index?.available
                 ? { kp: space.kp_index.value ?? undefined, level: space.kp_index.level ?? undefined, solarWind: space.solar_wind?.speed_kms }
                 : undefined };
+        (data as ObsData).magnetic = { magnitude: mag.magnitude };
         const saved = await saveObservation(photo.uri, data);
         router.push(`/observation?id=${saved.id}` as never);
       }
