@@ -408,3 +408,14 @@ Fix (auth.py): `ensure_developer_account()` ora fa **seeding idempotente** all'a
 - Revisione Apple: `apple@overview.app` / `Overview.Apple2026` / nick Apple (utente normale).
 Helper `_seed_password_user()`: crea se mancante, altrimenti riapplica solo i flag; **non sovrascrive mai la password** (resta modificabile dal proprietario).
 NB: è un fix SOLO BACKEND → basta un **Redeploy** perché il build TestFlight attuale possa loggarsi (non serve nuovo build iOS per questo).
+
+### Universe Explorer — RIFATTO in 3D reale (Fase 1: Manual Exploration)
+Stack: three@0.185 + @react-three/fiber@9.6 + expo-gl@16 + expo-three@8. NON installato drei (richiede Node 22).
+- Wrapper Canvas cross-platform: `src/components/universe/r3f.web.ts` (THREE) e `r3f.native.ts` (expo-gl + expo-three TextureLoader). Metro risolve via estensioni piattaforma. Lint segnala "Unknown property" (falsi positivi r3f) e import non risolto (falso positivo: Metro risolve).
+- Dataset reale `src/lib/universe.ts`: ~40 oggetti su 5 scale (Sistema Solare → stelle vicine → Via Lattea/nebulose → Gruppo Locale → universo osservabile). Ogni oggetto: kind, scale, pos 3D, size, colore, texture(equirettangolare), rep (photo/reconstruction/data-viz), source/licenza, cosmicId (link scheda completa).
+- Scena `src/components/universe/UniverseScene.tsx`: starfield, sfere texturizzate (fallback colore imperativo — niente crash se la texture è bloccata), aloni glow, anelli Saturno, highlight selezione, camera rig orbitale con lerp fluido, proiezione 3D→2D per hit-test tap.
+- Schermata `app/universe-explorer.tsx` (SOSTITUITA): gesti drag(ruota)+pinch(zoom)+doppio-tap(fly-to), idle drift, scala ladder 1-5 + Scala prec/succ + Terra(home), ricerca per nome, nascondi UI, card oggetto (tipo/distanza/blurb/rappresentazione+fonte) con "Avvicinati" e "Apri scheda"→cosmic-object.
+- Verificato su web preview: rendering, navigazione, selezione, fly-to, cambio scala, ricerca. Texture equirettangolari bloccate nel sandbox (solarsystemscope) → fallback colore; caricheranno su device.
+- Route test 3D: `app/r3f-test.tsx` (non collegata).
+DA FARE (Fase 2): Guided Journey narrata, Snapshot-da-3D pulito, audio ambientale/sonificazione, modelli glTF, cataloghi live, bussola posizione.
+NB: richiede un nuovo BUILD iOS per test performance/texture su device.
