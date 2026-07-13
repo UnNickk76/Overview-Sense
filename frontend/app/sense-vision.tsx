@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, Pressable, useWindowDimensions, Linking, Scroll
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { BlurView } from "expo-blur";
+import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -50,6 +51,7 @@ export default function SenseVision() {
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState<"init" | "scan" | "ready">("init");
   const [created, setCreated] = useState(false);
+  const [review, setReview] = useState<{ uri: string; data: ObsData } | null>(null);
   const [weather, setWeather] = useState<Weather | null>(null);
   const [space, setSpace] = useState<SpaceWeather | null>(null);
   const satsReady = useRef(false);
@@ -123,12 +125,29 @@ export default function SenseVision() {
         }
         data.senseLayer = layer.label;
         data.magnetic = { magnitude: mag.magnitude };
-        const saved = await saveObservation(photo.uri, data);
-        setCreated(true);
-        setTimeout(() => router.replace(`/observation?id=${saved.id}` as never), 850);
-      } else {
-        setBusy(false);
+        // Show a review step — the user decides to keep or discard (nothing saved yet).
+        setReview({ uri: photo.uri, data });
       }
+    } catch { /* ignore */ }
+    finally { setBusy(false); }
+  };
+
+  // Discard the captured photo and return to the live camera (nothing is saved).
+  const discardSense = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setReview(null);
+  };
+
+  // Save the reviewed Sense to the local gallery, then open it to enhance / publish.
+  const saveSense = async () => {
+    if (!review || busy) return;
+    setBusy(true);
+    try {
+      const saved = await saveObservation(review.uri, review.data);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setReview(null);
+      setCreated(true);
+      setTimeout(() => router.replace(`/observation?id=${saved.id}` as never), 750);
     } catch { setBusy(false); }
   };
 
@@ -221,10 +240,14 @@ export default function SenseVision() {
           <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
           <Text style={styles.hudText}>SENSE VISION™</Text>
         </View>
+        <Pressable testID="sense-gallery" style={styles.glassBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/observations" as never); }}>
+          <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+          <Ionicons name="images-outline" size={20} color="#fff" />
+        </Pressable>
       </View>
 
       {/* Sense Layer selector */}
-      {stage === "ready" ? (
+      {stage === "ready" && !review ? (
         <Animated.View entering={FadeIn.delay(150)} style={[styles.layerBar, { top: insets.top + 56 }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingHorizontal: spacing.lg }}>
             {SENSE_LAYERS.map((m, i) => (
@@ -239,7 +262,7 @@ export default function SenseVision() {
       ) : null}
 
       {/* Bottom — MAKE A SENSE */}
-      {stage === "ready" ? (
+      {stage === "ready" && !review ? (
         <Animated.View entering={FadeIn.delay(200)} style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }]}>
           <Text style={styles.hudMeta}>{compassPoint(heading)} {heading.toFixed(0)}° · {nf(mag.magnitude, 0)} µT{weather?.temperature_c != null ? ` · ${nf(weather.temperature_c, 0)}°` : ""}</Text>
           <Pressable testID="make-a-sense" style={[styles.senseBtn, busy && { opacity: 0.85 }]} onPress={makeSense} disabled={busy}>
@@ -247,6 +270,33 @@ export default function SenseVision() {
             <Text style={styles.senseBtnText}>MAKE A SENSE</Text>
           </Pressable>
           <Text style={styles.captureHint}>Rivela i dati reali della scena · Layer: {layer.label}</Text>
+        </Animated.View>
+      ) : null}
+
+      {/* Review — decide whether to keep or discard the captured Sense */}
+      {review ? (
+        <Animated.View entering={FadeIn.duration(200)} style={styles.reviewOverlay}>
+          <Image source={{ uri: review.uri }} style={StyleSheet.absoluteFill} contentFit="cover" transition={120} />
+          <View style={styles.reviewScrim} pointerEvents="none" />
+          <View style={[styles.reviewTop, { paddingTop: insets.top + 10 }]}>
+            <View style={styles.reviewBadge}>
+              <SenseMark size={18} />
+              <Text style={styles.reviewBadgeText}>Sense catturato · {review.data.senseLayer}</Text>
+            </View>
+          </View>
+          <View style={[styles.reviewBar, { paddingBottom: insets.bottom + 20 }]}>
+            <Text style={styles.reviewHint}>Vuoi conservare questo Sense? Potrai poi migliorarlo e pubblicarlo dalla galleria.</Text>
+            <View style={styles.reviewBtns}>
+              <Pressable testID="discard-sense" style={styles.discardBtn} onPress={discardSense} disabled={busy}>
+                <Ionicons name="close" size={20} color="#fff" />
+                <Text style={styles.discardText}>Scarta</Text>
+              </Pressable>
+              <Pressable testID="save-sense" style={[styles.saveBtn, busy && { opacity: 0.85 }]} onPress={saveSense} disabled={busy}>
+                <Ionicons name="checkmark" size={20} color={colors.onBrand} />
+                <Text style={styles.saveText}>Salva</Text>
+              </Pressable>
+            </View>
+          </View>
         </Animated.View>
       ) : null}
     </View>
@@ -280,4 +330,16 @@ const styles = StyleSheet.create({
   bootText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.base, letterSpacing: 0.5 },
   createdOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.75)", alignItems: "center", justifyContent: "center", gap: spacing.md },
   createdText: { color: colors.brand, fontFamily: fonts.bold, fontSize: type["2xl"], letterSpacing: 1 },
+  reviewOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "#000" },
+  reviewScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.25)" },
+  reviewTop: { position: "absolute", top: 0, left: 0, right: 0, alignItems: "center" },
+  reviewBadge: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: "rgba(10,16,26,0.7)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  reviewBadgeText: { color: "#fff", fontFamily: fonts.medium, fontSize: type.sm },
+  reviewBar: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: spacing.lg, gap: spacing.md, alignItems: "center" },
+  reviewHint: { color: "#fff", fontFamily: fonts.regular, fontSize: type.sm, textAlign: "center", opacity: 0.9, lineHeight: 19 },
+  reviewBtns: { flexDirection: "row", gap: spacing.md, width: "100%" },
+  discardBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "rgba(30,30,32,0.85)", borderRadius: 999, paddingVertical: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  discardText: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.base },
+  saveBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.brand, borderRadius: 999, paddingVertical: spacing.lg },
+  saveText: { color: colors.onBrand, fontFamily: fonts.bold, fontSize: type.base, letterSpacing: 0.5 },
 });

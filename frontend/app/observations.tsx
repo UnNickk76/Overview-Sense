@@ -45,14 +45,15 @@ export default function Observations() {
         {items.length === 0 ? (
           <View style={styles.empty}>
             <Ionicons name="images-outline" size={44} color={colors.brand} />
-            <Text style={styles.emptyTitle}>Nessuna osservazione</Text>
-            <Text style={styles.emptyText}>Cattura una scena dal modulo Cielo o registra il paesaggio sonoro dal Listening Layer per salvarle qui.</Text>
+            <Text style={styles.emptyTitle}>Nessun Sense salvato</Text>
+            <Text style={styles.emptyText}>Apri Sense Vision e tocca &ldquo;MAKE A SENSE&rdquo; per catturare una scena. I tuoi Sense — anche non pubblicati — restano qui sul dispositivo, pronti da migliorare o pubblicare.</Text>
           </View>
         ) : null}
 
         {images.length > 0 ? (
           <>
-            <Text style={styles.section}>Immagini</Text>
+            <Text style={styles.section}>I miei Sense</Text>
+            <Text style={styles.sectionHint}>Tocca un Sense per migliorarlo (con dati reali) o pubblicarlo · tocca 🗑 per eliminarlo.</Text>
             <View style={styles.grid}>
               {images.map((o) => (
                 <Pressable key={o.id} testID={`obs-${o.id}`} style={[styles.imgCard, { width: cell }]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(`/observation?id=${o.id}` as never); }}>
@@ -98,6 +99,7 @@ const styles = StyleSheet.create({
   emptyTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.xl },
   emptyText: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.base, textAlign: "center", lineHeight: 21, paddingHorizontal: spacing.lg },
   section: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.lg },
+  sectionHint: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, marginTop: -spacing.sm, lineHeight: 17 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
   imgCard: { borderRadius: 14, overflow: "hidden", backgroundColor: colors.tertiary, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   imgFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.sm, gap: spacing.sm },

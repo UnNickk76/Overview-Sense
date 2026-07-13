@@ -526,4 +526,38 @@ const styles = StyleSheet.create({
   srDot: { width: 12, height: 12, borderRadius: 6 },
   srName: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
   srMeta: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1 },
+
+  // Guided Journey — narration card (bottom)
+  jCard: { backgroundColor: "rgba(10,16,26,0.96)", borderRadius: radius.lg, padding: spacing.lg, gap: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
+  jTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  jTitle: { flex: 1, color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
+  jProg: { color: colors.brand, fontFamily: fonts.medium, fontSize: type.sm },
+  jText: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.base, lineHeight: 21 },
+  jBtns: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: 2 },
+  jNav: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.tertiary, alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  jPlay: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.brand, borderRadius: radius.pill, paddingVertical: 11 },
+  jPlayText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.sm },
+  jExit: { paddingHorizontal: spacing.md, paddingVertical: 10, borderRadius: radius.pill, backgroundColor: colors.tertiary, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  jExitText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.sm },
+
+  // Journey picker sheet
+  jSheet: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: 6, borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  jHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: colors.onSurfaceTertiary, alignSelf: "center", marginBottom: spacing.sm },
+  jSheetTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.xl },
+  jSheetSub: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm, marginBottom: spacing.sm },
+  jRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },
+  jIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.tertiary, alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  jRowTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
+  jRowSub: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1 },
+
+  // Snapshot sheet
+  snapSheet: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  snapPreview: { width: "100%", height: 200, borderRadius: radius.md, backgroundColor: colors.tertiary },
+  snapInput: { backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.md, color: colors.onSurface, fontFamily: fonts.regular, fontSize: type.base, minHeight: 48, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  snapStatus: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm, textAlign: "center" },
+  snapPrimary: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: 13 },
+  snapPrimaryText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.base },
+  snapRow: { flexDirection: "row", gap: spacing.sm },
+  snapGhost: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.tertiary, borderRadius: radius.md, paddingVertical: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  snapGhostText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.sm },
 });
