@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { StyleSheet, Text, View, Pressable, ScrollView, useWindowDimensions, ActivityIndicator } from "react-native";
+import { StyleSheet, Text, View, Pressable, ScrollView, useWindowDimensions, ActivityIndicator, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
@@ -23,6 +23,7 @@ import { ApiError } from "@/src/lib/client";
 import { useAuth } from "@/src/context/AuthContext";
 import { SenseCanvas, VISUAL_LAYERS, layerToVisual, SenseVisualLayer } from "@/src/components/SenseCanvas";
 import { SenseMark } from "@/src/components/SenseMark";
+import { DiscoveryCard, CardFormat } from "@/src/components/DiscoveryCard";
 
 export default function ObservationView() {
   const insets = useSafeAreaInsets();
@@ -38,7 +39,11 @@ export default function ObservationView() {
   const [aiText, setAiText] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [visualLayer, setVisualLayer] = useState<SenseVisualLayer>("Originale");
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState<CardFormat>("square");
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
   const shotRef = useRef<ViewShot>(null);
+  const cardRef = useRef<ViewShot>(null);
 
   useEffect(() => { if (id) getObservation(id).then(setObs); }, [id]);
   useEffect(() => { if (obs?.data) setVisualLayer(layerToVisual(obs.data.senseLayer)); }, [obs]);
@@ -90,6 +95,27 @@ export default function ObservationView() {
       await MediaLibrary.saveToLibraryAsync(uri);
       setStatus("Salvato in Foto ✓");
     } catch { setStatus("Errore"); }
+  };
+
+  const exportCardShare = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setExportStatus("Preparazione…");
+    try {
+      const uri = await captureRef(cardRef, { format: "png", quality: 1 });
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri);
+      setExportStatus(null);
+    } catch { setExportStatus("Condivisione non riuscita"); }
+  };
+  const exportCardSave = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setExportStatus("Salvataggio…");
+    const perm = await MediaLibrary.requestPermissionsAsync();
+    if (!perm.granted) { setExportStatus("Permesso Foto negato"); return; }
+    try {
+      const uri = await captureRef(cardRef, { format: "png", quality: 1 });
+      await MediaLibrary.saveToLibraryAsync(uri);
+      setExportStatus("Salvata in Foto ✓");
+    } catch { setExportStatus("Errore"); }
   };
 
   const publish = async () => {
@@ -235,6 +261,11 @@ export default function ObservationView() {
         </View>
         {status ? <Text style={styles.status}>{status}</Text> : null}
 
+        <Pressable testID="export-discovery-card" style={styles.exportBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setExportStatus(null); setExportOpen(true); }}>
+          <SenseMark size={20} />
+          <Text style={styles.exportText}>Esporta Discovery Card</Text>
+        </Pressable>
+
         {published ? (
           <Pressable testID="published-open-feed" style={styles.publishedBtn} onPress={() => router.push(`/observation-detail?id=${published}` as never)}>
             <Ionicons name="checkmark-circle" size={18} color={colors.success} />
@@ -293,6 +324,49 @@ export default function ObservationView() {
         </View>
         <Text style={styles.note}>Ogni valore è stato registrato al momento dello scatto. Il cielo (Sole, Luna, pianeti, costellazioni) viene ricalcolato; satelliti e ISS provengono dall&apos;istantanea reale salvata.</Text>
       </ScrollView>
+
+      <Modal visible={exportOpen} animationType="slide" transparent onRequestClose={() => setExportOpen(false)}>
+        <View style={styles.modalRoot}>
+          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + spacing.lg, paddingTop: insets.top + spacing.md }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Discovery Card</Text>
+              <Pressable testID="export-close" hitSlop={12} onPress={() => setExportOpen(false)}>
+                <Ionicons name="close" size={24} color={colors.onSurface} />
+              </Pressable>
+            </View>
+
+            <View style={styles.formatRow}>
+              {(["square", "story"] as CardFormat[]).map((f) => (
+                <Pressable key={f} testID={`format-${f}`} onPress={() => { Haptics.selectionAsync(); setExportFormat(f); }}
+                  style={[styles.formatChip, exportFormat === f && styles.formatChipActive]}>
+                  <Ionicons name={f === "square" ? "square-outline" : "phone-portrait-outline"} size={15} color={exportFormat === f ? colors.onBrand : colors.onSurface} />
+                  <Text style={[styles.formatText, exportFormat === f && { color: colors.onBrand }]}>{f === "square" ? "Post 1:1" : "Story 9:16"}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <ScrollView contentContainerStyle={styles.previewWrap} showsVerticalScrollIndicator={false}>
+              <ViewShot ref={cardRef}>
+                <DiscoveryCard obs={obs} publishedId={published} visualLayer={visualLayer}
+                  format={exportFormat} width={exportFormat === "square" ? width - spacing.lg * 2 : (width - spacing.lg * 2) * 0.62} />
+              </ViewShot>
+            </ScrollView>
+
+            {exportStatus ? <Text style={styles.status}>{exportStatus}</Text> : null}
+            <View style={styles.actions}>
+              <Pressable testID="export-share" style={styles.exportBtn} onPress={exportCardShare}>
+                <Ionicons name="share-outline" size={18} color={colors.onBrand} />
+                <Text style={styles.exportText}>Condividi</Text>
+              </Pressable>
+              <Pressable testID="export-save" style={styles.actBtn} onPress={exportCardSave}>
+                <Ionicons name="download" size={18} color={colors.onSurface} />
+                <Text style={styles.actText}>Salva</Text>
+              </Pressable>
+            </View>
+            {!published ? <Text style={styles.note}>Suggerimento: pubblica l&apos;Observation per far puntare il QR direttamente alla tua scoperta.</Text> : null}
+          </View>
+        </View>
+      </Modal>
     </SpaceBackground>
   );
 }
@@ -329,6 +403,17 @@ const styles = StyleSheet.create({
   actBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.tertiary, borderRadius: 16, paddingVertical: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   actText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.base },
   status: { color: colors.success, fontFamily: fonts.medium, fontSize: type.base, textAlign: "center" },
+  exportBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brand, borderRadius: 16, paddingVertical: spacing.md },
+  exportText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.base },
+  modalRoot: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
+  modalSheet: { backgroundColor: colors.surfaceSecondary, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: spacing.lg, gap: spacing.md, maxHeight: "94%" },
+  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  modalTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.xl },
+  formatRow: { flexDirection: "row", gap: spacing.sm },
+  formatChip: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.tertiary, borderRadius: 999, paddingVertical: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  formatChipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  formatText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.sm },
+  previewWrap: { alignItems: "center", paddingVertical: spacing.md },
   publishBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brand, borderRadius: 16, paddingVertical: spacing.lg },
   publishText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.base },
   publishedBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.surfaceTertiary, borderRadius: 16, paddingVertical: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.success },

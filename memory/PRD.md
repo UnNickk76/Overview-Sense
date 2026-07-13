@@ -240,3 +240,19 @@ app.json (best practice). App verificata funzionante in preview dopo il downgrad
 - **Solo foto in-app pubblicabili**: garantito by design (nessun picker di galleria; pubblicazione
   solo dal viewer del Sense catturato o da immagini satellitari NASA). Nota di policy aggiunta.
 - Playbook test immagini in `/app/image_testing.md`.
+
+
+---
+
+## SESSIONE 7 — Discovery Card Export (P0, 2026-06)
+
+- **`src/components/DiscoveryCard.tsx`**: card grafica condivisibile (nero/oro, brand Overview + SenseMark,
+  overlay dati reali, QR, data/coordinate, cornice oro). Due formati: **1:1 (Post)** e **9:16 (Story)**.
+- **QR** → URL web `${EXPO_PUBLIC_BACKEND_URL}/observation-detail?id=<publishedId>` (apribile via web;
+  se non pubblicata → base app). Deep-link "apri nell'app" (universal/app links) da finalizzare dopo il
+  deploy con associazione dominio.
+- **`observation.tsx`**: pulsante "Esporta Discovery Card" → modale con toggle formato + anteprima
+  (`DiscoveryCard` in ViewShot) + **Condividi** (Sharing) / **Salva** (MediaLibrary → PNG). Cattura via
+  `captureRef(cardRef)`.
+- Verifica: lint + tsc puliti; app carica in preview. Export end-to-end (capture PNG + share/save)
+  testabile solo su **build nativa** (serve un Sense catturato in-app e permesso Foto).
