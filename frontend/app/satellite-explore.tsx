@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
-  StyleSheet, Text, View, Pressable, ScrollView, useWindowDimensions,
+  StyleSheet, Text, View, Pressable, ScrollView, useWindowDimensions, Modal, TextInput, ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -8,6 +8,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as FileSystem from "expo-file-system/legacy";
+import * as Location from "expo-location";
 import { GestureDetector, Gesture } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
@@ -20,6 +21,32 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 const wrapLon = (l: number) => ((l + 540) % 360) - 180;
 // Zoom levels = half-width of the viewport in degrees (smaller = closer).
 const DELTAS = [60, 30, 15, 8, 4, 2, 1, 0.5];
+
+// Iconic real destinations for Satellite Journey™ (real coordinates).
+const DESTINATIONS: { name: string; lat: number; lon: number; emoji: string }[] = [
+  { name: "Grand Canyon", lat: 36.1, lon: -112.1, emoji: "🏜️" },
+  { name: "Everest", lat: 27.99, lon: 86.93, emoji: "🏔️" },
+  { name: "Grande Barriera Corallina", lat: -18.3, lon: 147.7, emoji: "🐠" },
+  { name: "Deserto del Sahara", lat: 23.4, lon: 12.0, emoji: "🐪" },
+  { name: "Foresta Amazzonica", lat: -3.4, lon: -62.2, emoji: "🌳" },
+  { name: "Venezia", lat: 45.44, lon: 12.34, emoji: "🛶" },
+  { name: "Ghiacci della Groenlandia", lat: 72.0, lon: -40.0, emoji: "🧊" },
+  { name: "Isole Maldive", lat: 3.2, lon: 73.2, emoji: "🏝️" },
+  { name: "Gran Canyon del Colca", lat: -15.6, lon: -71.9, emoji: "🦅" },
+  { name: "Aurora · Islanda", lat: 64.9, lon: -19.0, emoji: "🌌" },
+];
+
+function satelliteName(layerId: string): string {
+  if (layerId.startsWith("VIIRS")) return "VIIRS · Suomi NPP";
+  if (layerId.startsWith("MODIS_Terra")) return "MODIS · Terra";
+  if (layerId.startsWith("MODIS_Aqua")) return "MODIS · Aqua";
+  if (layerId.startsWith("MODIS")) return "MODIS · Terra/Aqua";
+  if (layerId.startsWith("GHRSST")) return "GHRSST · multi-satellite";
+  return "NASA GIBS";
+}
+
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
 function dateDaysAgo(days: number): string {
   const d = new Date();
@@ -49,6 +76,11 @@ export default function SatelliteExplore() {
   const [scale, setScale] = useState(1);
   const [snap, setSnap] = useState<SnapshotInput | null>(null);
   const [snapOpen, setSnapOpen] = useState(false);
+  const [journeyOpen, setJourneyOpen] = useState(false);
+  const [flying, setFlying] = useState(false);
+  const [query, setQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const splitStart = useRef(0.5);
   const delta = DELTAS[zoom];
@@ -60,6 +92,8 @@ export default function SatelliteExplore() {
     [center.lat, center.lon, date, layer.id, delta]);
   const cmpUrl = useMemo(() => gibsSnapshotUrl(center.lat, center.lon, date, cmpLayer.id, delta, 720),
     [center.lat, center.lon, date, cmpLayer.id, delta]);
+
+  React.useEffect(() => () => { timers.current.forEach(clearTimeout); }, []);
 
   // ---- Map gestures ----
   const commitPan = (tx: number, ty: number) => {
@@ -100,6 +134,42 @@ export default function SatelliteExplore() {
     .onEnd(() => runOnJS(commitScrub)());
   const shownDays = scrub ?? days;
 
+  // ---- Satellite Journey™ — cinematic fly-to (all free imagery) ----
+  const clearTimers = () => { timers.current.forEach(clearTimeout); timers.current = []; };
+  const journeyTo = (destLat: number, destLon: number) => {
+    clearTimers();
+    setJourneyOpen(false);
+    setFlying(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const startC = { ...center };
+    setZoom(0); // pull back to the whole world
+    const steps = 9;
+    for (let i = 1; i <= steps; i++) {
+      timers.current.push(setTimeout(() => {
+        const e = easeInOut(i / steps);
+        setCenter({ lat: lerp(startC.lat, destLat, e), lon: wrapLon(lerp(startC.lon, destLon, e)) });
+      }, 400 + i * 150));
+    }
+    // Then descend to detail.
+    const base = 400 + steps * 150 + 250;
+    [1, 2, 3, 4, 5].forEach((z, k) => timers.current.push(setTimeout(() => {
+      setZoom(z);
+      if (z === 5) { setFlying(false); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); }
+    }, base + k * 360)));
+  };
+
+  const searchAndFly = async () => {
+    const q = query.trim();
+    if (!q) return;
+    setSearching(true);
+    try {
+      const local = DESTINATIONS.find((d) => d.name.toLowerCase().includes(q.toLowerCase()));
+      if (local) { journeyTo(local.lat, local.lon); return; }
+      const res = await Location.geocodeAsync(q); // free OS geocoder
+      if (res?.[0]) journeyTo(res[0].latitude, res[0].longitude);
+    } catch { /* ignore */ } finally { setSearching(false); setQuery(""); }
+  };
+
   const takeSnapshot = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     let base64: string | undefined;
@@ -108,18 +178,28 @@ export default function SatelliteExplore() {
       const dl = await FileSystem.downloadAsync(nowUrl, path);
       base64 = await FileSystem.readAsStringAsync(dl.uri, { encoding: FileSystem.EncodingType.Base64 });
     } catch { /* remote uri fallback */ }
+    // Reverse-geocode the place name (free OS geocoder; falls back to coords).
+    let place = `${center.lat.toFixed(2)}°, ${center.lon.toFixed(2)}°`;
+    try {
+      const geo = await Location.reverseGeocodeAsync({ latitude: center.lat, longitude: center.lon });
+      const g = geo?.[0];
+      const parts = [g?.city || g?.subregion || g?.region, g?.country].filter(Boolean);
+      if (parts.length) place = parts.join(", ");
+    } catch { /* keep coords */ }
+    const sat = satelliteName(layer.id);
     setSnap({
       uri: nowUrl, base64,
-      title: `${layer.label} · ${center.lat.toFixed(1)}°, ${center.lon.toFixed(1)}°`,
+      title: place,
       layerName: layer.label,
-      source: `NASA GIBS · ${date}`,
-      hashtags: ["Satellite", "EarthObservation", layer.label.replace(/[^\p{L}\p{N}]/gu, "")],
+      source: `${sat} · NASA GIBS · ${date}`,
+      hashtags: ["Senshot", "Satellite", "EarthObservation", layer.label.replace(/[^\p{L}\p{N}]/gu, "")],
       dataLines: [
-        { icon: "🛰️", label: `${layer.label} · ${date}` },
-        { icon: "📍", label: `${center.lat.toFixed(2)}°, ${center.lon.toFixed(2)}° · zoom ${zoom + 1}/${DELTAS.length}` },
+        { icon: "📍", label: `${place} · ${center.lat.toFixed(3)}°, ${center.lon.toFixed(3)}°` },
+        { icon: "🛰️", label: `${sat} · ${layer.label}` },
+        { icon: "🗓️", label: `Acquisizione: ${date} · zoom ${zoom + 1}/${DELTAS.length}` },
       ],
       socialSource: "satellite", snapKind: "satellite",
-      data: { from: "satellite-explore", lat: center.lat, lon: center.lon, layer: layer.id, date },
+      data: { from: "satellite-explore", place, lat: center.lat, lon: center.lon, layer: layer.id, satellite: sat, date, senshot: true },
     });
     setSnapOpen(true);
   }, [nowUrl, layer.label, layer.id, center.lat, center.lon, date, zoom]);
@@ -163,13 +243,25 @@ export default function SatelliteExplore() {
           </View>
           <Text style={styles.coords}>{center.lat.toFixed(2)}°, {center.lon.toFixed(2)}° · z{zoom + 1}</Text>
           <Text style={styles.hint}>Trascina · pizzica · doppio tap per zoom</Text>
+          {flying && (
+            <View style={styles.flyOverlay} pointerEvents="none">
+              <Ionicons name="rocket" size={26} color={colors.brand} />
+              <Text style={styles.flyText}>Satellite Journey™ · volo in corso…</Text>
+            </View>
+          )}
         </View>
 
-        {/* Snapshot */}
-        <Pressable testID="sat-snapshot" style={styles.snapBtn} onPress={takeSnapshot}>
-          <Ionicons name="camera" size={18} color={colors.onBrand} />
-          <Text style={styles.snapText}>Snapshot Overview → pubblica</Text>
-        </Pressable>
+        {/* Actions: Journey + Senshot */}
+        <View style={styles.actRow}>
+          <Pressable testID="sat-journey" style={styles.journeyBtn} onPress={() => setJourneyOpen(true)}>
+            <Ionicons name="rocket-outline" size={18} color={colors.onSurface} />
+            <Text style={styles.journeyText}>Satellite Journey™</Text>
+          </Pressable>
+          <Pressable testID="sat-snapshot" style={styles.snapBtn} onPress={takeSnapshot}>
+            <Ionicons name="camera" size={18} color={colors.onBrand} />
+            <Text style={styles.snapText}>Senshot™</Text>
+          </Pressable>
+        </View>
 
         {/* Layer selector */}
         <Text style={styles.section}>Layer satellitare</Text>
@@ -216,10 +308,41 @@ export default function SatelliteExplore() {
           <Text style={styles.linkText}>Analisi AI dettagliata (Then/Now classico)</Text>
         </Pressable>
 
-        <Text style={styles.note}>Immagini: NASA GIBS / Worldview (dati pubblici di osservazione della Terra). Ogni livello di zoom ricarica l&apos;immagine più dettagliata disponibile per l&apos;area.</Text>
+        <Text style={styles.note}>Immagini: NASA GIBS / Worldview (dati pubblici, gratuiti). Mostriamo la risoluzione realmente disponibile per l&apos;area — nessun dettaglio inventato. Fonte, satellite e data di acquisizione sono sempre indicati nel Senshot™.</Text>
       </ScrollView>
 
       <SnapshotStudio visible={snapOpen} input={snap} onClose={() => setSnapOpen(false)} />
+
+      {/* Satellite Journey™ picker */}
+      <Modal visible={journeyOpen} transparent animationType="slide" onRequestClose={() => setJourneyOpen(false)}>
+        <Pressable style={styles.backdrop} onPress={() => setJourneyOpen(false)} />
+        <View style={[styles.jSheet, { paddingBottom: insets.bottom + spacing.lg }]}>
+          <View style={styles.jHandle} />
+          <Text style={styles.jTitle}>Satellite Journey™</Text>
+          <Text style={styles.jSub}>Scegli una destinazione: Overview ti porterà lì con un volo cinematografico.</Text>
+          <View style={styles.searchRow}>
+            <Ionicons name="search" size={18} color={colors.onSurfaceSecondary} />
+            <TextInput testID="sat-search" style={styles.searchInput} value={query} onChangeText={setQuery}
+              placeholder="Cerca un luogo…" placeholderTextColor={colors.onSurfaceSecondary}
+              onSubmitEditing={searchAndFly} returnKeyType="search" />
+            {searching ? <ActivityIndicator color={colors.brand} /> : query ? (
+              <Pressable testID="sat-search-go" onPress={searchAndFly}><Ionicons name="arrow-forward-circle" size={24} color={colors.brand} /></Pressable>
+            ) : null}
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing.md }}>
+            {DESTINATIONS.map((d) => (
+              <Pressable key={d.name} testID={`sat-dest-${d.name}`} style={styles.destRow} onPress={() => journeyTo(d.lat, d.lon)}>
+                <Text style={styles.destEmoji}>{d.emoji}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.destName}>{d.name}</Text>
+                  <Text style={styles.destCoord}>{d.lat.toFixed(1)}°, {d.lon.toFixed(1)}°</Text>
+                </View>
+                <Ionicons name="rocket-outline" size={18} color={colors.brand} />
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -235,8 +358,24 @@ const styles = StyleSheet.create({
   zoomBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(10,16,26,0.85)", alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   coords: { position: "absolute", left: 8, bottom: 26, color: "#fff", fontFamily: fonts.medium, fontSize: type.sm - 1, backgroundColor: "rgba(0,0,0,0.5)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill, overflow: "hidden" },
   hint: { position: "absolute", left: 8, bottom: 8, color: "rgba(255,255,255,0.75)", fontFamily: fonts.regular, fontSize: type.sm - 2 },
-  snapBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: spacing.md },
+  snapBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: spacing.md },
   snapText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.base },
+  actRow: { flexDirection: "row", gap: spacing.sm },
+  journeyBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.tertiary, borderRadius: radius.md, paddingVertical: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  journeyText: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.sm },
+  flyOverlay: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: "rgba(0,0,0,0.35)" },
+  flyText: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.base, textShadowColor: "rgba(0,0,0,0.8)", textShadowRadius: 6 },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.6)" },
+  jSheet: { position: "absolute", left: 0, right: 0, bottom: 0, maxHeight: "80%", backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  jHandle: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: spacing.sm },
+  jTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.xl },
+  jSub: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm, marginBottom: spacing.sm },
+  searchRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  searchInput: { flex: 1, color: colors.onSurface, fontFamily: fonts.regular, fontSize: type.base },
+  destRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },
+  destEmoji: { fontSize: 24 },
+  destName: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
+  destCoord: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1 },
   section: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
   chipRow: { gap: spacing.sm, paddingVertical: 2 },
   chip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.tertiary, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },

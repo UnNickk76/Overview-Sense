@@ -522,3 +522,20 @@ Sorgenti audio supportate oltre alla musica:
 Stesso sistema per Overview Sense e SnapSense.
 DECISIONE NECESSARIA PRIMA DI COSTRUIRE: fonte musicale. La musica commerciale (tipo IG/TikTok) richiede licensing costoso/complesso; alternative realistiche = librerie royalty-free/Creative Commons (es. Free Music Archive, Jamendo, Pixabay Music) + audio utente + SoundSense + sonificazione dati. Da confermare con l'utente al momento della build.
 Note tecniche: usare `expo-audio` (playback) e `expo-audio`/recording per SoundSense; storage audio come i media (base64/GridFS) con durata/trim (start,dur) salvati sull'Observation/SnapSense; player nelle card del feed e nel viewer SnapSense; autoplay muto+tap per audio come i social. Testabile a pieno su build nativa.
+
+### BACKLOG/IN CORSO — Satellite Intelligence come ESPERIENZA DI VIAGGIO (richiesta utente)
+Visione: non consultare mappe, ma "avere la sensazione di esserci". Esplorazione libera (muovi/zoom progressivo al max dettaglio reale/trascina/ruota/cambia layer/dati/crea).
+- **Senshot™** (non screenshot): scatto generato da Overview, immagine pulita senza UI, pronta a condividere, con: nome luogo, coordinate, data/ora, satellite usato, layer applicati, dati scientifici, watermark Overview, eventuali Sense Layers + descrizione emozionale. (Implementato come evoluzione dello Snapshot in satellite-explore → SnapshotStudio con metadati arricchiti + reverse-geocode nome luogo + nome satellite.)
+- **Satellite Journey™**: l'utente sceglie un punto del pianeta; Overview anima un volo cinematografico fino alla destinazione (zoom-out → pan → zoom-in). All'arrivo: esplora, zoom, cambia layer, Sense Vision, Senshot, pubblica.
+- **Onestà del dettaglio**: mai inventare dettagli. Mostrare la risoluzione realmente disponibile + fonte + satellite + data acquisizione + limitazioni.
+- **Futuro**: architettura predisposta ad aggiornare le immagini automaticamente quando nuovi passaggi satellitari rendono disponibili acquisizioni più recenti (auto-refresh su nuova disponibilità GIBS).
+
+### VINCOLO GLOBALE (utente): tutte le fonti dati/media/servizi devono essere SEMPRE GRATUITE (si possono usare più fonti free combinate). No servizi a pagamento/licenze commerciali. Es. ok: NASA GIBS, Open-Meteo, NOAA, expo-location OS geocoder, OSM/Nominatim (rispettando policy), musica royalty-free/CC (FMA/Jamendo/Pixabay). Musica commerciale (IG/TikTok-style) = NO.
+
+### SESSIONE 6f — Satellite: Senshot™ + Satellite Journey™ (IMPLEMENTATO E VERIFICATO)
+`app/satellite-explore.tsx`:
+- **Senshot™** (ex Snapshot): scatto pulito via SnapshotStudio con metadati arricchiti — **nome luogo** (reverse-geocode gratis via expo-location, fallback coordinate), **satellite** (derivato da layer: MODIS Terra/Aqua, VIIRS Suomi NPP, GHRSST), coordinate, data acquisizione, zoom, watermark Overview. snapKind "satellite". Hashtag #Senshot.
+- **Satellite Journey™**: modale con ricerca (expo-location geocodeAsync gratis, fallback lista) + 10 destinazioni iconiche reali. `journeyTo()` = volo cinematografico: zoom-out al mondo → pan interpolato (easeInOut, 9 step) → discesa progressiva zoom 1→5, overlay "volo in corso". Verificato: Journey→Venezia (mondo z1 → z6 dettaglio).
+- Onestà risoluzione: nota su fonte/satellite/data, nessun dettaglio inventato. Tutte fonti GRATUITE (NASA GIBS, OS geocoder).
+- Cleanup timer su unmount. Lint/tsc clean. Home card "satellite" → questa schermata; link ad Analisi AI classica.
+FUTURO (predisposto): auto-refresh immagini su nuovi passaggi satellitari; rotazione (non significativa su imagery 2D piatta, valutare globo 3D).
