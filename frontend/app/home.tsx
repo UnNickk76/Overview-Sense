@@ -36,7 +36,7 @@ const LAYERS: Layer[] = [
   { key: "invisible", route: "/realta-invisibile", overline: "MAGNETIC LAYER", title: "Realtà Invisibile", icon: "magnet", accent: colors.blue, viz: "field" },
   { key: "fields", route: "/sense-vision", overline: "SENSE VISION™", title: "Sense Vision", icon: "eye", accent: colors.brand, viz: null },
   { key: "space-weather", route: "/meteo-spaziale", overline: "SOLAR LAYER", title: "Meteo Spaziale", icon: "sunny", accent: colors.brand, viz: "sun" },
-  { key: "satellite", route: "/satellite-observe", overline: "SATELLITE LAYER", title: "Satellite Intelligence", icon: "earth", accent: colors.blue, viz: null },
+  { key: "satellite", route: "/satellite-explore", overline: "SATELLITE LAYER", title: "Satellite Intelligence", icon: "earth", accent: colors.blue, viz: null },
   { key: "audio", route: "/audio", overline: "SIGNAL LAYER", title: "Sonificazione", icon: "musical-notes", accent: colors.blue, viz: null },
   { key: "timeline", route: "/timeline", overline: "TIME LAYER", title: "Timeline", icon: "time", accent: colors.brand, viz: null },
   { key: "feed", route: "/feed", overline: "COMMUNITY", title: "Overview Sense Universe", icon: "globe", accent: colors.blue, viz: null },

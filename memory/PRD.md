@@ -499,3 +499,14 @@ FATTO in questa sessione: Fase A (feed=Home) + Fase B (SnapSense). PROSSIMO: Fas
 - Smoke test feed-Home OK: logo+Home/profilo, Terra fissa che ruota, barra SnapSense, eventi verificati, card, FAB.
 
 RIMANE (fase Satellite dedicata + altro): Terra satellitare esplorabile/zoomabile con divider di confronto e Then/Now continuo; SnapshotStudio annotazioni/disegno (Skia); Meteo Spaziale vivo; Realtà Invisibile 3D immersiva; Timeline con Play; AR (futuro, build nativa).
+
+### SESSIONE 6e — Satellite Observation ESPLORABILE (nuova schermata)
+`app/satellite-explore.tsx` (Home card "satellite" ora punta qui; link alla vecchia `satellite-observe` per Analisi AI):
+- **Terra esplorabile** su immagini NASA GIBS (GetSnapshot): pan (trascina), pinch, doppio-tap zoom, pulsanti +/-/locate. Gesti via react-native-gesture-handler + runOnJS→state (come LiveEarth). 8 livelli di zoom (DELTAS 60°→0.5°): a ogni cambio ricarica l'immagine più dettagliata per la nuova bbox/centro. Readout coordinate+zoom.
+- **Layer multipli** (chips): True Color, HD, False Color, Notte, + Aerosol/Nuvole/Temperatura mare (verificati). Descrizione per layer.
+- **Confronto con DIVISORE MOBILE**: toggle "Confronta due layer" → seconda immagine (secondo layer) clippata a sinistra del divisore, handle trascinabile (Gesture.Pan) per spostare lo split, tag per lato. VERIFICATO (Termico ↔ True Color).
+- **Then / Now**: slider temporale custom (Gesture.Pan) 0→60 giorni fa, label data live, commit al rilascio → ricarica.
+- **Snapshot → SnapshotStudio**: scarica l'immagine corrente in base64 (FileSystem.downloadAsync) e apre lo Studio (snapKind "satellite", socialSource "satellite") → Pubblica Observation / SnapSense / Salva.
+- Verificato su web (screenshot): esplorazione, cambio layer, confronto con divisore, Then/Now, tutto ok.
+
+RIMANE: SnapshotStudio annotazioni/disegno (Skia); Meteo Spaziale vivo; Realtà Invisibile 3D immersiva; Timeline con Play; AR (futuro). Nota: tile compositi (fires/rain su base) non affidabili via endpoint snapshot → eventuali overlay in futuro con approccio WMTS/tile.
