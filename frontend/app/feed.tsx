@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, View, ScrollView, ActivityIndicator, Pressable, RefreshControl } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { ObservationCard } from "@/src/components/ObservationCard";
+import { LiveEarth } from "@/src/components/LiveEarth";
+import { VerifiedEvents } from "@/src/components/VerifiedEvents";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { socialApi, FeedObservation, FeedFilters } from "@/src/lib/backend";
 import { useObserver } from "@/src/hooks/useObserver";
@@ -48,6 +51,9 @@ export default function Feed() {
     try {
       const res = await socialApi.feed(f);
       setItems(res.items);
+      // Track the newest observation seen so Home can flag new discoveries.
+      const newest = res.items.reduce((acc, o) => (o.created_at > acc ? o.created_at : acc), "");
+      if (newest) await AsyncStorage.setItem("osu_last_seen", newest);
     } catch { setItems([]); } finally { setLoading(false); }
   }, [scope, category, observer.lat, observer.lon, observer.status]);
 
@@ -59,7 +65,10 @@ export default function Feed() {
         <Pressable testID="feed-back" style={styles.iconBtn} hitSlop={10} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </Pressable>
-        <Text style={styles.headerTitle}>Feed mondiale</Text>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle} numberOfLines={1}>🌍 Overview Sense Universe™</Text>
+          <Text style={styles.headerSubtitle}>The social universe of real discoveries.</Text>
+        </View>
         <Pressable testID="feed-profile" style={styles.iconBtn} hitSlop={10}
           onPress={() => router.push(user ? `/profile?id=${user.id}` as never : "/login" as never)}>
           <Ionicons name="person-circle-outline" size={24} color={colors.onSurface} />
@@ -93,6 +102,12 @@ export default function Feed() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.brand} />}
       >
+        {scope === "smart" && !category ? (
+          <>
+            <LiveEarth />
+            <VerifiedEvents />
+          </>
+        ) : null}
         {loading && items.length === 0 ? (
           <ActivityIndicator color={colors.brand} style={{ marginTop: spacing["2xl"] }} />
         ) : items.length === 0 ? (
@@ -111,7 +126,9 @@ export default function Feed() {
 const styles = StyleSheet.create({
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
   iconBtn: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: colors.tertiary, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  headerTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.xl },
+  headerTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base + 1, textAlign: "center" },
+  headerCenter: { flex: 1, alignItems: "center", paddingHorizontal: spacing.sm },
+  headerSubtitle: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, marginTop: 2, textAlign: "center" },
   chipRow: { paddingHorizontal: spacing.lg, gap: spacing.sm, paddingBottom: spacing.sm },
   chip: { backgroundColor: colors.surfaceTertiary, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },

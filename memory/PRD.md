@@ -349,3 +349,22 @@ auto/fiore) per proporre automaticamente i layer migliori — attivazione manual
 
 Ancora in sospeso: deep-link QR "apri nell'app" (universal/app links) → richiede il dominio definitivo
 DOPO il deploy (associazione dominio iOS/Android). Il QR web funziona già.
+
+---
+## Sessione (fork) — Overview Sense Universe + P1
+
+### Completato
+1. **Rebranding social** → "🌍 Overview Sense Universe™", sottotitolo "The social universe of real discoveries." (`app/feed.tsx`). Card Home rinominata da "Feed mondiale".
+2. **Scorciatoia Home in alto a sinistra**: `SenseMark` fisso (overlay) che apre il feed; puntino oro pulsante mostrato SOLO quando ci sono nuove Observation dall'ultima visita (confronto `osu_last_seen` in AsyncStorage vs feed `sort=recent`). (`app/home.tsx`)
+3. **P1 Verified Events**: backend `GET /api/events/verified` (cluster per categoria notevole + giorno UTC, ≥2 osservatori distinti). Carousel "Eventi verificati dalla community" in cima al feed (`src/components/VerifiedEvents.tsx`).
+4. **P1 Live Earth**: backend `GET /api/events/live-earth` (coordinate reali ultime 24h). Globo ortografico SVG con graticule rotante + dot pulsanti geolocalizzati (`src/components/LiveEarth.tsx`), in cima al feed.
+5. **P1 Observation Chains**: backend `GET /api/observations/{id}/chain` (stesso fenomeno ±36h; globale per fenomeni rari, altrimenti <300km). Sezione "Catena …" in `app/observation-detail.tsx`.
+6. **Fix**: `nf()` (`src/lib/format.ts`) ora ritorna "—" per valori non finiti → risolto crash observation-detail su dati incompleti (es. ISS senza alt).
+
+Nuovo modulo backend: `/app/backend/events.py` (registrato in server.py).
+
+### Prossimo (P1 rimanente)
+- **Universe Explorer Fase 2**: snapshot camera interno (watermark), modalità Compare, Object Timeline, Explore Around, Journey Mode, Community Observations sugli oggetti cosmici.
+
+### Bloccato
+- QR deep link nativo → attende dominio di produzione dopo deploy.

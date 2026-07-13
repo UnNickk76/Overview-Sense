@@ -1,20 +1,23 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View, Pressable, ScrollView } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown, useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, Easing } from "react-native-reanimated";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { GlassCard } from "@/src/components/GlassCard";
 import { MiniSun, MiniOrrery, MiniField } from "@/src/components/MiniViz";
 import { TodayCard } from "@/src/components/TodayCard";
 import { ObservationOfTheDay } from "@/src/components/ObservationOfTheDay";
 import { SenseVisionCard } from "@/src/components/SenseVisionCard";
+import { SenseMark } from "@/src/components/SenseMark";
 import { colors, fonts, spacing, type } from "@/src/theme";
 import { useObserver, useNow } from "@/src/hooks/useObserver";
 import { useAuth } from "@/src/context/AuthContext";
 import { api, Weather, SpaceWeather, ISS } from "@/src/lib/api";
+import { socialApi } from "@/src/lib/backend";
 import { computeSky } from "@/src/lib/skyObjects";
 import { dayNumber, sun, moon, toHorizontal, moonPhase, earthRotationSpeedKmh, sunLightMinutes, AU_KM, EARTH_RADIUS_KM } from "@/src/lib/astronomy";
 import { loadSatrecs, hasSatrecs, satellitesOverhead } from "@/src/lib/satellites";
@@ -36,7 +39,7 @@ const LAYERS: Layer[] = [
   { key: "satellite", route: "/satellite-observe", overline: "SATELLITE LAYER", title: "Satellite Intelligence", icon: "earth", accent: colors.blue, viz: null },
   { key: "audio", route: "/audio", overline: "SIGNAL LAYER", title: "Sonificazione", icon: "musical-notes", accent: colors.blue, viz: null },
   { key: "timeline", route: "/timeline", overline: "TIME LAYER", title: "Timeline", icon: "time", accent: colors.brand, viz: null },
-  { key: "feed", route: "/feed", overline: "COMMUNITY", title: "Feed mondiale", icon: "globe", accent: colors.blue, viz: null },
+  { key: "feed", route: "/feed", overline: "COMMUNITY", title: "Overview Sense Universe", icon: "globe", accent: colors.blue, viz: null },
   { key: "ai", route: "/assistant", overline: "GUIDE", title: "Assistente", icon: "sparkles", accent: colors.blue, viz: null },
 ];
 
@@ -51,6 +54,40 @@ export default function Home() {
   const [iss, setIss] = useState<ISS | null>(null);
   const [phraseIdx, setPhraseIdx] = useState(() => Math.floor(Math.random() * 8));
   const [satCount, setSatCount] = useState<number | null>(null);
+  const [hasNew, setHasNew] = useState(false);
+
+  // Detect new Observations in the Overview Sense Universe since last visit.
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await socialApi.feed({ sort: "recent" });
+        const newest = res.items.reduce((acc, o) => (o.created_at > acc ? o.created_at : acc), "");
+        if (!newest) return;
+        const seen = await AsyncStorage.getItem("osu_last_seen");
+        setHasNew(!seen || newest > seen);
+      } catch { /* offline: no badge */ }
+    })();
+  }, []);
+
+  // Gentle pulse for the "new discoveries" gold dot.
+  const dot = useSharedValue(1);
+  useEffect(() => {
+    if (hasNew) {
+      dot.value = withRepeat(withSequence(
+        withTiming(1.5, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+      ), -1, false);
+    } else {
+      dot.value = withTiming(1);
+    }
+  }, [hasNew, dot]);
+  const dotStyle = useAnimatedStyle(() => ({ transform: [{ scale: dot.value }] }));
+
+  const openUniverse = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setHasNew(false);
+    router.push("/feed" as never);
+  };
 
   useEffect(() => {
     api.spaceWeather().then(setSpace).catch(() => {});
@@ -129,7 +166,7 @@ export default function Home() {
       case "invisible": return iss?.available ? "ISS + campi in tempo reale" : "Campi, forze e satelliti";
       case "fields": return "Rivela l'invisibile · Make a Sense";
       case "satellite": return "Osserva la Terra dallo spazio";
-      case "feed": return "Observation da tutto il mondo";
+      case "feed": return "The social universe of real discoveries";
       case "universe": return "Sistema Solare in movimento";
       case "audio": return "Ascolta i dati reali";
       case "timeline": return "Il cielo di qualsiasi data";
@@ -208,6 +245,16 @@ export default function Home() {
           Ogni dato proviene da sensori del dispositivo o da fonti scientifiche pubbliche. Mai inventato.
         </Text>
       </ScrollView>
+
+      <Pressable
+        testID="home-universe-shortcut"
+        onPress={openUniverse}
+        style={[styles.universeShortcut, { top: insets.top + spacing.xs }]}
+        hitSlop={10}
+      >
+        <SenseMark size={38} active={hasNew} />
+        {hasNew && <Animated.View style={[styles.newDot, dotStyle]} pointerEvents="none" />}
+      </Pressable>
     </SpaceBackground>
   );
 }
@@ -235,4 +282,6 @@ const styles = StyleSheet.create({
   sigRule: { width: 100, height: StyleSheet.hairlineWidth, backgroundColor: colors.borderStrong },
   signature: { color: colors.brand, fontFamily: fonts.regular, fontSize: type.lg, fontStyle: "italic", textAlign: "center", opacity: 0.8, paddingHorizontal: spacing.xl },
   copyright: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm, opacity: 0.7 },
+  universeShortcut: { position: "absolute", left: spacing.lg, width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  newDot: { position: "absolute", top: 2, right: 2, width: 11, height: 11, borderRadius: 6, backgroundColor: colors.brand, borderWidth: 1.5, borderColor: "#000" },
 });

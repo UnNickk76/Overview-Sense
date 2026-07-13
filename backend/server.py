@@ -18,6 +18,7 @@ from database import db, client, EMERGENT_LLM_KEY
 from auth import auth_router, ensure_auth_indexes
 from social import social_router, ensure_social_indexes
 from ai_features import ai_router
+from events import events_router
 
 ROOT_DIR = Path(__file__).parent
 
@@ -374,6 +375,7 @@ app.include_router(api_router)
 app.include_router(auth_router)
 app.include_router(social_router)
 app.include_router(ai_router)
+app.include_router(events_router)
 
 app.add_middleware(
     CORSMiddleware,

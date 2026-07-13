@@ -1,5 +1,7 @@
 export const nf = (n: number, digits = 0): string =>
-  n.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  typeof n === "number" && Number.isFinite(n)
+    ? n.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits })
+    : "—";
 
 export const compassPoint = (deg: number): string => {
   const dirs = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];

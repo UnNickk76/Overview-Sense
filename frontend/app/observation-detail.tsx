@@ -12,6 +12,7 @@ import { InteractionBar } from "@/src/components/InteractionBar";
 import { ActionBar } from "@/src/components/ActionBar";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { socialApi, FeedObservation, Comment, mediaUrl } from "@/src/lib/backend";
+import { eventsApi, ObservationChain } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
 import { nf, compassPoint } from "@/src/lib/format";
 
@@ -22,6 +23,7 @@ export default function ObservationDetail() {
   const { user } = useAuth();
   const [obs, setObs] = useState<FeedObservation | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [chain, setChain] = useState<ObservationChain | null>(null);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -31,6 +33,7 @@ export default function ObservationDetail() {
     try {
       const [o, c] = await Promise.all([socialApi.observation(id), socialApi.comments(id)]);
       setObs(o); setComments(c.items);
+      eventsApi.chain(id).then(setChain).catch(() => {});
     } catch { /* ignore */ } finally { setLoading(false); }
   }, [id]);
 
@@ -119,6 +122,38 @@ export default function ObservationDetail() {
             {obs.categories.map((c) => <View key={c} style={styles.tag}><Text style={styles.tagText}>{c}</Text></View>)}
           </View>
 
+          {chain && chain.title && (chain.count ?? 0) > 1 ? (
+            <View style={styles.chainCard}>
+              <View style={styles.chainHead}>
+                <Ionicons name="git-network" size={16} color={colors.brand} />
+                <Text style={styles.chainTitle}>{chain.title}</Text>
+              </View>
+              <Text style={styles.chainSub}>
+                {chain.count} osservazioni collegate · {chain.observers} osservatori · scope {chain.scope}
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chainRow}>
+                {chain.items.map((it) => {
+                  const turi = mediaUrl(it.image_url);
+                  const active = it.id === obs.id;
+                  return (
+                    <Pressable key={it.id} testID={`chain-${it.id}`}
+                      onPress={() => { if (!active) router.push(`/observation-detail?id=${it.id}` as never); }}
+                      style={[styles.chainItem, active && styles.chainItemActive]}>
+                      {turi ? (
+                        <Image source={{ uri: turi }} style={styles.chainThumb} contentFit="cover" transition={150} />
+                      ) : (
+                        <View style={[styles.chainThumb, styles.chainThumbEmpty]}>
+                          <Ionicons name="planet" size={22} color={colors.onSurfaceSecondary} />
+                        </View>
+                      )}
+                      <Text style={styles.chainNick} numberOfLines={1}>{active ? "Questa" : it.nickname}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          ) : null}
+
           <Text style={styles.commentsTitle}>Commenti ({comments.length})</Text>
           {comments.map((c) => (
             <View key={c.id} style={styles.comment}>
@@ -190,6 +225,16 @@ const styles = StyleSheet.create({
   tag: { backgroundColor: colors.tertiary, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 4 },
   tagText: { color: colors.onSurfaceSecondary, fontFamily: fonts.mono, fontSize: type.sm - 2 },
   commentsTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.lg, marginTop: spacing.sm },
+  chainCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, gap: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  chainHead: { flexDirection: "row", alignItems: "center", gap: 6 },
+  chainTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
+  chainSub: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1 },
+  chainRow: { gap: spacing.sm, paddingTop: 2 },
+  chainItem: { width: 84, gap: 4 },
+  chainItemActive: { opacity: 0.6 },
+  chainThumb: { width: 84, height: 84, borderRadius: radius.sm, backgroundColor: colors.tertiary },
+  chainThumbEmpty: { alignItems: "center", justifyContent: "center" },
+  chainNick: { color: colors.onSurfaceTertiary, fontFamily: fonts.mono, fontSize: type.sm - 2, textAlign: "center" },
   comment: { gap: 2 },
   commentNick: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.sm },
   commentText: { color: colors.onSurfaceTertiary, fontFamily: fonts.regular, fontSize: type.base, lineHeight: 20 },

@@ -147,6 +147,53 @@ export const socialApi = {
   collection: (id: string) => apiFetch<{ items: FeedObservation[] }>(`/users/${id}/collection`),
 };
 
+export interface VerifiedEvent {
+  id: string;
+  category: string;
+  day: string;
+  title: string;
+  observers: number;
+  observations: number;
+  first_at: string;
+  last_at: string;
+  avg_scientific_value: number;
+  centroid?: { lat: number; lon: number } | null;
+  samples: string[];
+  obs_ids: string[];
+}
+
+export interface LiveEarthPoint {
+  id: string;
+  lat: number;
+  lon: number;
+  category: string;
+  intensity: number;
+  created_at: string;
+}
+
+export interface LiveEarth {
+  points: LiveEarthPoint[];
+  total_recent: number;
+  total_geolocated: number;
+  window_hours: number;
+}
+
+export interface ObservationChain {
+  category: string | null;
+  title: string | null;
+  day?: string;
+  observers?: number;
+  count?: number;
+  scope?: string;
+  items: FeedObservation[];
+}
+
+export const eventsApi = {
+  verified: () => apiFetch<{ events: VerifiedEvent[] }>("/events/verified"),
+  liveEarth: () => apiFetch<LiveEarth>("/events/live-earth"),
+  chain: (id: string) => apiFetch<ObservationChain>(`/observations/${id}/chain`),
+};
+
 // ---- AI narration ----
 export const aiApi = {
   explainOpportunity: (title: string, facts: string[], kind?: string) =>
