@@ -575,3 +575,23 @@ Ogni oggetto / fenomeno / luogo indicato dall'app deve SEMPRE offrire una strutt
 - Guided Journey, Senshot, Add Description, Publish to Overview Sense Universe.
 Vale ovunque: stella/pianeta/luna/nebulosa/galassia/satellite/luogo terrestre/evento atmosferico/fenomeno invisibile.
 Piano suggerito: componente riusabile SenseActionBar (LOOK UP / GO INSIDE / Guided Journey / Senshot / Add Description / Publish) da inserire in opportunity.tsx, cosmic-object.tsx, e schede oggetto; routing: LOOK UP -> sense-vision; GO INSIDE cosmico -> universe-explorer con fly-to alla scala/oggetto; GO INSIDE terrestre -> satellite-explore Journey; Senshot -> SnapshotStudio. Trasparenza rappresentazione (photo/mosaic/reconstruction/art) sempre etichettata.
+
+### CODA — Principio "DOCUMENTED REALITY" (utente, da fare)
+Ovunque l'umanita sia arrivata e ne esista una testimonianza reale/attendibile (foto, video, audio, scansioni 3D, ricostruzioni scientifiche, dati certificati) Overview deve renderla esplorabile: fondo oceano, Everest, interno piramidi, ISS, Marte, Luna, Via Lattea, Foresta Amazzonica, citta da satellite, relitti profondi. L'utente puo esplorare/muoversi/osservare/imparare/fermarsi/Senshot/raccontare/condividere. Missione: "Se l'umanita ci e arrivata, tu puoi viverlo. Se puoi viverlo, puoi Senshottarlo." Il Senshot = ricordo di un luogo realmente esplorato anche senza esserci stati fisicamente.
+
+### CODA — Principio "SENSHOT = PUNTO DI VISTA" + azione "Go There" (utente, da fare)
+Due persone che osservano lo stesso oggetto creano Senshot DIVERSI: il Senshot rappresenta il punto di vista dell'osservatore, non solo l'oggetto. Ogni Senshot deve SALVARE automaticamente il viewpoint: coordinate luogo/oggetto, posizione camera, orientamento, zoom, FOV, layer attivi, data/ora, dati scientifici. Aprendo un Senshot altrui: 
+- View Senshot: mostra solo l'immagine.
+- Go There: Overview ricrea ESATTAMENTE il punto di osservazione originale e porta l'utente li (virtualmente) per osservare/esplorare/cambiare inquadratura/continuare il viaggio/creare un nuovo Senshot diverso. 
+"Instagram salva immagini. Overview salva luoghi, prospettive ed esperienze." Ogni Senshot e un invito: "Vieni a vedere cio che ho visto io... oppure continua il viaggio da qui."
+NOTA IMPL: universe-explorer deve accettare deep-link con viewpoint completo (scale, focus/objectId, az, pol, rad/zoom); il Senshot dell'universe salva gia questi valori in data{} -> "Go There" diventa fattibile. In corso di predisposizione durante LOOK UP/GO INSIDE.
+
+### SESSIONE 8 (fork) — LOOK UP / GO INSIDE (Fase 1-3, FATTO e verificato)
+- Nuovo componente riusabile src/components/SenseActionBar.tsx: "VIVI QUESTA REALTA" con 2 azioni principali LOOK UP (osserva da qui, ora) + GO INSIDE (entra ed esplora) + chip Guided Journey / Senshot (render solo se handler passato). Nota: dati spiegano, camera osserva, esplorazione fa vivere, Senshot conserva.
+- universe-explorer.tsx: aggiunto deep-link useLocalSearchParams { focus, scale, journey, az, pol, rad }. focus matcha per id o cosmicId su tutte le scale e imposta scale+target+viewpoint; journey avvia il Guided Journey; ripristina az/pol/rad se forniti (base per "Go There").
+- universe Senshot: data.viewpoint { focus, scale, az, pol, rad } salvato -> predisposto per "Go There".
+- opportunity.tsx: sostituito "Crea Observation" con SenseActionBar. Routing: LOOK UP->/cielo; GO INSIDE cosmico->/universe-explorer?focus=<cosmicId> (milkyway/moon/iss/pianeti IT->id, sky/universe->milkyway), terrestre (earth/solar)->/satellite-explore; Guided Journey per Via Lattea->journey=inside-milkyway.
+- cosmic-object.tsx: SenseActionBar dopo la descrizione; GO INSIDE->universe-explorer?focus=obj.id; journeyForObject() mappa oggetto->viaggio guidato.
+- Verificato (screenshot, NO test agent): /universe-explorer?focus=milkyway apre Scala 3 Via Lattea con label trasparenza "Ricostruzione scientifica"; SenseActionBar visibile su cosmic-object Via Lattea (LOOK UP + GO INSIDE + Guided Journey).
+
+RIMANE (coda aggiornata): estendere SenseActionBar a satellite-explore/oggetti terrestri e schede satellite; azione "Go There" completa (View Senshot vs Go There nel viewer, ricrea viewpoint da data.viewpoint); principio DOCUMENTED REALITY (luoghi documentati: oceano/Everest/piramidi/ISS/Marte/Amazzonia/relitti); Senshot=punto di vista ovunque (salvare viewpoint anche in sense-vision/satellite); Meteo Spaziale vivo; Realta Invisibile 3D; Timeline Play; annotazioni Skia; colonna sonora Sense Match; AR.

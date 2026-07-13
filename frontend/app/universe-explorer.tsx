@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View, Pressable, TextInput, Modal, ScrollView, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as FileSystem from "expo-file-system/legacy";
@@ -25,6 +25,8 @@ const DEFAULT_RAD: Record<UScale, number> = { 1: 34, 2: 26, 3: 40, 4: 20, 5: 60 
 export default function UniverseExplorer() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  // GO INSIDE / Go There deep-link: focus an object, scale, journey, or full viewpoint.
+  const params = useLocalSearchParams<{ focus?: string; scale?: string; journey?: string; az?: string; pol?: string; rad?: string }>();
   const [scale, setScale] = useState<UScale>(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -142,6 +144,39 @@ export default function UniverseExplorer() {
   };
   const exitJourney = () => { setJourney(null); setJourneyPlaying(false); resumeSoon(); };
 
+  // Deep link (GO INSIDE / Go There): fly to a focus object / scale / journey, restoring the
+  // exact viewpoint (az/pol/rad) when provided so a shared Senshot's point of view can be recreated.
+  const deepLinkDone = useRef(false);
+  useEffect(() => {
+    if (deepLinkDone.current) return;
+    if (params.journey) {
+      const j = JOURNEYS.find((x) => x.id === params.journey);
+      if (j) { deepLinkDone.current = true; startJourney(j); return; }
+    }
+    if (params.focus) {
+      for (const s of [1, 2, 3, 4, 5] as UScale[]) {
+        const o = objectsForScale(s).find((ob) => ob.id === params.focus || ob.cosmicId === params.focus);
+        if (o) {
+          deepLinkDone.current = true;
+          setScale(s);
+          setSelectedId(o.id);
+          ctrl.current.target = o.pos;
+          const az = params.az != null ? Number(params.az) : 0.6;
+          const pol = params.pol != null ? Number(params.pol) : 1.15;
+          const rad = params.rad != null ? Number(params.rad) : Math.max(o.size * 4 + 2, 6);
+          ctrl.current.az = Number.isFinite(az) ? az : 0.6;
+          ctrl.current.pol = Number.isFinite(pol) ? pol : 1.15;
+          ctrl.current.rad = Number.isFinite(rad) ? rad : DEFAULT_RAD[s];
+          break;
+        }
+      }
+    } else if (params.scale) {
+      const s = Number(params.scale) as UScale;
+      if (s >= 1 && s <= 5) { deepLinkDone.current = true; goScale(s); }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.focus, params.scale, params.journey]);
+
   // Move the camera to the current step + auto-advance while playing.
   useEffect(() => {
     if (!journey) return;
@@ -196,7 +231,18 @@ export default function UniverseExplorer() {
         ],
         socialSource: "cosmos",
         snapKind: "universe",
-        data: { from: "universe-explorer", scale, name: selected?.name, cosmicId: selected?.cosmicId },
+        data: {
+          from: "universe-explorer", scale, name: selected?.name, cosmicId: selected?.cosmicId,
+          // Viewpoint (Senshot = point of view). Enables "Go There" recreation.
+          viewpoint: {
+            target: "universe-explorer",
+            focus: selected?.id ?? null,
+            scale,
+            az: Number(ctrl.current.az.toFixed(3)),
+            pol: Number(ctrl.current.pol.toFixed(3)),
+            rad: Number(ctrl.current.rad.toFixed(2)),
+          },
+        },
       });
       setSnapOpen(true);
     } catch { /* ignore */ }

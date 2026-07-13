@@ -12,6 +12,26 @@ import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { getCachedOpportunity, getFavorites, toggleFavorite } from "@/src/lib/opportunityStore";
 import { Opportunity } from "@/src/lib/opportunities";
 import { aiApi } from "@/src/lib/backend";
+import { SenseActionBar } from "@/src/components/SenseActionBar";
+
+const IT_PLANET_TO_ID: Record<string, string> = {
+  Mercurio: "mercury", Venere: "venus", Terra: "earth", Marte: "mars",
+  Giove: "jupiter", Saturno: "saturn", Urano: "uranus", Nettuno: "neptune", Plutone: "pluto",
+};
+
+// Map an opportunity to its GO INSIDE destination (immersive exploration).
+function goInsideFor(opp: Opportunity): { cosmic?: string; journey?: string; earth?: boolean } | null {
+  if (opp.id === "milkyway") return { cosmic: "milkyway", journey: "inside-milkyway" };
+  if (opp.id === "moon") return { cosmic: "moon" };
+  if (opp.id === "iss-pass") return { cosmic: "iss" };
+  if (opp.id.startsWith("planet-")) {
+    const idc = IT_PLANET_TO_ID[opp.id.slice("planet-".length)];
+    if (idc) return { cosmic: idc };
+  }
+  if (opp.layer === "universe" || opp.layer === "sky") return { cosmic: "milkyway" };
+  if (opp.layer === "earth" || opp.layer === "solar") return { earth: true };
+  return null;
+}
 
 export default function OpportunityDetail() {
   const insets = useSafeAreaInsets();
@@ -111,12 +131,19 @@ export default function OpportunityDetail() {
           </Section>
         ) : null}
 
-        {opp.createObservation ? (
-          <Pressable testID="opp-create-observation" style={styles.primary} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); router.push("/cielo" as never); }}>
-            <Ionicons name="camera" size={20} color={colors.onBrand} />
-            <Text style={styles.primaryText}>Crea una Observation</Text>
-          </Pressable>
-        ) : null}
+        {(() => {
+          const dest = goInsideFor(opp);
+          return (
+            <SenseActionBar
+              onLookUp={() => router.push("/cielo" as never)}
+              onGoInside={dest ? () => {
+                if (dest.cosmic) router.push(`/universe-explorer?focus=${dest.cosmic}` as never);
+                else if (dest.earth) router.push("/satellite-explore" as never);
+              } : undefined}
+              onGuidedJourney={dest?.journey ? () => router.push(`/universe-explorer?journey=${dest.journey}` as never) : undefined}
+            />
+          );
+        })()}
 
         <Pressable style={styles.secondary} onPress={onShare}>
           <Ionicons name="share-outline" size={18} color={colors.onSurface} />

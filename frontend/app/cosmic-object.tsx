@@ -24,6 +24,16 @@ import {
 } from "@/src/lib/cosmos";
 import { socialApi, CosmicImage, FeedObservation, mediaUrl } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
+import { SenseActionBar } from "@/src/components/SenseActionBar";
+
+// Map a cosmic object to the most relevant Guided Journey for GO INSIDE.
+function journeyForObject(id: string): string | null {
+  if (["milkyway", "sgra", "orion-nebula", "eagle-nebula", "crab-nebula", "pleiades"].includes(id)) return "inside-milkyway";
+  if (["sun", "mercury", "venus", "earth", "moon", "mars", "jupiter", "saturn", "uranus", "neptune", "pluto", "iss", "voyager1", "halley"].includes(id)) return "solar-edge";
+  if (["proxima", "alphacen", "sirius", "vega", "betelgeuse", "barnard"].includes(id)) return "to-proxima";
+  if (["andromeda", "triangulum", "lmc", "smc"].includes(id)) return "local-group";
+  return null;
+}
 
 export default function CosmicObjectScreen() {
   const insets = useSafeAreaInsets();
@@ -167,6 +177,12 @@ export default function CosmicObjectScreen() {
         ) : null}
 
         <Text style={styles.desc}>{obj.description}</Text>
+
+        <SenseActionBar
+          onLookUp={() => router.push("/cielo" as never)}
+          onGoInside={() => router.push(`/universe-explorer?focus=${obj.id}` as never)}
+          onGuidedJourney={journeyForObject(obj.id) ? () => router.push(`/universe-explorer?journey=${journeyForObject(obj.id)}` as never) : undefined}
+        />
 
         <View style={styles.dataCard}>
           <Row label="Distanza dalla Terra" value={distStr} />
