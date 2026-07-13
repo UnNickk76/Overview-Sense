@@ -38,10 +38,13 @@ function buildGraticule() {
   return lines;
 }
 
-interface Props { size?: number; onInteracting?: (active: boolean) => void }
+interface Props { size?: number; onInteracting?: (active: boolean) => void; variant?: "full" | "compact"; onExpand?: () => void }
 
-export function LiveEarth({ size = 260, onInteracting }: Props) {
+export function LiveEarth({ size = 260, onInteracting, variant = "full", onExpand }: Props) {
   const router = useRouter();
+  const compact = variant === "compact";
+  const onExpandRef = useRef(onExpand);
+  onExpandRef.current = onExpand;
   const baseR = size / 2 - 6;
   const cx = size / 2;
   const cy = size / 2;
@@ -105,14 +108,15 @@ export function LiveEarth({ size = 260, onInteracting }: Props) {
     resumeTimer.current = setTimeout(() => { idleRef.current = true; }, 600);
   };
 
-  const beginPan = () => { pause(); startLon.current = lonRef.current; startLat.current = latRef.current; };
+  const beginPan = () => { if (compact) return; pause(); startLon.current = lonRef.current; startLat.current = latRef.current; };
   const updatePan = (tx: number, ty: number) => {
+    if (compact) return;
     const k = 0.34 / zoomRef.current;
     setLonV((startLon.current - tx * k) % 360);
     setLatV(clamp(startLat.current + ty * k, -85, 85));
   };
-  const beginPinch = () => { pause(); startZoom.current = zoomRef.current; };
-  const updatePinch = (s: number) => { setZoomV(clamp(startZoom.current * s, 1, 6)); };
+  const beginPinch = () => { if (compact) return; pause(); startZoom.current = zoomRef.current; };
+  const updatePinch = (s: number) => { if (compact) return; setZoomV(clamp(startZoom.current * s, 1, 6)); };
 
   const openDetail = (id: string) => {
     setListOpen(false);
@@ -121,6 +125,7 @@ export function LiveEarth({ size = 260, onInteracting }: Props) {
   };
 
   const handleDoubleTap = (x: number, y: number) => {
+    if (compact) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onExpandRef.current?.(); return; }
     const thr = 30 + 6 * zoomRef.current;
     const hits = dotsRef.current
       .map((d) => ({ pt: d.pt, dist: Math.hypot(d.sx - x, d.sy - y) }))
@@ -220,11 +225,13 @@ export function LiveEarth({ size = 260, onInteracting }: Props) {
   }, [points, proj, tick]);
 
   return (
-    <View style={styles.wrap}>
-      <View style={styles.header}>
-        <Text style={styles.title}>🌍 Live Earth</Text>
-        <Text style={styles.subtitle}>Il pianeta osservato in tempo reale</Text>
-      </View>
+    <View style={compact ? styles.wrapCompact : styles.wrap}>
+      {!compact && (
+        <View style={styles.header}>
+          <Text style={styles.title}>🌍 Live Earth</Text>
+          <Text style={styles.subtitle}>Il pianeta osservato in tempo reale</Text>
+        </View>
+      )}
 
       <GestureDetector gesture={gesture}>
         <View style={[styles.stage, { width: size, height: size }]}>
@@ -265,6 +272,7 @@ export function LiveEarth({ size = 260, onInteracting }: Props) {
         </View>
       </GestureDetector>
 
+      {!compact && (<>
       <View style={styles.legendPill}>
         <View style={[styles.legendDot, { backgroundColor: colors.brand }]} />
         <Text style={styles.legendText}>{meta.geo} osservazioni geolocalizzate</Text>
@@ -320,12 +328,16 @@ export function LiveEarth({ size = 260, onInteracting }: Props) {
           </Pressable>
         </View>
       </Modal>
+      </>)}
+      {compact && <Text style={styles.compactHint}>Doppio tap per esplorare</Text>}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { alignItems: "center", paddingVertical: spacing.lg, gap: spacing.sm },
+  wrapCompact: { alignItems: "center", gap: 2 },
+  compactHint: { color: colors.onSurfaceTertiary, fontFamily: fonts.medium, fontSize: type.sm - 2, letterSpacing: 0.5 },
   header: { alignItems: "center", gap: 2 },
   title: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.lg },
   subtitle: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm },

@@ -465,3 +465,15 @@ GLTFLoader importato da `three/examples/jsm/loaders/GLTFLoader.js` (three 0.185)
 - **MOTORE CONDIVISO — `src/components/SnapshotStudio.tsx`** (richiesta utente: ogni Layer → esperienza → contenuto → social): componente riusabile che prende un'immagine catturata da QUALSIASI schermata + metadati e produce una card brandizzata (watermark OVERVIEW/SenseMark, layer, dati reali, fonte, data) con titolo+descrizione editabili, **hashtag automatici**, e azioni **Pubblica come Observation** (`socialApi.createObservation`, ricompone via `captureRef`→base64, fallback al base64 grezzo) + **Salva/Condividi**. Integrato nell'Universe Explorer (sostituisce il vecchio snap modal). Verificato end-to-end su web.
 - **DEFERRED nel motore**: annotazioni/disegno/evidenziatore (prossimo incremento, Skia — testabile su device).
 - **ROADMAP concordata (sequenza)**: motore Snapshot ✅ → **Satellite Observation (Terra esplorabile, layer multipli, divider confronto, Then/Now continuo, NASA GIBS)** → Meteo Spaziale vivo → Realtà Invisibile immersiva 3D → Timeline viaggio nel tempo (Play). AR = step futuro (build nativa).
+
+### SESSIONE 6b — FASE A: il feed diventa la Home (social al centro)
+Richiesta utente: l'app deve aprirsi sul social, non sulla Home tecnica. La Home (griglia strumenti) resta invariata, cambia solo la pagina iniziale + un tasto Home nel feed.
+- **Entry point → `/feed`**: `index.tsx` (splash), `login.tsx`, `register.tsx`, `welcome.tsx` (utente + guest), `profile.tsx` (logout) ora vanno a `/feed`.
+- **`app/feed.tsx` ristrutturato come Home**: top bar con logo SenseMark + titolo "Overview Sense Universe™" (sinistra), tasti **Home (icona apps → /home griglia strumenti)** + profilo (destra). Rimosso il tasto "back".
+- **Live Earth compatta fissa in alto** (`LiveEarth variant="compact" size=132`): sempre in rotazione automatica, solo il globo + hint "Doppio tap per esplorare". Non scorre con il feed.
+- **Doppio tap sul globo (o tap sul logo) → Modal Live Earth a tutto schermo** (`variant="full"`) con TUTTI i filtri spostati qui: scope chips (Tutte/Chi seguo/Vicinanze/Oggi/Settimana/…) + categorie/fenomeni + globo interattivo (pan/pinch/lista). La Terra = mappa di navigazione del mondo.
+- **FAB "+" Sense Vision** (in basso a destra) → `/sense-vision` (crea → Scarta/Salva/Pubblica).
+- `src/components/LiveEarth.tsx`: aggiunta prop `variant: "full"|"compact"` + `onExpand`. In compact: pan/pinch disabilitati, doppio tap → onExpand, chrome nascosto (solo globo + hint).
+- Verificato su web (screenshot): feed-Home con Terra viva + eventi verificati + card Sense + FAB; modal Live Earth full con filtri e globo interattivo. Tutto ok.
+
+PROSSIMO (concordato con utente): **FASE B — SnapSense™** (Storie 24h: barra storie con foto profilo, viewer, pubblicazione rapida temporanea; richiede backend nuovo). Poi FASE C personalizzazione feed. Da NON dimenticare (utente: "completare il vecchio, tenere insieme Satellite"): annotazioni/disegno in SnapshotStudio, Satellite Observation (Terra esplorabile NASA GIBS), Meteo Spaziale vivo, Realtà Invisibile 3D, Timeline con Play, AR (futuro).

@@ -27,7 +27,7 @@ export default function Splash() {
     if (elapsed && !loading && !routed.current) {
       routed.current = true;
       (async () => {
-        if (user) { router.replace("/home"); return; }
+        if (user) { router.replace("/feed"); return; }
         let seen = false;
         try { seen = (await AsyncStorage.getItem(SEEN_INTRO_KEY)) === "1"; } catch { /* ignore */ }
         router.replace(seen ? "/welcome" : "/before-you-begin");

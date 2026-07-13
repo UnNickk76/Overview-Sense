@@ -30,7 +30,7 @@ export default function Register() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       await register(email.trim(), nickname.trim(), password);
-      if (router.canGoBack()) router.back(); else router.replace("/home" as never);
+      if (router.canGoBack()) router.back(); else router.replace("/feed" as never);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Registrazione non riuscita.");
     } finally { setBusy(false); }

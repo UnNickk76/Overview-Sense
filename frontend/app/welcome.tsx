@@ -22,7 +22,7 @@ export default function Welcome() {
 
   useEffect(() => {
     // if already logged in, skip straight to home
-    if (user) { router.replace("/home"); return; }
+    if (user) { router.replace("/feed"); return; }
     logoOpacity.value = withRepeat(withSequence(withTiming(1, { duration: 1600 }), withTiming(0.75, { duration: 1600 })), -1, true);
     earthY.value = withTiming(0, { duration: 1200, easing: Easing.out(Easing.cubic) });
   }, [logoOpacity, earthY, user, router]);
@@ -56,7 +56,7 @@ export default function Welcome() {
           <Pressable testID="welcome-login" style={styles.secondary} onPress={() => go("/login")}>
             <Text style={styles.secondaryText}>Accedi</Text>
           </Pressable>
-          <Pressable testID="welcome-guest" style={styles.guest} onPress={() => router.replace("/home")}>
+          <Pressable testID="welcome-guest" style={styles.guest} onPress={() => router.replace("/feed")}>
             <Text style={styles.guestText}>Esplora come ospite</Text>
           </Pressable>
         </Animated.View>

@@ -78,7 +78,7 @@ export default function Profile() {
             <Pressable testID="profile-about" onPress={() => router.push("/about" as never)} hitSlop={10}>
               <Ionicons name="information-circle-outline" size={22} color={colors.onSurface} />
             </Pressable>
-            <Pressable testID="profile-logout" onPress={async () => { await logout(); router.replace("/home" as never); }} hitSlop={10}>
+            <Pressable testID="profile-logout" onPress={async () => { await logout(); router.replace("/feed" as never); }} hitSlop={10}>
               <Ionicons name="log-out-outline" size={22} color={colors.onSurface} />
             </Pressable>
           </View>
