@@ -368,3 +368,13 @@ Nuovo modulo backend: `/app/backend/events.py` (registrato in server.py).
 
 ### Bloccato
 - QR deep link nativo → attende dominio di produzione dopo deploy.
+
+### Live Earth — Globo interattivo (upgrade)
+`src/components/LiveEarth.tsx` riscritto come esperienza interattiva:
+- Rotazione libera 360° con un dito (Pan), pinch-zoom 1x–6x (Pinch), auto-rotazione lenta quando fermo, ripresa dopo il rilascio.
+- Continenti reali (Natural Earth 110m, semplificati in `src/lib/continents.ts`, ~1300 punti) come SOLO contorni dorati; oceani scuri; graticule tenue.
+- Osservazioni sempre visibili (dot pulsanti), doppio tap sull'Observation → apre la scheda (verificato).
+- Dettaglio progressivo con lo zoom: icone categoria (≥1.5x), anteprime Sense Vision (≥1.8x), città principali `src/lib/cities.ts` (≥2.2x). Pulsante Reset.
+- Backend `live-earth` arricchito con `image_url`/`nickname`.
+- Scroll del feed disabilitato durante l'interazione col globo (prop `onInteracting`).
+NOTA: pinch-zoom e dettagli-su-zoom si testano al meglio su dispositivo reale (il preview web non emula il pinch a due dita).

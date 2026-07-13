@@ -169,6 +169,8 @@ export interface LiveEarthPoint {
   category: string;
   intensity: number;
   created_at: string;
+  image_url?: string | null;
+  nickname?: string;
 }
 
 export interface LiveEarth {

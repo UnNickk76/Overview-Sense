@@ -41,6 +41,7 @@ export default function Feed() {
   const [category, setCategory] = useState<string | null>(null);
   const [items, setItems] = useState<FeedObservation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [earthActive, setEarthActive] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -100,11 +101,12 @@ export default function Feed() {
       <ScrollView
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"], gap: spacing.lg }}
         showsVerticalScrollIndicator={false}
+        scrollEnabled={!earthActive}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.brand} />}
       >
         {scope === "smart" && !category ? (
           <>
-            <LiveEarth />
+            <LiveEarth onInteracting={setEarthActive} />
             <VerifiedEvents />
           </>
         ) : null}

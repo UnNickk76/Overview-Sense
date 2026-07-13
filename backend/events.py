@@ -125,6 +125,8 @@ async def live_earth(hours: int = 24, limit: int = 200):
                 "category": o.get("category"),
                 "intensity": o.get("scientific_value", 0),
                 "created_at": o.get("created_at"),
+                "image_url": f"/api/media/{o['id']}" if o.get("has_image") else None,
+                "nickname": o.get("nickname"),
             })
     return {
         "points": points,
