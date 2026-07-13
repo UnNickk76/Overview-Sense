@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "sh.emergent.overview",
+      "bundleIdentifier": "sense.invisible.overview",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Compute the real sky and forces around you",
         "NSCameraUsageDescription": "Overlay real stars and planets on the sky",
@@ -20,7 +20,7 @@
       }
     },
     "android": {
-      "package": "sh.emergent.overview",
+      "package": "sense.invisible.overview",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000000"
