@@ -447,3 +447,12 @@ Frontend `app/universe-explorer.tsx`:
 - Pulsante top-bar "layers" → **pannello "Cataloghi reali"** con toggle per Asteroidi(S1)/Comete(S1)/Sonde(S1)/Pulsar(S3)/Quasar(S5) + nota "Asteroidi live via NASA NeoWs".
 - Verificato (screenshot, NO test agent): pannello toggle, oggetti scatterati in scena, ricerca+fly-to Apophis (dati reali), Crab Pulsar (S3, ATNF), scala 5 quasar senza crash.
 DA FARE ANCORA: ottenere `NASA_API_KEY` reale dall'utente (ora fallback curato). Poi modelli 3D glTF (ISS/sonde) — solo su build nativa.
+
+### Universe Explorer — NASA API key + Modelli 3D glTF (COMPLETATO)
+- **NASA_API_KEY** reale aggiunta in `backend/.env` (fornita dall'utente). `/api/universe/asteroids` ora restituisce dati **LIVE** (`live:true`, es. "2015 NG3" passaggio odierno reale). Fallback curato resta se l'API fallisce.
+- **Modelli 3D glTF reali NASA** (dominio pubblico, da `raw.githubusercontent.com/nasa/NASA-3D-Resources/master/...`, CORS-enabled):
+  - `universe.ts`: campo `model?` su UObject + costante `MODELS` (iss, voyager, jwst, parker, juno, hubble). ISS e Voyager 1 statici ora hanno `model` + `rep:"model"`.
+  - `liveCatalog.ts`: sonde Parker/JWST/Voyager2/Juno hanno `model`.
+  - `UniverseScene.tsx`: `useGltf(url)` carica il .glb imperativamente (GLTFLoader esportato da r3f.web/native), normalizza scala (bounding box → targetMax) e centra; `ModelBody` renderizza `<primitive>` con rotazione lenta, **fallback difensivo a `SphereBody` se il modello non carica** (nessun crash). `Body` usa ModelBody quando `o.model` è presente.
+- Verificato su web preview: ISS caricata senza errori CORS/crash (raw.githubusercontent CORS-ok). NB: su NATIVE (expo-gl) i modelli con texture embedded potrebbero non decodificare le texture → fallback sfera; la geometria carica. Validazione piena solo su BUILD nativa.
+GLTFLoader importato da `three/examples/jsm/loaders/GLTFLoader.js` (three 0.185).

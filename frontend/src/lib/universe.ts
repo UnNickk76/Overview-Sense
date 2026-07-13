@@ -36,7 +36,20 @@ export interface UObject {
   cosmicId?: string;     // link to COSMIC_OBJECTS for the full detail screen
   rep: Representation;
   source: string;        // attribution for the visualisation
+  model?: string;        // optional glTF (.glb) model — replaces the sphere on native
 }
+
+// Real NASA 3D models (public domain, CORS-enabled raw GitHub).
+const NASA_GLB = (p: string) =>
+  `https://raw.githubusercontent.com/nasa/NASA-3D-Resources/master/3D%20Models/${p}`;
+export const MODELS = {
+  iss: NASA_GLB("International%20Space%20Station%20%28ISS%29%20%28A%29/International%20Space%20Station%20%28ISS%29%20%28A%29.glb"),
+  voyager: NASA_GLB("Voyager%20Probe%20%28A%29/Voyager%20Probe%20%28A%29.glb"),
+  jwst: NASA_GLB("James%20Webb%20Space%20Telescope%20%28B%29/James%20Webb%20Space%20Telescope%20%28B%29.glb"),
+  parker: NASA_GLB("Parker%20Solar%20Probe/Parker%20Solar%20Probe.glb"),
+  juno: NASA_GLB("Juno%20%28B%29/Juno%20%28B%29.glb"),
+  hubble: NASA_GLB("Hubble%20Space%20Telescope%20%28A%29/Hubble%20Space%20Telescope%20%28A%29.glb"),
+};
 
 const TEX = (n: string) => `https://www.solarsystemscope.com/textures/download/2k_${n}.jpg`;
 const SSS = "Texture: Solar System Scope (CC BY 4.0) · Visualizzazione basata sui dati";
@@ -49,7 +62,7 @@ export const UNIVERSE: UObject[] = [
   { id: "venus", name: "Venere", kind: "planet", scale: 1, pos: [6, -0.4, -2], size: 0.55, color: "#d9b382", texture: TEX("venus_surface"), distanceLabel: "~2,3 min luce", blurb: "Avvolto da nubi di acido, è il pianeta più caldo.", cosmicId: "venus", rep: "photo", source: SSS },
   { id: "earth", name: "Terra", kind: "planet", scale: 1, pos: [9, 0, 2], size: 0.6, color: "#3a7bd5", texture: TEX("earth_daymap"), distanceLabel: "Sei qui", blurb: "Il nostro pianeta. L'unico luogo dove sappiamo esistere la vita.", cosmicId: "earth", rep: "photo", source: SSS },
   { id: "moon", name: "Luna", kind: "moon", scale: 1, pos: [10.1, 0.3, 2.4], size: 0.2, color: "#c9c9c9", texture: TEX("moon"), distanceLabel: "1,3 sec luce", blurb: "Il nostro satellite naturale, nato da un impatto gigante.", cosmicId: "moon", rep: "photo", source: SSS },
-  { id: "iss", name: "ISS", kind: "spacecraft", scale: 1, pos: [9.3, 0.5, 2.1], size: 0.08, color: "#dfe7ef", distanceLabel: "408 km dalla Terra", blurb: "Stazione Spaziale Internazionale, laboratorio in microgravità.", cosmicId: "iss", rep: "data-viz", source: NASA_VIZ },
+  { id: "iss", name: "ISS", kind: "spacecraft", scale: 1, pos: [9.3, 0.5, 2.1], size: 0.08, color: "#dfe7ef", distanceLabel: "408 km dalla Terra", blurb: "Stazione Spaziale Internazionale, laboratorio in microgravità.", cosmicId: "iss", rep: "model", source: "Modello 3D reale: NASA (dominio pubblico)", model: MODELS.iss },
   { id: "mars", name: "Marte", kind: "planet", scale: 1, pos: [13, -0.6, -3], size: 0.45, color: "#c1440e", texture: TEX("mars"), distanceLabel: "~12,7 min luce", blurb: "Il pianeta rosso, meta delle missioni robotiche.", cosmicId: "mars", rep: "photo", source: SSS },
   { id: "jupiter", name: "Giove", kind: "planet", scale: 1, pos: [18, 0.8, 4], size: 1.3, color: "#d8ca9d", texture: TEX("jupiter"), distanceLabel: "~43 min luce", blurb: "Il gigante gassoso, con la Grande Macchia Rossa.", cosmicId: "jupiter", rep: "photo", source: SSS },
   { id: "saturn", name: "Saturno", kind: "planet", scale: 1, pos: [23, -0.5, -5], size: 1.1, color: "#e3d2a0", texture: TEX("saturn"), ring: true, distanceLabel: "~79 min luce", blurb: "Celebre per il suo maestoso sistema di anelli.", cosmicId: "saturn", rep: "photo", source: SSS },
@@ -57,7 +70,7 @@ export const UNIVERSE: UObject[] = [
   { id: "neptune", name: "Nettuno", kind: "planet", scale: 1, pos: [30, -0.3, -4], size: 0.78, color: "#3f54ba", texture: TEX("neptune"), distanceLabel: "~4,2 ore luce", blurb: "Il pianeta più esterno, con venti supersonici.", cosmicId: "neptune", rep: "photo", source: SSS },
   { id: "pluto", name: "Plutone", kind: "dwarf", scale: 1, pos: [34, 1.2, 6], size: 0.18, color: "#c8b6a0", distanceLabel: "~5,5 ore luce", blurb: "Pianeta nano nella Fascia di Kuiper.", cosmicId: "pluto", rep: "data-viz", source: NASA_VIZ },
   { id: "halley", name: "Cometa di Halley", kind: "comet", scale: 1, pos: [16, 3, -8], size: 0.15, color: "#bfe8ff", distanceLabel: "orbita ~76 anni", blurb: "La cometa periodica più famosa, di ritorno nel 2061.", cosmicId: "halley", rep: "data-viz", source: NASA_VIZ },
-  { id: "voyager1", name: "Voyager 1", kind: "spacecraft", scale: 1, pos: [40, 5, 2], size: 0.1, color: "#e6e6e6", distanceLabel: "~24 mld km", blurb: "L'oggetto umano più lontano, nello spazio interstellare.", cosmicId: "voyager1", rep: "data-viz", source: NASA_VIZ },
+  { id: "voyager1", name: "Voyager 1", kind: "spacecraft", scale: 1, pos: [40, 5, 2], size: 0.1, color: "#e6e6e6", distanceLabel: "~24 mld km", blurb: "L'oggetto umano più lontano, nello spazio interstellare.", cosmicId: "voyager1", rep: "model", source: "Modello 3D reale: NASA (dominio pubblico)", model: MODELS.voyager },
 
   // ---------------- Scale 2 · Nearby stars ----------------
   { id: "sun2", name: "Sole", kind: "star", scale: 2, pos: [0, 0, 0], size: 0.6, color: "#FDB813", emissive: true, distanceLabel: "Sei qui", blurb: "Il nostro Sole, punto di partenza.", cosmicId: "sun", rep: "data-viz", source: NASA_VIZ },

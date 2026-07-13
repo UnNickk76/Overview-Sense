@@ -4,7 +4,7 @@
 //   sources labelled). 3D positions are a data-visualisation (deterministic scatter).
 
 import { apiFetch } from "./client";
-import { UObject, UScale, UKind } from "./universe";
+import { UObject, UScale, UKind, MODELS } from "./universe";
 
 // Deterministic pseudo-random from a string seed (stable positions per object).
 function hash(s: string): number {
@@ -94,10 +94,10 @@ const QUASARS: Seed[] = [
 
 const PROBES: Seed[] = [
   { id: "s-newhorizons", name: "New Horizons", kind: "spacecraft", scale: 1, size: 0.1, color: "#e6e6e6", distanceLabel: "~8,8 mld km", blurb: "Ha sorvolato Plutone (2015) e Arrokoth (2019); ora nella Fascia di Kuiper.", source: SRC_MISSION, rMin: 46, rMax: 70 },
-  { id: "s-parker", name: "Parker Solar Probe", kind: "spacecraft", scale: 1, size: 0.09, color: "#ffd27a", distanceLabel: "sfiora il Sole", blurb: "La sonda più veloce mai costruita: 'tocca' la corona solare.", source: SRC_MISSION, rMin: 6, rMax: 14 },
-  { id: "s-jwst", name: "James Webb (JWST)", kind: "spacecraft", scale: 1, size: 0.12, color: "#f0d9a0", distanceLabel: "1,5 mln km (L2)", blurb: "Il più grande telescopio spaziale: osserva l'universo nell'infrarosso.", source: SRC_MISSION, rMin: 11, rMax: 13 },
-  { id: "s-voyager2", name: "Voyager 2", kind: "spacecraft", scale: 1, size: 0.1, color: "#dcdcdc", distanceLabel: "~20 mld km", blurb: "L'unica sonda ad aver visitato Urano e Nettuno; nello spazio interstellare.", source: SRC_MISSION, rMin: 46, rMax: 70 },
-  { id: "s-juno", name: "Juno", kind: "spacecraft", scale: 1, size: 0.09, color: "#e0d6c0", distanceLabel: "orbita di Giove", blurb: "In orbita attorno a Giove: studia atmosfera e campo magnetico.", source: SRC_MISSION, rMin: 16, rMax: 22 },
+  { id: "s-parker", name: "Parker Solar Probe", kind: "spacecraft", scale: 1, size: 0.12, color: "#ffd27a", distanceLabel: "sfiora il Sole", blurb: "La sonda più veloce mai costruita: 'tocca' la corona solare.", source: SRC_MISSION, rMin: 6, rMax: 14, model: MODELS.parker },
+  { id: "s-jwst", name: "James Webb (JWST)", kind: "spacecraft", scale: 1, size: 0.16, color: "#f0d9a0", distanceLabel: "1,5 mln km (L2)", blurb: "Il più grande telescopio spaziale: osserva l'universo nell'infrarosso.", source: SRC_MISSION, rMin: 11, rMax: 13, model: MODELS.jwst },
+  { id: "s-voyager2", name: "Voyager 2", kind: "spacecraft", scale: 1, size: 0.12, color: "#dcdcdc", distanceLabel: "~20 mld km", blurb: "L'unica sonda ad aver visitato Urano e Nettuno; nello spazio interstellare.", source: SRC_MISSION, rMin: 46, rMax: 70, model: MODELS.voyager },
+  { id: "s-juno", name: "Juno", kind: "spacecraft", scale: 1, size: 0.12, color: "#e0d6c0", distanceLabel: "orbita di Giove", blurb: "In orbita attorno a Giove: studia atmosfera e campo magnetico.", source: SRC_MISSION, rMin: 16, rMax: 22, model: MODELS.juno },
 ];
 
 function seedToObject(s: Seed): UObject {

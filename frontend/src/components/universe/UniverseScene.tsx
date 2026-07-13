@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { Canvas, useFrame, useThree, TextureLoader } from "@/src/components/universe/r3f";
+import { Canvas, useFrame, useThree, TextureLoader, GLTFLoader } from "@/src/components/universe/r3f";
 import { UObject } from "@/src/lib/universe";
 
 // Shared, mutable control state (no re-render). Screen writes desired camera;
@@ -50,6 +50,49 @@ function SphereBody({ o }: { o: UObject }) {
   );
 }
 
+// Load a glTF model imperatively; normalise scale + centre. Never throws in render.
+function useGltf(url?: string, targetMax = 1.2) {
+  const [obj, setObj] = useState<THREE.Object3D | null>(null);
+  useEffect(() => {
+    if (!url) return;
+    let alive = true;
+    try {
+      const loader = new (GLTFLoader as unknown as { new (): { load: (u: string, cb: (g: { scene: THREE.Object3D }) => void, p?: unknown, e?: (err: unknown) => void) => void } })();
+      loader.load(
+        url,
+        (g) => {
+          if (!alive || !g?.scene) return;
+          const scene = g.scene;
+          const box = new THREE.Box3().setFromObject(scene);
+          const size = new THREE.Vector3(); box.getSize(size);
+          const center = new THREE.Vector3(); box.getCenter(center);
+          const maxDim = Math.max(size.x, size.y, size.z) || 1;
+          const s = targetMax / maxDim;
+          scene.scale.setScalar(s);
+          scene.position.set(-center.x * s, -center.y * s, -center.z * s);
+          setObj(scene);
+        },
+        undefined,
+        () => { /* keep sphere fallback */ },
+      );
+    } catch { /* keep sphere fallback */ }
+    return () => { alive = false; };
+  }, [url, targetMax]);
+  return obj;
+}
+
+function ModelBody({ o }: { o: UObject }) {
+  const obj = useGltf(o.model, Math.max(o.size * 8, 1.2));
+  const ref = useRef<THREE.Group>(null);
+  useFrame((_, d) => { if (ref.current) ref.current.rotation.y += d * 0.25; });
+  if (!obj) return <SphereBody o={o} />;
+  return (
+    <group position={o.pos}>
+      <group ref={ref}><primitive object={obj} /></group>
+    </group>
+  );
+}
+
 function Halo({ o }: { o: UObject }) {
   return (
     <mesh position={o.pos}>
@@ -64,7 +107,7 @@ function Body({ o, selected }: { o: UObject; selected: boolean }) {
   return (
     <group>
       {glow && <Halo o={o} />}
-      <SphereBody o={o} />
+      {o.model ? <ModelBody o={o} /> : <SphereBody o={o} />}
       {o.ring && (
         <mesh position={o.pos} rotation={[Math.PI / 2.6, 0, 0]}>
           <ringGeometry args={[o.size * 1.4, o.size * 2.2, 48]} />
