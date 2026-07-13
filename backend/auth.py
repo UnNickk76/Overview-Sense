@@ -4,6 +4,7 @@ Identity is anchored to an internal uuid `id` (independent of login method). Eac
 holds an `auth_providers` array so Apple / Google can be appended later with no migration.
 """
 import re
+import os
 import uuid
 import bcrypt
 from datetime import datetime, timedelta, timezone
@@ -61,9 +62,9 @@ def public_user(doc: dict) -> dict:
 # ---------------------------------------------------------------------------
 # Protected developer/founder account — flagged server-side only
 # ---------------------------------------------------------------------------
-DEVELOPER_EMAIL = "fandrex1@gmail.com"
-DEVELOPER_NICK = "NeoMorpheus"
-DEVELOPER_PASSWORD = "Overview.Sense76"  # seed only; owner-changeable afterwards
+DEVELOPER_EMAIL = os.environ.get("DEVELOPER_EMAIL", "fandrex1@gmail.com")
+DEVELOPER_NICK = os.environ.get("DEVELOPER_NICK", "NeoMorpheus")
+DEVELOPER_PASSWORD = os.environ.get("DEVELOPER_PASSWORD", "")  # seed only; owner-changeable afterwards
 DEVELOPER_BADGE = "Creator"
 
 # Brute-force protection
@@ -73,19 +74,23 @@ LOCKOUT_MINUTES = 15
 DEVELOPER_FLAGS = {"role": "developer", "protected": True, "verified": True, "verified_badge": DEVELOPER_BADGE}
 
 # Apple App Store review account (normal user) — must exist in production for review.
-REVIEW_EMAIL = "apple@overview.app"
-REVIEW_NICK = "Apple"
-REVIEW_PASSWORD = "Overview.Apple2026"
+REVIEW_EMAIL = os.environ.get("REVIEW_EMAIL", "apple@overview.app")
+REVIEW_NICK = os.environ.get("REVIEW_NICK", "Apple")
+REVIEW_PASSWORD = os.environ.get("REVIEW_PASSWORD", "")
 
 
 async def _seed_password_user(email: str, nick: str, password: str, flags: dict):
     """Create the account with the seed password if missing; if it already exists,
-    only (re)apply flags. The password is NEVER overwritten (owner-changeable)."""
+    only (re)apply flags. The password is NEVER overwritten (owner-changeable).
+    If no seed password is configured (env var absent), only flags are applied to an
+    existing account — a new account is never created with an empty password."""
     existing = await db.users.find_one({"email_lower": email})
     if existing:
         if flags:
             await db.users.update_one({"email_lower": email}, {"$set": flags})
         return
+    if not password:
+        return  # no seed password configured for this environment → skip creation
     now = datetime.now(timezone.utc).isoformat()
     doc = {
         "id": str(uuid.uuid4()),
