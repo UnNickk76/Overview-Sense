@@ -510,3 +510,15 @@ RIMANE (fase Satellite dedicata + altro): Terra satellitare esplorabile/zoomabil
 - Verificato su web (screenshot): esplorazione, cambio layer, confronto con divisore, Then/Now, tutto ok.
 
 RIMANE: SnapshotStudio annotazioni/disegno (Skia); Meteo Spaziale vivo; Realtà Invisibile 3D immersiva; Timeline con Play; AR (futuro). Nota: tile compositi (fires/rain su base) non affidabili via endpoint snapshot → eventuali overlay in futuro con approccio WMTS/tile.
+
+### BACKLOG (richiesta utente, da pianificare) — 🎵 COLONNA SONORA ai Sense (audio multisensoriale)
+Obiettivo: ogni Overview Sense (pubblicazione) e ogni SnapSense può avere musica/suono/audio associato. L'audio è parte integrante dell'esperienza, non accompagnamento. Overview = primo social di esperienze reali multisensoriali (immagini + dati reali + posizione + descrizione + suono).
+Schermata selezione audio (riusabile in SnapshotStudio, feed publish e SnapSense), sezioni in ordine:
+- **🎵 Sense Match™ (prima sezione)**: l'AI suggerisce tracce coerenti col Sense creato (mappa categoria/scena→mood): cielo stellato→ambient/cinematografico; aurora→elettronica rilassante; temporale→intenso; tramonto→chill/acustica; universo→orchestrale/ambient/sci-fi; mare→onde/piano/lo-fi. Utente sempre libero di scegliere altro.
+- Consigliati · Tendenze · Più utilizzati · Nuove uscite · In evidenza · Preferiti · Brani salvati · **Ricerca** (titolo/artista/album/genere).
+- **Trim**: scelta del punto d'inizio esatto e durata del segmento (come i social principali).
+Sorgenti audio supportate oltre alla musica:
+- registrazioni audio personali; **SoundSense** (paesaggi sonori registrati dall'utente); suoni ambientali reali; **sonificazioni dei dati** generate da Overview (quando disponibili).
+Stesso sistema per Overview Sense e SnapSense.
+DECISIONE NECESSARIA PRIMA DI COSTRUIRE: fonte musicale. La musica commerciale (tipo IG/TikTok) richiede licensing costoso/complesso; alternative realistiche = librerie royalty-free/Creative Commons (es. Free Music Archive, Jamendo, Pixabay Music) + audio utente + SoundSense + sonificazione dati. Da confermare con l'utente al momento della build.
+Note tecniche: usare `expo-audio` (playback) e `expo-audio`/recording per SoundSense; storage audio come i media (base64/GridFS) con durata/trim (start,dur) salvati sull'Observation/SnapSense; player nelle card del feed e nel viewer SnapSense; autoplay muto+tap per audio come i social. Testabile a pieno su build nativa.
