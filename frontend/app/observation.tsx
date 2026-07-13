@@ -21,7 +21,8 @@ import { nf, compassPoint } from "@/src/lib/format";
 import { socialApi, aiApi } from "@/src/lib/backend";
 import { ApiError } from "@/src/lib/client";
 import { useAuth } from "@/src/context/AuthContext";
-import { SenseCanvas, VISUAL_LAYERS, layerToVisual, SenseVisualLayer } from "@/src/components/SenseCanvas";
+import { SenseCanvas, layerToVisual, SenseVisualLayer } from "@/src/components/SenseCanvas";
+import { SenseLayerBar } from "@/src/components/SenseLayerBar";
 import { SenseMark } from "@/src/components/SenseMark";
 import { DiscoveryCard, CardFormat } from "@/src/components/DiscoveryCard";
 
@@ -227,21 +228,8 @@ export default function ObservationView() {
         </ViewShot>
 
         <View style={styles.layerHint}>
-          <SenseMark size={16} />
-          <Text style={styles.layerHintText}>SENSE LAYERS · rivela la luce reale della scena</Text>
+          <SenseLayerBar value={visualLayer} onChange={setVisualLayer} />
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.layerRow}>
-          {VISUAL_LAYERS.map((l) => (
-            <Pressable
-              key={l}
-              testID={`visual-layer-${l}`}
-              style={[styles.layerChip, visualLayer === l && styles.layerChipActive]}
-              onPress={() => { Haptics.selectionAsync(); setVisualLayer(l); }}
-            >
-              <Text style={[styles.layerChipText, visualLayer === l && styles.layerChipTextActive]}>{l}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
 
         <View style={styles.actions}>
           <Pressable testID="reveal-toggle" style={[styles.revealBtn, reveal && styles.revealActive]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setReveal((r) => !r); }}>

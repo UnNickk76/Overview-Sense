@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, View, ScrollView, Pressable, TextInput, ActivityIndicator } from "react-native";
+import { StyleSheet, Text, View, ScrollView, Pressable, TextInput, ActivityIndicator, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
@@ -15,6 +15,8 @@ import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SenseMark } from "@/src/components/SenseMark";
 import { ImageZoomViewer } from "@/src/components/ImageZoomViewer";
+import { SenseCanvas, SenseVisualLayer } from "@/src/components/SenseCanvas";
+import { SenseLayerBar } from "@/src/components/SenseLayerBar";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import {
   getObject, formatDistanceKm, lightTravelTime, travelTime, TRAVEL_SPEEDS,
@@ -26,10 +28,12 @@ import { useAuth } from "@/src/context/AuthContext";
 export default function CosmicObjectScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { width: screenW } = useWindowDimensions();
   const { user } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
   const obj = id ? getObject(id) : undefined;
   const [speedIdx, setSpeedIdx] = useState(5);
+  const [visualLayer, setVisualLayer] = useState<SenseVisualLayer>("Originale");
   const [images, setImages] = useState<CosmicImage[]>([]);
   const [imgLoading, setImgLoading] = useState(true);
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -63,6 +67,8 @@ export default function CosmicObjectScreen() {
   const speed = TRAVEL_SPEEDS[speedIdx];
   const nf = (n: number) => n.toLocaleString("it-IT", { maximumFractionDigits: 2 });
   const hero = images[0]?.image ?? obj.imageUrl ?? null;
+  const heroW = screenW - spacing.lg * 2;
+  const heroH = Math.round((heroW * 10) / 16);
   const comparisons = compareWithEarth(obj);
   const distStr = obj.distanceLabel ?? formatDistanceKm(obj.distanceKm);
 
@@ -109,22 +115,24 @@ export default function CosmicObjectScreen() {
       <ScreenHeader title={obj.name} subtitle={obj.type} />
       <KeyboardAwareScrollView bottomOffset={20} contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"], gap: spacing.lg }} showsVerticalScrollIndicator={false} testID="cosmic-object">
 
-        {/* Hero (snapshot-composed) */}
+        {/* Hero (snapshot-composed, powered by Sense Vision engine) */}
         <ViewShot ref={snapRef} style={styles.snapCard}>
           {hero ? (
             <Pressable onPress={() => openViewer(0)}>
-              <Image source={{ uri: hero }} style={styles.image} contentFit="cover" transition={250} />
+              <SenseCanvas uri={hero} width={heroW} height={heroH} layer={visualLayer} />
             </Pressable>
           ) : (
-            <View style={[styles.image, styles.placeholder]}>
+            <View style={[styles.image, styles.placeholder, { height: heroH }]}>
               {imgLoading ? <ActivityIndicator color={colors.brand} /> : <Text style={{ fontSize: 60 }}>{obj.emoji}</Text>}
             </View>
           )}
           <View style={styles.snapWm}>
             <SenseMark size={16} />
-            <Text style={styles.snapWmText}>Overview · {obj.name} · {distStr}</Text>
+            <Text style={styles.snapWmText}>Overview · {obj.name}{visualLayer !== "Originale" ? ` · ${visualLayer}` : ""} · {distStr}</Text>
           </View>
         </ViewShot>
+
+        {hero ? <SenseLayerBar value={visualLayer} onChange={setVisualLayer} /> : null}
 
         {/* Gallery strip */}
         {imgLoading ? (

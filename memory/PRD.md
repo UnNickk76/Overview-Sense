@@ -276,3 +276,27 @@ FASE 1 (fatta):
 Prossime fasi: F2 Sense Layers cosmici (multi-wavelength reale + overlay etichettati) + modalità Confronta;
 F3 mappa immersiva pan/pinch multi-scala + Esplora intorno; F4 Viaggio animato + Timeline + Community
 Observations per oggetto. Nota: capture/publish/zoom si validano a pieno su build nativa.
+
+---
+
+## SESSIONE 9 — Sense Vision come MOTORE trasversale (direzione utente, 2026-06)
+
+Direzione: NO nuove sezioni. Sense Vision non è una sezione ma il MOTORE che alimenta ogni funzione che
+crea immagini. Toggle Layer con icone intuitive + spiegazione onesta ("cosa mostra"), sempre dati reali.
+Slice A (fatta):
+- **`src/lib/senseLayers.ts`**: unica fonte di verità dei Sense Layer visivi (pixel reali): Originale ⭕,
+  Luce ☀️, Colore 🎨, Dettaglio ✨, Contrasto 🌓, Luminanza 🔆 — ognuno con testo `reveals` onesto.
+- **`src/components/SenseLayerBar.tsx`**: barra icone riusabile (piccola, intuitiva) + descrizione del layer attivo.
+- Applicata al **viewer Sense** (`observation.tsx`, sostituite le vecchie chip) e a **Universe**
+  (`cosmic-object.tsx`): la foto reale NASA passa dal motore `SenseCanvas` con la barra Layer. Watermark
+  include il layer attivo.
+- **Fix crash web**: Skia `useImage` chiamato solo dentro un componente figlio nativo (`SkiaSense`); su web
+  fallback a immagine semplice (Skia CanvasKit non può fetchare immagini cross-origin). Verificato: Marte OK.
+- Onestà: i layer pixel sono rimappe reali dei pixel della foto (mai dati inventati).
+
+Prossime slice (stessa direzione, da confermare/costruire):
+- Layer DATI per-contesto (🧲 Magnetic, ☀ Solar, 🌙 Lunar, 🛰 Satellite, 🌌 Universe, 🌬 Air, 🎧 Audio,
+  🧭 Motion, 🌡 Heat solo se hardware reale) mostrati solo se il dato reale è disponibile.
+- Auto-riconoscimento del soggetto (AI vision) → propone i layer più utili (cielo/Luna/persona/auto/fiore).
+- Spiegazione AI automatica dopo ogni Sense (rigorosa, mai "aura"): descrive layer attivi + dati reali.
+- Estendere la barra a Snapshot/Discovery Card/confronti.

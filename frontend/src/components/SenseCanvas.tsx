@@ -60,14 +60,9 @@ interface Props {
   layer: SenseVisualLayer;
 }
 
-export function SenseCanvas({ uri, width, height, layer }: Props) {
+function SkiaSense({ uri, width, height, layer }: Props) {
   const image = useImage(uri);
-
-  // Fallback (web / not-yet-loaded / no transform): plain image.
-  if (Platform.OS === "web" || !image || layer === "Originale") {
-    return <RNImage source={{ uri }} style={{ width, height }} contentFit="cover" />;
-  }
-
+  if (!image) return <RNImage source={{ uri }} style={{ width, height }} contentFit="cover" />;
   return (
     <Canvas style={{ width, height }}>
       <SkiaImage image={image} x={0} y={0} width={width} height={height} fit="cover">
@@ -75,4 +70,13 @@ export function SenseCanvas({ uri, width, height, layer }: Props) {
       </SkiaImage>
     </Canvas>
   );
+}
+
+export function SenseCanvas({ uri, width, height, layer }: Props) {
+  // On web (Skia CanvasKit can't fetch cross-origin) or with no transform, use a plain image.
+  // useImage is only ever called inside SkiaSense, which never mounts on web.
+  if (Platform.OS === "web" || layer === "Originale") {
+    return <RNImage source={{ uri }} style={{ width, height }} contentFit="cover" transition={150} />;
+  }
+  return <SkiaSense uri={uri} width={width} height={height} layer={layer} />;
 }
