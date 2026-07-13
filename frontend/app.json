@@ -12,6 +12,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "sense.invisible.overview",
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "Compute the real sky and forces around you",
         "NSCameraUsageDescription": "Overlay real stars and planets on the sky",
         "NSMotionUsageDescription": "Point at the sky and sense magnetic fields",

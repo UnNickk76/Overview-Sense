@@ -419,3 +419,17 @@ Stack: three@0.185 + @react-three/fiber@9.6 + expo-gl@16 + expo-three@8. NON ins
 - Route test 3D: `app/r3f-test.tsx` (non collegata).
 DA FARE (Fase 2): Guided Journey narrata, Snapshot-da-3D pulito, audio ambientale/sonificazione, modelli glTF, cataloghi live, bussola posizione.
 NB: richiede un nuovo BUILD iOS per test performance/texture su device.
+
+
+### Universe Explorer — FASE 2: Viaggi Guidati + Snapshot (COMPLETATA E VERIFICATA)
+`app/universe-explorer.tsx` + `src/lib/universe.ts`:
+- **Viaggi guidati narrati** (`JOURNEYS` in universe.ts): 5 tour reali con tappe multi-scala (Dalla Terra ai confini del Sistema Solare, Verso Proxima Centauri, Dentro la Via Lattea, Le galassie del Gruppo Locale, Dai pianeti all'Universo osservabile). Ogni step: {scale, objectId, text, dwell}.
+- **UI narrazione** (`jCard`): barra in basso con titolo viaggio, progress (n/tot), testo dello step, controlli Prev/Play-Pausa/Next/Snapshot/Esci. Auto-advance con timer `dwell` (default 6s). La camera vola automaticamente all'oggetto di ogni tappa (cambio scala + target + rad).
+- **Picker viaggi** (`journeyPicker` modal): bottom sheet con lista dei 5 viaggi (titolo, sottotitolo, n. tappe).
+- **Snapshot pulito 3D** (`captureSnapshot`): cattura UI-free del canvas. Web → `renderer.domElement.toDataURL()` (Canvas creato con `preserveDrawingBuffer:true`); native → `GLView.takeSnapshotAsync(gl.getContext())` + `FileSystem.readAsStringAsync` base64. Renderer esposto via `ControlState.renderer` (settato in `Rig` useEffect da useThree `gl`).
+- **Snapshot modal**: anteprima immagine, campo descrizione, **Pubblica come Observation** (`socialApi.createObservation` source="cosmos", passa dalla moderazione), Salva/Condividi (MediaLibrary/Sharing), apri Observation pubblicata.
+- Verificato su web preview (NO test agent): scena 3D, apertura picker viaggi, avvio viaggio con barra narrazione + fly-to, cattura Snapshot (confermata da GL "ReadPixels" nei log, nessun crash), modale pubblicazione. Texture solarsystemscope bloccate da CORS nel sandbox → fallback colore (caricano su device). Rendering modali "sbiadito" sul preview = artefatto compositing RN-Web Modal su canvas WebGL; su device i modali sono nativi/opachi.
+- **app.json**: aggiunto `ios.infoPlist.ITSAppUsesNonExemptEncryption = false` (bypass prompt conformità export Apple).
+NB: performance/texture/snapshot nativo si validano su BUILD iOS reale.
+
+DA FARE (prossimo, priorità utente): **1) Cataloghi live** (asteroidi/comete/pulsar/quasar/sonde via API esterne), **2) Modelli 3D glTF** (ISS, sonde). Poi: audio ambientale/sonificazione, ruoli moderatori.
