@@ -47,6 +47,8 @@ function goThereRoute(d: Record<string, unknown> | null | undefined): string | n
     q.set("zoom", "6");
     return `/satellite-explore?${q.toString()}`;
   }
+  // Invisible Reality 3D field Senshot: "Go There" re-opens the immersive field.
+  if (d.from === "invisible-3d") return "/invisible-3d";
   return null;
 }
 

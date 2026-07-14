@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, View, ScrollView, useWindowDimensions, Platform } from "react-native";
+import { StyleSheet, Text, View, ScrollView, useWindowDimensions, Platform, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import * as Haptics from "expo-haptics";
 import Svg, { Circle, Line, G, Text as SvgText, Polygon } from "react-native-svg";
+import { Ionicons } from "@expo/vector-icons";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { GlassCard } from "@/src/components/GlassCard";
@@ -15,6 +18,7 @@ import { nf, compassPoint } from "@/src/lib/format";
 export default function RealtaInvisibile() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const router = useRouter();
   const obs = useObserver();
   const heading = useHeading(true);
   const mag = useMagnetometer(true, 150);
@@ -50,6 +54,17 @@ export default function RealtaInvisibile() {
       <ScreenHeader title="Realtà Invisibile" subtitle="Le forze che non vedi" />
       <ScrollView testID="invisible-screen" contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"], gap: spacing.md }} showsVerticalScrollIndicator={false}>
         <OpportunitiesSection layer="magnetic" />
+
+        {/* GO INSIDE — immersive 3D field experience */}
+        <Pressable testID="enter-invisible-3d" style={styles.enter3d}
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); router.push("/invisible-3d" as never); }}>
+          <View style={styles.enter3dIcon}><Ionicons name="cube" size={22} color={colors.onBrand} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.enter3dTitle}>Vivi la Realtà Invisibile in 3D</Text>
+            <Text style={styles.enter3dSub}>Entra nel campo magnetico, nella gravità e nelle particelle — dai tuoi sensori reali.</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.brand} />
+        </Pressable>
         {Platform.OS === "web" ? (
           <GlassCard testID="web-notice">
             <Text style={styles.cardTitle}>Sensori non disponibili sul web</Text>
@@ -169,4 +184,8 @@ const styles = StyleSheet.create({
   metaValue: { color: colors.onSurface, fontFamily: fonts.monoMedium, fontSize: type.lg, marginTop: 2 },
   issText: { color: colors.onSurfaceTertiary, fontFamily: fonts.regular, fontSize: type.base, lineHeight: 22, marginBottom: spacing.sm },
   disclaimer: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 2, lineHeight: 16, opacity: 0.6, marginTop: spacing.sm },
+  enter3d: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: 16, padding: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
+  enter3dIcon: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.brand },
+  enter3dTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
+  enter3dSub: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, marginTop: 2, lineHeight: 16 },
 });
