@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View, Pressable, useWindowDimensions, Linking, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CameraView, useCameraPermissions } from "expo-camera";
+import { useCameraPermissions } from "expo-camera";
+import { CameraPro, CameraProHandle } from "@/src/components/CameraPro";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
@@ -47,8 +48,9 @@ export default function SenseVision() {
   const heading = useHeading(perm?.granted === true, 150);
   const accel = useAccelerometer(perm?.granted === true, 200);
   const mag = useMagnetometer(perm?.granted === true, 200);
-  const cameraRef = useRef<CameraView>(null);
+  const cameraRef = useRef<CameraProHandle>(null);
   const [layerIdx, setLayerIdx] = useState(0);
+  const [enhance, setEnhance] = useState(true);
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState<"init" | "scan" | "ready">("init");
   const [created, setCreated] = useState(false);
@@ -110,7 +112,7 @@ export default function SenseVision() {
     if (busy || stage !== "ready") return;
     setBusy(true);
     try {
-      const photo = await cameraRef.current?.takePictureAsync({ quality: 0.9 });
+      const photo = await cameraRef.current?.capture();
       if (photo?.uri) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         let data: ObsData;
@@ -191,7 +193,7 @@ export default function SenseVision() {
 
   return (
     <View style={styles.root}>
-      <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
+      <CameraPro ref={cameraRef} enhance={enhance} />
       <View style={[StyleSheet.absoluteFill, { backgroundColor: layer.tint }]} pointerEvents="none" />
 
       {/* Real-data Sense visualization overlay (Invisible Fields engine) */}
@@ -261,6 +263,15 @@ export default function SenseVision() {
           </Pressable>
         </View>
       </View>
+
+      {/* Real-enhancement toggle — "observe better", never invents detail */}
+      {stage === "ready" && !review ? (
+        <Pressable testID="sense-enhance" onPress={() => { Haptics.selectionAsync(); setEnhance((e) => !e); }}
+          style={[styles.enhancePill, { top: insets.top + 54 }, enhance && { backgroundColor: colors.brand, borderColor: colors.brand }]}>
+          <Ionicons name="sparkles" size={13} color={enhance ? colors.onBrand : "#fff"} />
+          <Text style={[styles.enhanceText, enhance && { color: colors.onBrand }]}>Osserva meglio</Text>
+        </Pressable>
+      ) : null}
 
       {/* Sense Layer selector */}
       {stage === "ready" && !review ? (
@@ -344,6 +355,8 @@ const styles = StyleSheet.create({
   hudPill: { flexDirection: "row", alignItems: "center", borderRadius: 999, overflow: "hidden", paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   hudText: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.sm, letterSpacing: 1.5 },
   hudRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  enhancePill: { position: "absolute", right: spacing.lg, flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.3)" },
+  enhanceText: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.sm - 2, letterSpacing: 0.3 },
   hudMeta: { color: "#fff", fontFamily: fonts.mono, fontSize: type.sm - 1, opacity: 0.85 },
   pivotRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
   pivotActive: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(10,16,26,0.6)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 8, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },

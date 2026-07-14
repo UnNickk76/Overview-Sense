@@ -44,6 +44,13 @@
       "expo-router",
       "expo-audio",
       [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "Reveal what the eye can't see around you",
+          "enableCodeScanner": false
+        }
+      ],
+      [
         "expo-camera",
         {
           "cameraPermission": "Reveal what the eye can't see around you"
