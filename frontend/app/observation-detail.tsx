@@ -50,6 +50,7 @@ function goThereRoute(d: Record<string, unknown> | null | undefined): string | n
   }
   // Invisible Reality 3D field Senshot: "Go There" re-opens the immersive field.
   if (d.from === "invisible-3d") return "/invisible-3d";
+  if (d.from === "earth-explorer") return "/earth-explorer";
   return null;
 }
 
