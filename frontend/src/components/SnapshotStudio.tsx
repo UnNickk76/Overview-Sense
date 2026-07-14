@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   Modal, StyleSheet, Text, View, Pressable, TextInput, ScrollView,
-  ActivityIndicator, useWindowDimensions,
+  ActivityIndicator, useWindowDimensions, Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { GestureHandlerRootView, GestureDetector, Gesture } from "react-native-gesture-handler";
+import { Canvas, Path as SkiaPath, Skia } from "@shopify/react-native-skia";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -51,6 +53,10 @@ function autoHashtags(input: SnapshotInput): string[] {
   return Array.from(new Set([...base, ...extra])).filter(Boolean).slice(0, 6);
 }
 
+const IS_NATIVE = Platform.OS !== "web";
+const PEN_COLORS = ["#FFD60A", "#FFFFFF", "#FF453A", "#5AB0FF", "#39FF88"];
+interface Stroke { d: string; color: string; width: number }
+
 export function SnapshotStudio({ visible, input, onClose, onPublished }: Props) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -64,14 +70,35 @@ export function SnapshotStudio({ visible, input, onClose, onPublished }: Props) 
   const [status, setStatus] = useState<string | null>(null);
   const [publishedId, setPublishedId] = useState<string | null>(null);
 
+  // Skia annotation / drawing (native only)
+  const [drawMode, setDrawMode] = useState(false);
+  const [penColor, setPenColor] = useState(PEN_COLORS[0]);
+  const [strokes, setStrokes] = useState<Stroke[]>([]);
+  const [current, setCurrent] = useState("");
+  const currentD = useRef("");
+
   useEffect(() => {
     if (visible && input) {
       setTitle(input.title ?? input.layerName ?? "Observation");
       setDesc(input.description ?? "");
       setStatus(null);
       setPublishedId(null);
+      setDrawMode(false);
+      setStrokes([]);
+      setCurrent("");
+      currentD.current = "";
     }
   }, [visible, input]);
+
+  const drawGesture = Gesture.Pan()
+    .runOnJS(true)
+    .onBegin((e) => { currentD.current = `M ${e.x.toFixed(1)} ${e.y.toFixed(1)}`; setCurrent(currentD.current); })
+    .onUpdate((e) => { currentD.current += ` L ${e.x.toFixed(1)} ${e.y.toFixed(1)}`; setCurrent(currentD.current); })
+    .onEnd(() => {
+      const d = currentD.current;
+      if (d.includes("L")) setStrokes((s) => [...s, { d, color: penColor, width: 4 }]);
+      currentD.current = ""; setCurrent("");
+    });
 
   if (!input) return null;
 
@@ -156,7 +183,7 @@ export function SnapshotStudio({ visible, input, onClose, onPublished }: Props) 
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
+      <GestureHandlerRootView style={styles.backdrop}>
         <View style={[styles.sheet, { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.md }]}>
           <View style={styles.handleRow}>
             <Text style={styles.heading}>Snapshot OverView</Text>
@@ -165,7 +192,7 @@ export function SnapshotStudio({ visible, input, onClose, onPublished }: Props) 
             </Pressable>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: spacing.md, paddingBottom: spacing.lg }}>
+          <ScrollView showsVerticalScrollIndicator={false} scrollEnabled={!drawMode} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: spacing.md, paddingBottom: spacing.lg }}>
             {/* The branded, capturable card */}
             <View ref={cardRef} collapsable={false} style={[styles.card, { width: cardW, height: cardH, alignSelf: "center" }]}>
               <Image source={{ uri: input.uri }} style={StyleSheet.absoluteFill} contentFit="cover" transition={120} />
@@ -185,8 +212,51 @@ export function SnapshotStudio({ visible, input, onClose, onPublished }: Props) 
                 ))}
                 <Text style={styles.cardMeta}>{dateStr}{input.source ? ` · ${input.source}` : ""}</Text>
               </View>
+              {/* Skia annotation layer (drawings are captured into the final image) */}
+              {IS_NATIVE ? (
+                <View style={StyleSheet.absoluteFill} pointerEvents={drawMode ? "auto" : "none"}>
+                  <GestureDetector gesture={drawGesture}>
+                    <Canvas style={StyleSheet.absoluteFill}>
+                      {strokes.map((s, i) => {
+                        const p = Skia.Path.MakeFromSVGString(s.d);
+                        return p ? <SkiaPath key={i} path={p} color={s.color} style="stroke" strokeWidth={s.width} strokeCap="round" strokeJoin="round" /> : null;
+                      })}
+                      {current ? (() => {
+                        const p = Skia.Path.MakeFromSVGString(current);
+                        return p ? <SkiaPath path={p} color={penColor} style="stroke" strokeWidth={4} strokeCap="round" strokeJoin="round" /> : null;
+                      })() : null}
+                    </Canvas>
+                  </GestureDetector>
+                </View>
+              ) : null}
               <View style={styles.frame} pointerEvents="none" />
             </View>
+
+            {/* Annotation toolbar */}
+            {IS_NATIVE ? (
+              <View style={styles.drawBar}>
+                <Pressable testID="snapstudio-draw-toggle" style={[styles.drawToggle, drawMode && styles.drawToggleOn]} onPress={() => { Haptics.selectionAsync(); setDrawMode((m) => !m); }}>
+                  <Ionicons name="brush" size={15} color={drawMode ? colors.onBrand : colors.onSurface} />
+                  <Text style={[styles.drawToggleText, drawMode && { color: colors.onBrand }]}>{drawMode ? "Disegno ON" : "Disegna"}</Text>
+                </Pressable>
+                {drawMode ? (
+                  <>
+                    {PEN_COLORS.map((c) => (
+                      <Pressable key={c} testID={`snapstudio-pen-${c}`} onPress={() => { Haptics.selectionAsync(); setPenColor(c); }}
+                        style={[styles.swatch, { backgroundColor: c }, penColor === c && styles.swatchOn]} />
+                    ))}
+                    <Pressable testID="snapstudio-undo" style={styles.drawIcon} onPress={() => setStrokes((s) => s.slice(0, -1))}>
+                      <Ionicons name="arrow-undo" size={16} color={colors.onSurface} />
+                    </Pressable>
+                    <Pressable testID="snapstudio-clear" style={styles.drawIcon} onPress={() => { setStrokes([]); setCurrent(""); }}>
+                      <Ionicons name="trash-outline" size={16} color={colors.onSurface} />
+                    </Pressable>
+                  </>
+                ) : (
+                  <Text style={styles.drawHint}>Evidenzia e annota il tuo Senshot</Text>
+                )}
+              </View>
+            ) : null}
 
             {/* Editable fields */}
             <TextInput testID="snapstudio-title" style={styles.input} value={title} onChangeText={setTitle}
@@ -225,7 +295,7 @@ export function SnapshotStudio({ visible, input, onClose, onPublished }: Props) 
             </Pressable>
           </View>
         </View>
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
@@ -256,4 +326,12 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: "row", gap: spacing.sm },
   ghostFlex: { flex: 1 },
   ghostText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.sm },
+  drawBar: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flexWrap: "wrap", backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, padding: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  drawToggle: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.tertiary, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 7, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  drawToggleOn: { backgroundColor: colors.brand, borderColor: colors.brand },
+  drawToggleText: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.sm - 1 },
+  swatch: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: "transparent" },
+  swatchOn: { borderColor: "#fff" },
+  drawIcon: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: colors.tertiary, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  drawHint: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, flex: 1 },
 });
