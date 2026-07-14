@@ -29,7 +29,7 @@ function useRemoteTexture(url?: string) {
     let alive = true;
     try {
       const loader = new (TextureLoader as unknown as { new (): THREE.TextureLoader })();
-      loader.load(url, (t) => { if (alive) setTex(t); }, undefined, () => { /* keep colour */ });
+      loader.load(url, (t: THREE.Texture) => { if (alive) setTex(t); }, undefined, () => { /* keep colour */ });
     } catch { /* keep colour */ }
     return () => { alive = false; };
   }, [url]);
@@ -39,7 +39,7 @@ function useRemoteTexture(url?: string) {
 function SphereBody({ o }: { o: UObject }) {
   const tex = useRemoteTexture(o.texture);
   const ref = useRef<THREE.Mesh>(null);
-  useFrame((_, d) => { if (ref.current && !o.emissive) ref.current.rotation.y += d * 0.08; });
+  useFrame((_: unknown, d: number) => { if (ref.current && !o.emissive) ref.current.rotation.y += d * 0.08; });
   return (
     <mesh ref={ref} position={o.pos}>
       <sphereGeometry args={[o.size, 40, 40]} />
@@ -84,7 +84,7 @@ function useGltf(url?: string, targetMax = 1.2) {
 function ModelBody({ o }: { o: UObject }) {
   const obj = useGltf(o.model, Math.max(o.size * 8, 1.2));
   const ref = useRef<THREE.Group>(null);
-  useFrame((_, d) => { if (ref.current) ref.current.rotation.y += d * 0.25; });
+  useFrame((_: unknown, d: number) => { if (ref.current) ref.current.rotation.y += d * 0.25; });
   if (!obj) return <SphereBody o={o} />;
   return (
     <group position={o.pos}>
