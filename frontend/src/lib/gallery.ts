@@ -19,6 +19,8 @@ export interface ObsData {
   spaceWeather?: { kp?: number; level?: string; solarWind?: number };
   magnetic?: { magnitude: number };
   senseLayer?: string;
+  // Origin screen — enables the universal "Go There" viewpoint recreation.
+  from?: string;
 }
 
 export interface Observation {

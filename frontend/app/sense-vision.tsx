@@ -125,6 +125,8 @@ export default function SenseVision() {
         }
         data.senseLayer = layer.label;
         data.magnetic = { magnitude: mag.magnitude };
+        // Viewpoint origin: enables the universal "Go There" (enter this place from above).
+        data.from = "sense-vision";
         // Show a review step — the user decides to keep or discard (nothing saved yet).
         setReview({ uri: photo.uri, data });
       }
@@ -136,6 +138,16 @@ export default function SenseVision() {
   const discardSense = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setReview(null);
+  };
+
+  // GO INSIDE — leave the "Look Up" camera and explore this exact place from above (satellite).
+  const goInside = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (obs.status === "granted") {
+      router.push(`/satellite-explore?lat=${obs.lat}&lon=${obs.lon}&zoom=6` as never);
+    } else {
+      router.push("/satellite-explore" as never);
+    }
   };
 
   // Save the reviewed Sense to the local gallery, then open it to enhance / publish.
@@ -264,6 +276,17 @@ export default function SenseVision() {
       {/* Bottom — MAKE A SENSE */}
       {stage === "ready" && !review ? (
         <Animated.View entering={FadeIn.delay(200)} style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }]}>
+          {/* Universal "Look Up / Go Inside" language */}
+          <View style={styles.pivotRow}>
+            <View style={styles.pivotActive}>
+              <Ionicons name="telescope" size={13} color={colors.brand} />
+              <Text style={styles.pivotActiveText}>LOOK UP · stai osservando</Text>
+            </View>
+            <Pressable testID="sense-go-inside" style={styles.pivotGo} onPress={goInside}>
+              <Ionicons name="planet" size={13} color={colors.onBrand} />
+              <Text style={styles.pivotGoText}>GO INSIDE</Text>
+            </Pressable>
+          </View>
           <Text style={styles.hudMeta}>{compassPoint(heading)} {heading.toFixed(0)}° · {nf(mag.magnitude, 0)} µT{weather?.temperature_c != null ? ` · ${nf(weather.temperature_c, 0)}°` : ""}</Text>
           <Pressable testID="make-a-sense" style={[styles.senseBtn, busy && { opacity: 0.85 }]} onPress={makeSense} disabled={busy}>
             <SenseMark size={26} active={busy} />
@@ -317,6 +340,11 @@ const styles = StyleSheet.create({
   hudPill: { flexDirection: "row", alignItems: "center", borderRadius: 999, overflow: "hidden", paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   hudText: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.sm, letterSpacing: 1.5 },
   hudMeta: { color: "#fff", fontFamily: fonts.mono, fontSize: type.sm - 1, opacity: 0.85 },
+  pivotRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
+  pivotActive: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(10,16,26,0.6)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 8, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
+  pivotActiveText: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.sm - 2, letterSpacing: 0.5 },
+  pivotGo: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.brand, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 8 },
+  pivotGoText: { color: colors.onBrand, fontFamily: fonts.bold, fontSize: type.sm - 2, letterSpacing: 0.5 },
   layerBar: { position: "absolute", left: 0, right: 0 },
   layerChip: { overflow: "hidden", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   layerText: { color: "#fff", fontFamily: fonts.medium, fontSize: type.sm },

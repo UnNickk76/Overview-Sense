@@ -40,6 +40,13 @@ function goThereRoute(d: Record<string, unknown> | null | undefined): string | n
     if (d.layer) q.set("layer", String(d.layer));
     return `/satellite-explore?${q.toString()}`;
   }
+  // Terrestrial camera Senshot (Sense Vision): "Go There" enters the place from above.
+  if (d.from === "sense-vision" && d.lat != null && d.lon != null) {
+    const q = new URLSearchParams();
+    q.set("lat", String(d.lat)); q.set("lon", String(d.lon));
+    q.set("zoom", "6");
+    return `/satellite-explore?${q.toString()}`;
+  }
   return null;
 }
 

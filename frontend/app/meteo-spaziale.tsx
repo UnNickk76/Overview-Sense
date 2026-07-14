@@ -6,6 +6,7 @@ import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { GlassCard } from "@/src/components/GlassCard";
 import { OpportunitiesSection } from "@/src/components/OpportunitiesSection";
+import { SpaceWeatherLive } from "@/src/components/SpaceWeatherLive";
 import { colors, fonts, spacing, type } from "@/src/theme";
 import { api, SpaceWeather } from "@/src/lib/api";
 import { nf } from "@/src/lib/format";
@@ -49,6 +50,16 @@ export default function MeteoSpaziale() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
         >
           <OpportunitiesSection layer="solar" />
+
+          {/* Meteo Spaziale vivo — living Sun→Earth visualization (real NOAA data) */}
+          <SpaceWeatherLive
+            kp={kp?.available ? kp.value ?? null : null}
+            windSpeed={data?.solar_wind?.available ? data.solar_wind.speed_kms ?? null : null}
+            bz={data?.imf?.available ? data.imf.bz_nt ?? null : null}
+            flareActive={!!data?.solar_flare?.available}
+            flareClass={data?.solar_flare?.class ?? null}
+          />
+
           <GlassCard testID="kp-card" style={{ alignItems: "center", paddingVertical: spacing.xl }}>
             <Text style={styles.label}>ATTIVITÀ GEOMAGNETICA (Kp)</Text>
             {kp?.available ? (
