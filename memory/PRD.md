@@ -603,3 +603,16 @@ RIMANE (coda aggiornata): estendere SenseActionBar a satellite-explore/oggetti t
 - Verificato (screenshot): /universe-explorer?focus=milkyway -> Scala 3 Via Lattea; /satellite-explore?lat=27.99&lon=86.93&zoom=5&layer=VIIRS... -> Everest z6 True Color HD. Il bottone Go There compare solo per Senshot con viewpoint (universe/satellite nuovi); onesto per i vecchi senza dati.
 
 RIMANE: DOCUMENTED REALITY (luoghi documentati esplorabili); estendere SenseActionBar a satellite/luoghi terrestri + salvare viewpoint anche in sense-vision; Meteo Spaziale vivo; Realta Invisibile 3D; Timeline Play; annotazioni Skia; colonna sonora Sense Match; AR.
+
+### SESSIONE 10 (fork) — Crash fix + P1/P2/P3 (FATTO)
+- FIX P0 crash iOS: universe-explorer.tsx gesti Pan/Pinch/Tap con .runOnJS(true) (i callback mutavano ref JS sul thread UI). Da verificare su build TestFlight.
+- sense-vision.tsx: riga LOOK UP/GO INSIDE (GO INSIDE -> /satellite-explore su lat/lon attuali, zoom 6). Senshot salva from:"sense-vision" -> goThereRoute apre il luogo dall'alto.
+- Meteo Spaziale vivo: nuovo SpaceWeatherLive.tsx (Sole pulsante+flare, vento solare animato dai km/s reali NOAA, magnetosfera colorata dal Bz, aurore da Kp). In cima a meteo-spaziale.tsx.
+- Naming: "OverView" ovunque (O e V maiuscole). Linguaggio icone: anello "O" (icon-ring.png) = social feed "OverView Sense Universe" (OverviewShortcut in ogni sezione via ScreenHeader + universe/sense-vision; icona feed in home e header feed); SenseMark (occhio) = Sense Vision (top-left home -> /sense-vision, icona card Sense Vision). Galleria Senshot in home (icona images -> /observations).
+- Realta Invisibile 3D: nuova route app/invisible-3d.tsx — campo magnetico (anelli animati, azimuth+intensita reali), vettore gravita, particelle, griglia prospettica che si inclina coi sensori, bussola; toggle Magnetico/Gravita/Particelle; Senshot (captureRef) via SnapshotStudio; from:"invisible-3d" per Go There. Ingresso da realta-invisibile.tsx.
+- Timeline con Play: app/timeline.tsx modalita Play (time-lapse) con velocita 1min/15min/1ora/6ore per secondo + cupola celeste (SkyDome) che anima gli oggetti nel cielo.
+- Annotazioni Skia: SnapshotStudio.tsx overlay Skia Canvas (Gesture.Pan runOnJS) — penna 5 colori, undo, clear; disegno incluso nell'immagine catturata; SOLO native (web nascosto), bundle web sicuro.
+- Colonna sonora Sense Match: 6 loop bundlati (48s) royalty-free — NASA Voyager (pubblico dominio: cosmos/rings/magnetic/deepfield) + Calm Pills CC0 (calm/meditation) in assets/audio/. src/lib/senseMatch.ts (match per keyword) + src/components/SenseMatchBar.tsx (play/pausa loop, licenza mostrata, cambio traccia). Integrato in observation-detail (usa data.senseTrack dell'autore) e SnapshotStudio (salva senseTrack). expo-audio; playback background solo su build nativa.
+- Verificato via screenshot (NO test agent, per volere utente): universe render, meteo vivo, home (OverView + O + galleria), header sezioni con O, invisible-3d, timeline Play, SnapshotStudio con Sense Match.
+
+RIMANE: DOCUMENTED REALITY (Marte/ISS/oceano/Everest esplorabili con Go Inside+Senshot); AR per Realta Invisibile (build nativa); FFT audio reale (modulo nativo); QR deep-link post-deploy.
