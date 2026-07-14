@@ -3,19 +3,18 @@ import { StyleSheet, Text, View, ScrollView, ActivityIndicator, Pressable, Refre
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { ObservationCard } from "@/src/components/ObservationCard";
 import { LiveEarth } from "@/src/components/LiveEarth";
 import { VerifiedEvents } from "@/src/components/VerifiedEvents";
+import { SenseMark } from "@/src/components/SenseMark";
 import { SnapSenseBar } from "@/src/components/SnapSenseBar";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { socialApi, FeedObservation, FeedFilters } from "@/src/lib/backend";
 import { useObserver } from "@/src/hooks/useObserver";
 import { useAuth } from "@/src/context/AuthContext";
-
-const RING = require("@/assets/images/icon-ring.png");
 
 type Chip = { key: string; label: string; apply: (base: FeedFilters, obs: { lat: number; lon: number; ok: boolean }) => FeedFilters };
 
@@ -69,8 +68,8 @@ export default function Feed() {
     <SpaceBackground>
       {/* Top bar — feed is the app Home */}
       <View style={[styles.top, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable testID="feed-brand" style={styles.brandRow} hitSlop={8} onPress={() => setEarthFull(true)}>
-          <Image source={RING} style={styles.brandRing} contentFit="cover" />
+        <Pressable testID="feed-brand" style={styles.brandRow} hitSlop={8} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/sense-vision" as never); }}>
+          <SenseMark size={30} />
           <View>
             <Text style={styles.headerTitle} numberOfLines={1}>OverView Sense Universe™</Text>
             <Text style={styles.headerSubtitle}>Cosa sta osservando il mondo, ora.</Text>
@@ -162,7 +161,6 @@ export default function Feed() {
 const styles = StyleSheet.create({
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
   brandRow: { flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  brandRing: { width: 30, height: 30, borderRadius: 15, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
   topActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   pinnedEarth: { alignItems: "center", paddingBottom: spacing.sm },
   fab: { position: "absolute", right: spacing.lg, width: 60, height: 60, borderRadius: 30, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 8 },

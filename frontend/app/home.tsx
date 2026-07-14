@@ -14,6 +14,7 @@ import { TodayCard } from "@/src/components/TodayCard";
 import { ObservationOfTheDay } from "@/src/components/ObservationOfTheDay";
 import { SenseVisionCard } from "@/src/components/SenseVisionCard";
 import { SenseMark } from "@/src/components/SenseMark";
+import { OverviewShortcut } from "@/src/components/OverviewShortcut";
 import { colors, fonts, spacing, type } from "@/src/theme";
 import { useObserver, useNow } from "@/src/hooks/useObserver";
 import { useAuth } from "@/src/context/AuthContext";
@@ -42,6 +43,7 @@ const LAYERS: Layer[] = [
   { key: "satellite", route: "/satellite-explore", overline: "SATELLITE LAYER", title: "Satellite Intelligence", icon: "earth", accent: colors.blue, viz: null },
   { key: "audio", route: "/audio", overline: "SIGNAL LAYER", title: "Sonificazione", icon: "musical-notes", accent: colors.blue, viz: null },
   { key: "timeline", route: "/timeline", overline: "TIME LAYER", title: "Timeline", icon: "time", accent: colors.brand, viz: null },
+  { key: "gallery", route: "/observations", overline: "I TUOI SENSHOT", title: "Galleria", icon: "images", accent: colors.brand, viz: null },
   { key: "feed", route: "/feed", overline: "COMMUNITY", title: "OverView Sense Universe", icon: "globe", accent: colors.blue, viz: null },
   { key: "ai", route: "/assistant", overline: "GUIDE", title: "Assistente", icon: "sparkles", accent: colors.blue, viz: null },
 ];
@@ -172,6 +174,7 @@ export default function Home() {
       case "universe": return "Sistema Solare in movimento";
       case "audio": return "Ascolta i dati reali";
       case "timeline": return "Il cielo di qualsiasi data";
+      case "gallery": return "I tuoi Senshot salvati";
       case "ai": return "Chiedi cosa stai osservando";
       default: return "";
     }
@@ -192,10 +195,7 @@ export default function Home() {
           <View style={styles.dot} />
           <Text style={styles.wordmark}>OverView</Text>
           <View style={styles.brandActions}>
-            <Pressable testID="home-gallery-shortcut" style={styles.brandIcon} hitSlop={10}
-              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/observations" as never); }}>
-              <Ionicons name="images-outline" size={22} color={colors.brand} />
-            </Pressable>
+            <OverviewShortcut size={26} />
             <Pressable testID="home-profile" style={styles.brandIcon} hitSlop={10}
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(user ? `/profile?id=${user.id}` as never : "/login" as never); }}>
               <Ionicons name={user ? "person-circle" : "person-circle-outline"} size={26} color={user ? colors.brand : colors.onSurface} />
