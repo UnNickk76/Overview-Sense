@@ -7,7 +7,6 @@ import * as Haptics from "expo-haptics";
 import * as FileSystem from "expo-file-system/legacy";
 import { GLView } from "expo-gl";
 import { GestureDetector, Gesture } from "react-native-gesture-handler";
-import { runOnJS } from "react-native-reanimated";
 import { UniverseScene, makeControls, ControlState } from "@/src/components/universe/UniverseScene";
 import {
   UObject, UScale, SCALES, objectsForScale, searchUniverse, KIND_LABEL, REP_LABEL,
@@ -111,20 +110,22 @@ export default function UniverseExplorer() {
 
   const gesture = useMemo(() => {
     const pan = Gesture.Pan()
-      .onBegin(() => runOnJS(pause)())
+      .runOnJS(true)
+      .onBegin(() => pause())
       .onStart(() => { start.current = { az: ctrl.current.az, pol: ctrl.current.pol, rad: ctrl.current.rad }; })
       .onUpdate((e) => {
         const k = 0.005;
         ctrl.current.az = start.current.az - e.translationX * k;
         ctrl.current.pol = clamp(start.current.pol - e.translationY * k, 0.15, Math.PI - 0.15);
       })
-      .onEnd(() => runOnJS(resumeSoon)());
+      .onEnd(() => resumeSoon());
     const pinch = Gesture.Pinch()
-      .onBegin(() => runOnJS(pause)())
+      .runOnJS(true)
+      .onBegin(() => pause())
       .onStart(() => { start.current.rad = ctrl.current.rad; })
       .onUpdate((e) => { ctrl.current.rad = clamp(start.current.rad / e.scale, 3, 130); })
-      .onEnd(() => runOnJS(resumeSoon)());
-    const dtap = Gesture.Tap().numberOfTaps(2).maxDuration(320).onEnd((e) => runOnJS(onDoubleTap)(e.x, e.y));
+      .onEnd(() => resumeSoon());
+    const dtap = Gesture.Tap().numberOfTaps(2).maxDuration(320).runOnJS(true).onEnd((e) => onDoubleTap(e.x, e.y));
     return Gesture.Exclusive(dtap, Gesture.Simultaneous(pan, pinch));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [objects]);
