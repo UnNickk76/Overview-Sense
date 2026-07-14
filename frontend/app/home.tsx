@@ -34,6 +34,7 @@ interface Layer {
 
 const LAYERS: Layer[] = [
   { key: "now", route: "/qui-e-ora", overline: "EARTH LAYER", title: "Qui e Ora", teaser: "Scopri il tuo ambiente.", icon: "pulse", accent: colors.brand, viz: null },
+  { key: "guide", route: "/overview-guide", overline: "OVERVIEW GUIDE™", title: "Guidami", teaser: "Chiedi cosa osservare.", icon: "compass", accent: colors.brand, viz: null },
   { key: "sky", route: "/cielo", overline: "SKY LAYER", title: "Cielo", teaser: "Osserva oltre l'orizzonte.", icon: "telescope", accent: colors.blue, viz: null },
   { key: "universe", route: "/universo", overline: "UNIVERSE LAYER", title: "Universo", teaser: "Esplora il cosmo.", icon: "planet", accent: colors.brand, viz: "orrery" },
   { key: "invisible", route: "/realta-invisibile", overline: "MAGNETIC LAYER", title: "Realtà Invisibile", teaser: "Ciò che gli altri non vedono.", icon: "magnet", accent: colors.blue, viz: "field" },

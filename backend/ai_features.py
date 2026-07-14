@@ -167,6 +167,95 @@ async def see(req: SeeReq):
         raise HTTPException(status_code=503, detail="Assistente Visivo non disponibile")
 
 
+class GuideResolveReq(BaseModel):
+    query: str
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+
+
+GUIDE_SYSTEM = (
+    "Sei il risolutore di OverView Guide. L'utente chiede di osservare un oggetto reale, "
+    "nel cielo o sulla Terra. Devi restituire SOLO un oggetto JSON valido, senza testo extra, "
+    "con questi campi: "
+    '{"domain":"sky"|"earth"|"unknown", "name":"nome leggibile in italiano", '
+    '"sky_key":"sun|moon|mercury|venus|mars|jupiter|saturn|uranus|neptune|iss|<nome stella EN>|<nome deep-sky EN>|galcenter", '
+    '"lat":numero, "lon":numero, "elevation_m":numero, "note":"breve nota in italiano"}. '
+    "Regole: se è un corpo celeste usa domain=sky e compila sky_key con la chiave canonica in inglese "
+    "(pianeti in inglese: jupiter, saturn...; stelle col nome proprio inglese: Sirius, Vega; ISS => iss; "
+    "Via Lattea/centro galattico => galcenter). Se è un luogo terrestre (monti, monumenti, città, laghi, vulcani, fari) "
+    "usa domain=earth e fornisci lat, lon ed elevation_m stimata realistica. Non inventare oggetti inesistenti: "
+    "se non riconosci nulla di reale usa domain=unknown. Usa dati geografici/astronomici reali e verificati."
+)
+
+
+@ai_router.post("/guide/resolve")
+async def guide_resolve(req: GuideResolveReq):
+    import json
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    if not EMERGENT_LLM_KEY or not (req.query or "").strip():
+        raise HTTPException(status_code=503, detail="OverView Guide non disponibile")
+    loc = f" L'utente si trova a lat {req.lat}, lon {req.lon}." if req.lat is not None else ""
+    try:
+        chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=str(uuid.uuid4()),
+                       system_message=GUIDE_SYSTEM).with_model("openai", "gpt-5.4")
+        resp = await chat.send_message(UserMessage(text=f'Richiesta: "{req.query}".{loc} Rispondi con il solo JSON.'))
+        text = resp if isinstance(resp, str) else (getattr(resp, "text", None) or str(resp))
+        text = text.strip()
+        if text.startswith("```"):
+            text = text.split("```", 2)[1].replace("json", "", 1).strip() if "```" in text else text
+        start, end = text.find("{"), text.rfind("}")
+        data = json.loads(text[start:end + 1]) if start >= 0 else {}
+        return {
+            "domain": data.get("domain", "unknown"),
+            "name": data.get("name") or req.query,
+            "sky_key": (data.get("sky_key") or "").strip(),
+            "lat": data.get("lat"),
+            "lon": data.get("lon"),
+            "elevation_m": data.get("elevation_m"),
+            "note": data.get("note", ""),
+        }
+    except Exception:
+        raise HTTPException(status_code=503, detail="OverView Guide non disponibile")
+
+
+class TranscribeReq(BaseModel):
+    audio_base64: str
+    mime: Optional[str] = "m4a"
+
+
+@ai_router.post("/guide/transcribe")
+async def guide_transcribe(req: TranscribeReq):
+    import base64 as _b64
+    import os
+    import tempfile
+    from emergentintegrations.llm.openai.speech_to_text import OpenAISpeechToText
+    raw = (req.audio_base64 or "").strip()
+    if "," in raw and raw.startswith("data:"):
+        raw = raw.split(",", 1)[1]
+    if not EMERGENT_LLM_KEY or not raw:
+        raise HTTPException(status_code=503, detail="Trascrizione non disponibile")
+    ext = (req.mime or "m4a").split("/")[-1]
+    if ext not in ("mp3", "mp4", "mpeg", "mpga", "m4a", "wav", "webm"):
+        ext = "m4a"
+    path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as f:
+            f.write(_b64.b64decode(raw))
+            path = f.name
+        stt = OpenAISpeechToText(api_key=EMERGENT_LLM_KEY)
+        result = await stt.transcribe(file=path, model="whisper-1", language="it")
+        txt = result.get("text") if isinstance(result, dict) else (getattr(result, "text", None) or str(result))
+        return {"text": (txt or "").strip()}
+    except Exception:
+        raise HTTPException(status_code=503, detail="Trascrizione non disponibile")
+    finally:
+        if path and os.path.exists(path):
+            try:
+                os.unlink(path)
+            except Exception:
+                pass
+
+
 @ai_router.post("/explain-opportunity")
 async def explain_opportunity(req: ExplainOppReq):
     facts = "\n".join(f"- {f}" for f in req.facts if f)

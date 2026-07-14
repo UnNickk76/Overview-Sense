@@ -7,6 +7,7 @@ import { GestureDetector, Gesture } from "react-native-gesture-handler";
 import Reanimated, { useSharedValue, useAnimatedProps, useAnimatedStyle, withTiming } from "react-native-reanimated";
 import { Camera, useCameraDevice, useCameraFormat, PhotoFile } from "react-native-vision-camera";
 import { Skia, ImageFormat } from "@shopify/react-native-skia";
+import { SenseRadar } from "@/src/components/SenseRadar";
 import { colors, fonts, spacing, type } from "@/src/theme";
 
 const ReanimatedCamera = Reanimated.createAnimatedComponent(Camera);
@@ -89,6 +90,7 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean }>(({ e
   const [lock, setLock] = useState(false);
   const [focusPt, setFocusPt] = useState<{ x: number; y: number } | null>(null);
   const [zoomLabel, setZoomLabel] = useState("1.0×");
+  const [zoomFactor, setZoomFactor] = useState(1);
   const [macro, setMacro] = useState(false);
 
   const minZoom = device?.minZoom ?? 1;
@@ -129,6 +131,7 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean }>(({ e
 
   const showZoom = useCallback((z: number) => {
     setZoomLabel(`${(z / neutral).toFixed(1)}×`);
+    setZoomFactor(z / neutral);
     // Large lens/zoom change → drop the stale focus point so continuous AF/AE resumes.
     if (Math.abs(z - lastZoomRef.current) > neutral * 0.5) {
       lastZoomRef.current = z;
@@ -142,6 +145,7 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean }>(({ e
     zoom.value = withTiming(z, { duration: 220 });
     lastZoomRef.current = z;
     setZoomLabel(`${(z / neutral).toFixed(1)}×`);
+    setZoomFactor(z / neutral);
     setFocusPt(null);
     setMacro(isMacro(z));
   }, [zoom, neutral, isMacro]);
@@ -222,6 +226,11 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean }>(({ e
         {focusPt ? (
           <Reanimated.View pointerEvents="none" style={[styles.focusRing, { left: focusPt.x - 34, top: focusPt.y - 34 }, focusStyle]} />
         ) : null}
+        {zoomFactor > 20 ? (
+          <View pointerEvents="none" style={styles.radarPos}>
+            <SenseRadar zoom={zoomFactor} />
+          </View>
+        ) : null}
         <View pointerEvents="box-none" style={styles.hud}>
           <View style={styles.presetRow}>
             {presets.map((p) => {
@@ -259,6 +268,7 @@ const styles = StyleSheet.create({
   fallback: { ...StyleSheet.absoluteFillObject, backgroundColor: "#000", alignItems: "center", justifyContent: "center" },
   fallbackText: { color: "#fff", fontFamily: fonts.medium, fontSize: type.base },
   focusRing: { position: "absolute", width: 68, height: 68, borderRadius: 12, borderWidth: 1.5, borderColor: colors.brand },
+  radarPos: { position: "absolute", top: 70, right: spacing.lg },
   hud: { position: "absolute", left: 0, right: 0, bottom: 150, alignItems: "center", gap: spacing.sm },
   presetRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 999, padding: 4 },
   presetPill: { minWidth: 40, alignItems: "center", justifyContent: "center", borderRadius: 999, paddingHorizontal: spacing.sm, paddingVertical: 6 },

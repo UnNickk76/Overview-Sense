@@ -53,6 +53,11 @@ export const api = {
   chatUrl: () => `${BASE}/api/ai/chat`,
   history: (sid: string) => getJson<{ messages: { role: string; text: string }[] }>(`/ai/history/${sid}`),
   see: (image_base64: string, facts: string[]) => postJson<{ text: string }>("/ai/see", { image_base64, facts }),
+  guideResolve: (query: string, lat?: number, lon?: number) =>
+    postJson<{ domain: string; name: string; sky_key: string; lat?: number; lon?: number; elevation_m?: number; note: string }>(
+      "/ai/guide/resolve", { query, lat, lon }),
+  guideTranscribe: (audio_base64: string, mime?: string) =>
+    postJson<{ text: string }>("/ai/guide/transcribe", { audio_base64, mime }),
 };
 
 export { BASE };
