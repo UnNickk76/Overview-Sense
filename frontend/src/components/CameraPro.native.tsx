@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as FileSystem from "expo-file-system/legacy";
 import { GestureDetector, Gesture } from "react-native-gesture-handler";
-import Reanimated, { useSharedValue, useAnimatedProps, useAnimatedStyle, withTiming, runOnJS } from "react-native-reanimated";
+import Reanimated, { useSharedValue, useAnimatedProps, useAnimatedStyle, withTiming } from "react-native-reanimated";
 import { Camera, useCameraDevice, useCameraFormat, PhotoFile } from "react-native-vision-camera";
 import { Skia, ImageFormat } from "@shopify/react-native-skia";
 import { colors, fonts, spacing, type } from "@/src/theme";
@@ -75,6 +75,8 @@ async function enhanceImage(path: string): Promise<string> {
 export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean }>(({ enhance = true }, ref) => {
   const device = useCameraDevice("back");
   const format = useCameraFormat(device, [{ photoResolution: "max" }]);
+  const supportsHdr = !!format?.supportsPhotoHdr;
+  const supportsLowLight = !!device?.supportsLowLightBoost;
   const cam = useRef<Camera>(null);
   const [hasPerm, setHasPerm] = useState(false);
   const [lock, setLock] = useState(false);
@@ -167,6 +169,8 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean }>(({ e
           isActive
           photo
           photoQualityBalance="quality"
+          photoHdr={supportsHdr}
+          lowLightBoost={supportsLowLight}
           enableZoomGesture={false}
           animatedProps={animatedProps}
         />
