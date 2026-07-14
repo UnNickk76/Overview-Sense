@@ -122,6 +122,51 @@ async def recognize_subject(req: RecognizeReq):
         return {"subject": "generic", "label_it": "Realtà"}
 
 
+class SeeReq(BaseModel):
+    image_base64: str
+    facts: List[str] = []
+
+
+SEE_SYSTEM = (
+    "Sei l'Assistente Visivo di Overview. RICEVI una foto reale scattata dall'utente e un elenco "
+    "di DATI REALI verificati (sensori del dispositivo e fonti scientifiche pubbliche). "
+    "Il tuo compito: descrivere ciò che è OGGETTIVAMENTE visibile nell'immagine e arricchirlo con i "
+    "dati reali forniti, rivelando ciò che l'occhio umano non percepisce facilmente. "
+    "REGOLE ASSOLUTE: non inventare mai oggetti, valori o fenomeni non visibili o non forniti; "
+    "non aggiungere numeri non presenti nei dati; se non sei sicuro di cosa sia, dillo con onestà; "
+    "niente pseudoscienza, aure o paranormale. Rispondi in ITALIANO, 3-6 frasi, tono divulgativo "
+    "brillante ma rigoroso. Quando utile, evidenzia cosa di invisibile-ma-reale è presente nella scena."
+)
+
+
+@ai_router.post("/see")
+async def see(req: SeeReq):
+    """Visual Assistant: the AI 'sees' through the camera and explains the real scene.
+    Vision via OpenAI gpt-5.4. Never invents details (Beyond View philosophy)."""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+    raw = (req.image_base64 or "").strip()
+    if "," in raw and raw.startswith("data:"):
+        raw = raw.split(",", 1)[1]
+    if not EMERGENT_LLM_KEY or not raw:
+        raise HTTPException(status_code=503, detail="Assistente Visivo non disponibile")
+    facts = "\n".join(f"- {f}" for f in (req.facts or []) if f) or "- (nessun dato sensore disponibile)"
+    prompt = (
+        "Dati reali verificati del momento e del luogo:\n" + facts + "\n\n"
+        "Osserva la foto e spiega cosa stai guardando integrando questi dati reali. "
+        "Descrivi solo ciò che è realmente visibile o fornito."
+    )
+    try:
+        chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=str(uuid.uuid4()),
+                       system_message=SEE_SYSTEM).with_model("openai", "gpt-5.4")
+        resp = await chat.send_message(UserMessage(
+            text=prompt, file_contents=[ImageContent(image_base64=raw)]))
+        text = resp if isinstance(resp, str) else (
+            getattr(resp, "text", None) or getattr(resp, "content", None) or str(resp))
+        return {"text": text}
+    except Exception:
+        raise HTTPException(status_code=503, detail="Assistente Visivo non disponibile")
+
+
 @ai_router.post("/explain-opportunity")
 async def explain_opportunity(req: ExplainOppReq):
     facts = "\n".join(f"- {f}" for f in req.facts if f)

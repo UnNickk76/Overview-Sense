@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { colors, fonts, spacing, type } from "@/src/theme";
@@ -21,6 +22,7 @@ const SUGGESTIONS = [
 
 export default function Assistant() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [sessionId, setSessionId] = useState("");
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -84,6 +86,14 @@ export default function Assistant() {
               <Text style={styles.emptyText}>
                 Chiedi qualsiasi cosa su ciò che vedi: stelle, pianeti, campi, luce e tempo. Rispondo solo con scienza reale — mai invenzioni.
               </Text>
+              <Pressable testID="open-visual-assistant" style={styles.visualCta} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/visual-assistant" as never); }}>
+                <Ionicons name="eye" size={20} color={colors.onBrand} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.visualCtaTitle}>Assistente Visivo</Text>
+                  <Text style={styles.visualCtaSub}>Inquadra → Comprendo → Senshot</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.onBrand} />
+              </Pressable>
               <View style={styles.chips}>
                 {SUGGESTIONS.map((s) => (
                   <Pressable key={s} testID={`suggestion-${s.slice(0, 8)}`} style={styles.chip} onPress={() => send(s)}>
@@ -106,6 +116,9 @@ export default function Assistant() {
         </ScrollView>
 
         <View style={[styles.inputBar, { paddingBottom: insets.bottom + spacing.sm }]}>
+          <Pressable testID="visual-assistant-camera" style={styles.cameraBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/visual-assistant" as never); }}>
+            <Ionicons name="eye-outline" size={22} color={colors.brand} />
+          </Pressable>
           <TextInput
             testID="chat-input"
             style={styles.input}
@@ -130,6 +143,10 @@ const styles = StyleSheet.create({
   emptyTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.xl },
   emptyText: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.base, textAlign: "center", lineHeight: 22, paddingHorizontal: spacing.md },
   chips: { gap: spacing.sm, marginTop: spacing.lg, alignSelf: "stretch" },
+  visualCta: { flexDirection: "row", alignItems: "center", gap: spacing.md, alignSelf: "stretch", marginTop: spacing.lg, backgroundColor: colors.brand, borderRadius: 16, paddingVertical: spacing.md, paddingHorizontal: spacing.lg },
+  visualCtaTitle: { color: colors.onBrand, fontFamily: fonts.bold, fontSize: type.base, letterSpacing: 0.3 },
+  visualCtaSub: { color: colors.onBrand, fontFamily: fonts.regular, fontSize: type.sm - 1, opacity: 0.85 },
+  cameraBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.tertiary, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   chip: { backgroundColor: colors.tertiary, borderRadius: 14, paddingVertical: spacing.md, paddingHorizontal: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   chipText: { color: colors.onSurfaceTertiary, fontFamily: fonts.regular, fontSize: type.base },
   bubble: { maxWidth: "85%", borderRadius: 18, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },

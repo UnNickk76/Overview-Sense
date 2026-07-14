@@ -1,4 +1,4 @@
-import React, { forwardRef, useImperativeHandle, useRef, useState, useCallback, useEffect } from "react";
+import React, { forwardRef, useImperativeHandle, useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { StyleSheet, View, Text, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -73,7 +73,14 @@ async function enhanceImage(path: string): Promise<string> {
 }
 
 export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean }>(({ enhance = true }, ref) => {
-  const device = useCameraDevice("back");
+  // Full physical optical range: ultra-wide → wide → tele. The virtual multi-cam
+  // device auto-switches lenses for the widest field of view and Super Macro on
+  // supported iPhones (Beyond View: only real optics, never fabricated detail).
+  const multiDevice = useCameraDevice("back", {
+    physicalDevices: ["ultra-wide-angle-camera", "wide-angle-camera", "telephoto-camera"],
+  });
+  const singleDevice = useCameraDevice("back");
+  const device = multiDevice ?? singleDevice;
   const format = useCameraFormat(device, [{ photoResolution: "max" }]);
   const supportsHdr = !!format?.supportsPhotoHdr;
   const supportsLowLight = !!device?.supportsLowLightBoost;
@@ -81,16 +88,36 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean }>(({ e
   const [hasPerm, setHasPerm] = useState(false);
   const [lock, setLock] = useState(false);
   const [focusPt, setFocusPt] = useState<{ x: number; y: number } | null>(null);
-  const [zoomLabel, setZoomLabel] = useState("1.0x");
+  const [zoomLabel, setZoomLabel] = useState("1.0×");
+  const [macro, setMacro] = useState(false);
 
   const minZoom = device?.minZoom ?? 1;
-  const maxZoom = Math.min(device?.maxZoom ?? 10, 128);
+  const maxZoom = Math.min(device?.maxZoom ?? 10, 32);
   const neutral = device?.neutralZoom ?? 1;
   const zoom = useSharedValue(neutral);
   const startZoom = useSharedValue(neutral);
   const exposure = useSharedValue(0);
   const startExp = useSharedValue(0);
   const focusOpacity = useSharedValue(0);
+  const lastZoomRef = useRef(neutral);
+
+  const isMacro = useCallback(
+    (z: number) => z <= minZoom + 0.02 && minZoom < neutral - 0.03,
+    [minZoom, neutral],
+  );
+
+  // Quick zoom presets built from the device's REAL lenses; labels are honest
+  // magnifications relative to the 1× wide lens.
+  const presets = useMemo(() => {
+    const arr: { label: string; z: number }[] = [];
+    if (minZoom < neutral - 0.03) {
+      const f = minZoom / neutral;
+      arr.push({ label: `${f < 1 ? f.toFixed(1) : f.toFixed(0)}×`, z: minZoom });
+    }
+    arr.push({ label: "1×", z: neutral });
+    [2, 3, 5].forEach((f) => { if (neutral * f <= maxZoom + 0.01) arr.push({ label: `${f}×`, z: neutral * f }); });
+    return arr;
+  }, [minZoom, neutral, maxZoom]);
 
   useEffect(() => {
     (async () => {
@@ -100,7 +127,25 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean }>(({ e
     })();
   }, []);
 
-  const showZoom = useCallback((z: number) => setZoomLabel(`${z.toFixed(1)}x`), []);
+  const showZoom = useCallback((z: number) => {
+    setZoomLabel(`${(z / neutral).toFixed(1)}×`);
+    // Large lens/zoom change → drop the stale focus point so continuous AF/AE resumes.
+    if (Math.abs(z - lastZoomRef.current) > neutral * 0.5) {
+      lastZoomRef.current = z;
+      setFocusPt(null);
+    }
+    setMacro(isMacro(z));
+  }, [neutral, isMacro]);
+
+  const setPreset = useCallback((z: number) => {
+    Haptics.selectionAsync();
+    zoom.value = withTiming(z, { duration: 220 });
+    lastZoomRef.current = z;
+    setZoomLabel(`${(z / neutral).toFixed(1)}×`);
+    setFocusPt(null);
+    setMacro(isMacro(z));
+  }, [zoom, neutral, isMacro]);
+
   const doFocus = useCallback((x: number, y: number) => {
     if (lock) return;
     try { cam.current?.focus({ x, y }); } catch { /* ignore */ }
@@ -178,11 +223,30 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean }>(({ e
           <Reanimated.View pointerEvents="none" style={[styles.focusRing, { left: focusPt.x - 34, top: focusPt.y - 34 }, focusStyle]} />
         ) : null}
         <View pointerEvents="box-none" style={styles.hud}>
-          <View style={styles.zoomPill}><Text style={styles.zoomText}>{zoomLabel}</Text></View>
-          <Pressable testID="camerapro-lock" style={[styles.lockBtn, lock && styles.lockOn]} onPress={toggleLock}>
-            <Ionicons name={lock ? "lock-closed" : "lock-open"} size={15} color={lock ? colors.onBrand : "#fff"} />
-            <Text style={[styles.lockText, lock && { color: colors.onBrand }]}>AF/AE</Text>
-          </Pressable>
+          <View style={styles.presetRow}>
+            {presets.map((p) => {
+              const active = zoomLabel === `${(p.z / neutral).toFixed(1)}×`;
+              return (
+                <Pressable key={p.label} testID={`zoom-${p.label}`} onPress={() => setPreset(p.z)}
+                  style={[styles.presetPill, active && styles.presetOn]}>
+                  <Text style={[styles.presetText, active && { color: colors.onBrand }]}>{p.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <View style={styles.hudRow}>
+            <View style={styles.zoomPill}><Text style={styles.zoomText}>{zoomLabel}</Text></View>
+            {macro ? (
+              <View style={styles.macroPill}>
+                <Ionicons name="leaf" size={12} color={colors.onBrand} />
+                <Text style={styles.macroText}>MACRO</Text>
+              </View>
+            ) : null}
+            <Pressable testID="camerapro-lock" style={[styles.lockBtn, lock && styles.lockOn]} onPress={toggleLock}>
+              <Ionicons name={lock ? "lock-closed" : "lock-open"} size={15} color={lock ? colors.onBrand : "#fff"} />
+              <Text style={[styles.lockText, lock && { color: colors.onBrand }]}>AF/AE</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     </GestureDetector>
@@ -195,7 +259,14 @@ const styles = StyleSheet.create({
   fallback: { ...StyleSheet.absoluteFillObject, backgroundColor: "#000", alignItems: "center", justifyContent: "center" },
   fallbackText: { color: "#fff", fontFamily: fonts.medium, fontSize: type.base },
   focusRing: { position: "absolute", width: 68, height: 68, borderRadius: 12, borderWidth: 1.5, borderColor: colors.brand },
-  hud: { position: "absolute", left: 0, right: 0, bottom: 150, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.md },
+  hud: { position: "absolute", left: 0, right: 0, bottom: 150, alignItems: "center", gap: spacing.sm },
+  presetRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 999, padding: 4 },
+  presetPill: { minWidth: 40, alignItems: "center", justifyContent: "center", borderRadius: 999, paddingHorizontal: spacing.sm, paddingVertical: 6 },
+  presetOn: { backgroundColor: colors.brand },
+  presetText: { color: "#fff", fontFamily: fonts.mono, fontSize: type.sm - 1 },
+  hudRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.md },
+  macroPill: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.brand, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6 },
+  macroText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.sm - 2, letterSpacing: 0.5 },
   zoomPill: { backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6 },
   zoomText: { color: "#fff", fontFamily: fonts.mono, fontSize: type.sm },
   lockBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.3)" },

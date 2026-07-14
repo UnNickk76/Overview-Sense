@@ -19,6 +19,8 @@ export interface ObsData {
   spaceWeather?: { kp?: number; level?: string; solarWind?: number };
   magnetic?: { magnitude: number };
   senseLayer?: string;
+  // AI Visual Assistant explanation attached to the Senshot (real data only).
+  aiNote?: string;
   // Origin screen — enables the universal "Go There" viewpoint recreation.
   from?: string;
 }

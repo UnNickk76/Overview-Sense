@@ -169,7 +169,10 @@ export default function ObservationView() {
 
   // AI explains every Sense automatically (rigorous, based only on real data).
   useEffect(() => {
-    if (obs?.data && !aiText && !aiLoading) { explain(); }
+    if (!obs?.data || aiText || aiLoading) return;
+    // Visual Assistant Senshots already carry the exact scene explanation.
+    if (obs.data.aiNote) { setAiText(obs.data.aiNote); return; }
+    explain();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [obs?.id]);
 
