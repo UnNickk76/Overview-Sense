@@ -139,6 +139,8 @@ export default function ObservationView() {
       const created = await socialApi.createObservation({
         media_type: "image", source: "reality",
         caption: "", image_base64: manipulated.base64 ?? undefined, data: obs.data,
+        is_pulse: !!obs.data.pulse,
+        pulse_task: obs.data.pulse,
       });
       setPublished(created.id);
     } catch (e) {

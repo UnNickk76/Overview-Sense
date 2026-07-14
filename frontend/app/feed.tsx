@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, ScrollView, ActivityIndicator, Pressable, Refre
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { ObservationCard } from "@/src/components/ObservationCard";
@@ -38,6 +39,8 @@ const CATEGORIES = ["Astronomia", "Atmosfera", "Meteo", "Sole", "Luna", "Pianeti
 export default function Feed() {
   const insets = useSafeAreaInsets();
   const observer = useObserver();
+  const router = useRouter();
+  const { user } = useAuth();
   const { width } = useWindowDimensions();
   const [scope, setScope] = useState("smart");
   const [category, setCategory] = useState<string | null>(null);
@@ -73,6 +76,10 @@ export default function Feed() {
             <Text style={styles.headerSubtitle}>Cosa sta osservando il mondo, ora.</Text>
           </View>
         </View>
+        <Pressable testID="feed-activity" hitSlop={10} style={styles.topActivity}
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(user ? "/activity" as never : "/login" as never); }}>
+          <Ionicons name="notifications-outline" size={24} color={colors.onSurface} />
+        </Pressable>
       </View>
 
       {/* Pinned, always-alive Live Earth — the pulsing heart of OverView */}
@@ -146,6 +153,7 @@ export default function Feed() {
 const styles = StyleSheet.create({
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
   brandRow: { flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  topActivity: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   topActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   pinnedEarth: { alignItems: "center", paddingBottom: spacing.sm },
   fab: { position: "absolute", right: spacing.lg, width: 60, height: 60, borderRadius: 30, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 8 },

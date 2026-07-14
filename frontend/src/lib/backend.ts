@@ -55,6 +55,8 @@ export interface FeedObservation {
   my_interactions: string[];
   my_saved: boolean;
   reposted_by?: string | null;
+  is_pulse?: boolean;
+  pulse_task?: { id: string; title: string; theme: string; prompt?: string } | null;
   author?: { id: string; nickname: string; bio?: string; avatar?: string | null };
 }
 
@@ -147,6 +149,7 @@ export const socialApi = {
   createObservation: (payload: {
     media_type?: string; source?: string; caption?: string;
     image_base64?: string; data?: ObsData; ai_confidence?: number;
+    is_pulse?: boolean; pulse_task?: { id: string; title: string; theme: string; prompt?: string };
   }) => apiFetch<FeedObservation>("/observations", {
     method: "POST", body: JSON.stringify(payload),
   }),
@@ -174,6 +177,18 @@ export const socialApi = {
   save: (id: string) => apiFetch<{ saved: boolean }>(`/observations/${id}/save`, { method: "POST" }),
   repost: (id: string) => apiFetch<{ reposted: boolean }>(`/observations/${id}/repost`, { method: "POST" }),
   collection: (id: string) => apiFetch<{ items: FeedObservation[] }>(`/users/${id}/collection`),
+};
+
+// ---- Pulse™ ----
+export const pulseApi = {
+  feed: (taskId?: string) => {
+    const q = taskId ? `?task_id=${encodeURIComponent(taskId)}` : "";
+    return apiFetch<{ items: FeedObservation[] }>(`/pulse/feed${q}`);
+  },
+  compare: (obs_id_a: string, obs_id_b: string) =>
+    apiFetch<{ text: string; theme: string }>("/pulse/compare", {
+      method: "POST", body: JSON.stringify({ obs_id_a, obs_id_b }),
+    }),
 };
 
 export interface VerifiedEvent {

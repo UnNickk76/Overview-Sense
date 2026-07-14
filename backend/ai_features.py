@@ -167,6 +167,44 @@ async def see(req: SeeReq):
         raise HTTPException(status_code=503, detail="Assistente Visivo non disponibile")
 
 
+PULSE_COMPARE_SYSTEM = (
+    "Sei il giudice-narratore di Pulse™, la sfida osservativa di OverView. Ricevi DUE foto reali "
+    "scattate da due osservatori diversi sullo stesso tema, più i dati reali di ciascuna. "
+    "Filosofia 'Oltre la Vista': NON inventare mai dettagli non visibili; descrivi solo ciò che è "
+    "realmente nelle immagini o nei dati forniti. Confronta le due osservazioni in ITALIANO con "
+    "questa struttura, senza dichiarare un 'vincitore' assoluto: "
+    "1) COSA HANNO IN COMUNE, 2) OSSERVAZIONE A — cosa rivela di unico, "
+    "3) OSSERVAZIONE B — cosa rivela di unico, 4) SGUARDO INVISIBILE — quale dettaglio reale, "
+    "prospettiva o dato scientifico ciascuna ha catturato meglio. Tono: divulgatore rigoroso e "
+    "incoraggiante. Sii conciso (max ~180 parole)."
+)
+
+
+async def compare_pulse(theme: str, img_a: str, facts_a: list, img_b: str, facts_b: list) -> str:
+    """Pulse Challenge: AI compares two real Senshots on the same theme (Beyond View)."""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=503, detail="Pulse Challenge non disponibile")
+    fa = "\n".join(f"- {f}" for f in (facts_a or []) if f) or "- (nessun dato)"
+    fb = "\n".join(f"- {f}" for f in (facts_b or []) if f) or "- (nessun dato)"
+    prompt = (
+        f"Tema della sfida Pulse: \"{theme}\".\n\n"
+        f"OSSERVAZIONE A (prima immagine) — dati reali:\n{fa}\n\n"
+        f"OSSERVAZIONE B (seconda immagine) — dati reali:\n{fb}\n\n"
+        "Confronta le due immagini secondo la struttura richiesta."
+    )
+    try:
+        chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=str(uuid.uuid4()),
+                       system_message=PULSE_COMPARE_SYSTEM).with_model("openai", "gpt-5.4")
+        resp = await chat.send_message(UserMessage(
+            text=prompt,
+            file_contents=[ImageContent(image_base64=img_a), ImageContent(image_base64=img_b)]))
+        return resp if isinstance(resp, str) else (
+            getattr(resp, "text", None) or getattr(resp, "content", None) or str(resp))
+    except Exception:
+        raise HTTPException(status_code=503, detail="Pulse Challenge non disponibile")
+
+
 class GuideResolveReq(BaseModel):
     query: str
     lat: Optional[float] = None

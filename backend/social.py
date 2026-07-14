@@ -163,6 +163,7 @@ async def ensure_social_indexes():
     await db.observations.create_index("id", unique=True)
     await db.observations.create_index("created_at")
     await db.observations.create_index("user_id")
+    await db.observations.create_index("is_pulse")
     await db.interactions.create_index([("user_id", 1), ("obs_id", 1), ("type", 1)], unique=True)
     await db.follows.create_index([("follower_id", 1), ("following_id", 1)], unique=True)
     await db.comments.create_index("obs_id")
@@ -250,6 +251,8 @@ def obs_public(o: dict, viewer_interactions: Optional[set] = None,
         "caption": o.get("caption", ""),
         "scientific_value": o.get("scientific_value", 0),
         "ai_confidence": o.get("ai_confidence"),
+        "is_pulse": o.get("is_pulse", False),
+        "pulse_task": o.get("pulse_task"),
         "image_url": f"/api/media/{o['id']}" if o.get("has_image") else None,
         "lat": o.get("lat"),
         "lon": o.get("lon"),
@@ -279,6 +282,8 @@ class CreateObs(BaseModel):
     image_base64: Optional[str] = None
     data: Optional[dict] = None
     ai_confidence: Optional[int] = None
+    is_pulse: bool = False
+    pulse_task: Optional[dict] = None
 
 
 @social_router.post("/observations")
@@ -324,6 +329,8 @@ async def create_observation(req: CreateObs, user: dict = Depends(get_current_us
         "categories": cats,
         "scientific_value": compute_scientific_value(data, req.source),
         "ai_confidence": req.ai_confidence,
+        "is_pulse": bool(req.is_pulse),
+        "pulse_task": req.pulse_task if req.is_pulse else None,
         "views": 0, "observed": 0, "discovery": 0, "learned": 0,
         "comments_count": 0, "saves_count": 0, "repost_count": 0,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -481,6 +488,70 @@ async def observation_of_the_day(viewer: Optional[dict] = Depends(get_optional_u
                 my.add(it["type"])
         saved = bool(await db.saves.find_one({"user_id": viewer["id"], "obs_id": best["id"]}))
     return {"observation": obs_public(best, my, saved)}
+
+
+# ---------------------------------------------------------------------------
+# Pulse™ — daily observational challenges (curated themes, real observations)
+# ---------------------------------------------------------------------------
+@social_router.get("/pulse/feed")
+async def pulse_feed(task_id: Optional[str] = None, limit: int = 60,
+                     viewer: Optional[dict] = Depends(get_optional_user)):
+    q: dict = {"is_pulse": True}
+    if task_id:
+        q["pulse_task.id"] = task_id
+    docs = await db.observations.find(q, {"_id": 0}).sort("created_at", -1).limit(min(limit, 200)).to_list(200)
+    my: dict = {}
+    saved: set = set()
+    if viewer:
+        oids = [o["id"] for o in docs]
+        async for it in db.interactions.find({"user_id": viewer["id"], "obs_id": {"$in": oids}}):
+            my.setdefault(it["obs_id"], set()).add(it["type"])
+        async for sv in db.saves.find({"user_id": viewer["id"], "obs_id": {"$in": oids}}):
+            saved.add(sv["obs_id"])
+    return {"items": [obs_public(o, my.get(o["id"], set()), o["id"] in saved) for o in docs]}
+
+
+def _pulse_facts(o: dict) -> List[str]:
+    d = o.get("data") or {}
+    facts = [f"Osservatore: {o.get('nickname', 'anonimo')}"]
+    if o.get("caption"):
+        facts.append(f"Descrizione: {o['caption']}")
+    if d.get("senseLayer"):
+        facts.append(f"Sense Layer: {d['senseLayer']}")
+    sun = d.get("sun")
+    if sun and sun.get("alt") is not None:
+        facts.append(f"Sole a {round(sun['alt'])}° di altezza")
+    moon = d.get("moon")
+    if moon and moon.get("phase"):
+        facts.append(f"Luna: {moon['phase']}")
+    if (d.get("weather") or {}).get("temp") is not None:
+        facts.append(f"Temperatura: {d['weather']['temp']}°C")
+    if o.get("created_at"):
+        facts.append(f"Catturato: {o['created_at']}")
+    return facts
+
+
+class PulseCompareReq(BaseModel):
+    obs_id_a: str
+    obs_id_b: str
+
+
+@social_router.post("/pulse/compare")
+async def pulse_compare(req: PulseCompareReq, user: dict = Depends(get_current_user)):
+    a = await db.observations.find_one({"id": req.obs_id_a}, {"_id": 0})
+    b = await db.observations.find_one({"id": req.obs_id_b}, {"_id": 0})
+    if not a or not b:
+        raise HTTPException(status_code=404, detail="Observation non trovata")
+    ma = await db.media.find_one({"id": req.obs_id_a}, {"_id": 0})
+    mb = await db.media.find_one({"id": req.obs_id_b}, {"_id": 0})
+    if not ma or not mb:
+        raise HTTPException(status_code=422, detail="Immagini non disponibili per il confronto")
+    task = a.get("pulse_task") or b.get("pulse_task") or {}
+    theme = task.get("title") or task.get("theme") or "la stessa sfida osservativa"
+    from ai_features import compare_pulse
+    text = await compare_pulse(theme, ma["data"], _pulse_facts(a), mb["data"], _pulse_facts(b))
+    return {"text": text, "theme": theme}
+
 
 
 @social_router.get("/observations/{obs_id}")

@@ -680,3 +680,14 @@ Focus utente: coerenza/pulizia, non nuove funzioni. Scelte: sezione Social rinom
 - **Terminologia**: nessun "Post" (label export "Post 1:1"→"Quadrato 1:1"); contenuti = Observation / SenseShot (da Sense Vision).
 - Verificato: lint pulito, backend import OK, screenshot Home (solo Profilo in alto, barra con Observe+anello, sezione attiva dorata, card Guidami/Observe).
 - IDENTITÀ Sense Vision (nota guida futura): "non una fotocamera, un nuovo modo di osservare" — la tecnologia deve sparire; priorità future = stabilità camera, AF/AE/zoom/qualità reali, animazioni/transizioni rifinite, coerenza visiva. + Centro di Controllo profilo per personalizzare le 5 voci barra (Sense Vision fissa al centro).
+
+### SESSIONE (fork) — Pulse™ Fase 1 & 2 (2026-06)
+Pulse™ = sfida osservativa curata per "osservare la realtà". Libreria OFFLINE (mai AI-generata) time-aware.
+- **`src/lib/pulseTasks.ts`**: ~30 sfide curate con `windows` (dawn/day/golden/night/any). `pulseForNow(date,salt)` sceglie deterministicamente una sfida COERENTE con l'orario reale (niente "Luna" di mattina); `tasksForNow`, `getTimeWindow`, `WINDOW_LABEL`, `getPulseTask`.
+- **Backend `social.py`**: `CreateObs` + doc + `obs_public` estesi con `is_pulse`/`pulse_task`; indice `is_pulse`; `GET /api/pulse/feed?task_id=` (feed delle Pulse); `POST /api/pulse/compare` (obs_id_a/b → fetch media+dati → Pulse Challenge AI).
+- **Backend `ai_features.py`**: `compare_pulse()` (gpt-5.4 vision, 2 immagini) — struttura Oltre-la-Vista (Comune / A / B / Sguardo invisibile), mai inventa.
+- **`app/pulse.tsx` (NUOVO)**: hero "Pulse di ora" (icona/tema/prompt/hint + Rispondi→sense-vision?pulse=id + shuffle + Pulse libera), feed griglia community, modalità **Confronta** (seleziona 2 → Pulse Challenge™ modal).
+- **`app/sense-vision.tsx`**: legge `?pulse=` → allega `data.pulse` alla cattura + banner Pulse nella HUD. **`observation.tsx`**: pubblica con `is_pulse`/`pulse_task`.
+- **`BottomNav.tsx`**: barra a 5 voci FISSE — Home · **Pulse**(pulse-icon.png) · Make a Sense(centro) · Observe · Messaggi. Attività RIMOSSA dalla barra → campanella in alto a destra su Home e Observe (feed).
+- Verificato: backend curl (create pulse, feed, compare AI restituisce confronto strutturato); lint pulito; screenshot Pulse + Home (barra 5 voci, campanella, Pulse attiva).
+RIMANE: Pulse Notifications (Fase 3, build nativa); aggiungere sfide periodiche; Centro di Controllo barra (4 slot personalizzabili).

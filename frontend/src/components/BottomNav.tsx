@@ -13,6 +13,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { dmApi } from "@/src/lib/backend";
 
 const RING = require("@/assets/images/icon-ring.png");
+const PULSE = require("@/assets/images/pulse-icon.png");
 
 type Item = {
   key: string;
@@ -22,14 +23,16 @@ type Item = {
   iconActive: keyof typeof Ionicons.glyphMap;
   match: string[];
   ring?: boolean;
+  img?: number;
 };
 
 // Fixed OverView navigation. Center "Make a Sense" is the signature action.
+// Pulse and Sense Vision are permanent, non-removable pillars.
 const ITEMS: Item[] = [
   { key: "home", label: "Home", route: "/home", icon: "home-outline", iconActive: "home", match: ["/home"] },
-  { key: "dm", label: "Messaggi", route: "/messages", icon: "chatbubbles-outline", iconActive: "chatbubbles", match: ["/messages", "/chat"] },
+  { key: "pulse", label: "Pulse", route: "/pulse", icon: "pulse-outline", iconActive: "pulse", match: ["/pulse"], img: PULSE },
   { key: "observe", label: "Observe", route: "/feed", icon: "globe-outline", iconActive: "globe", match: ["/feed"], ring: true },
-  { key: "activity", label: "Attività", route: "/activity", icon: "notifications-outline", iconActive: "notifications", match: ["/activity"] },
+  { key: "dm", label: "Messaggi", route: "/messages", icon: "chatbubbles-outline", iconActive: "chatbubbles", match: ["/messages", "/chat"] },
 ];
 
 export function BottomNav({ active }: { active?: string }) {
@@ -68,6 +71,8 @@ export function BottomNav({ active }: { active?: string }) {
           {on ? <Animated.View entering={FadeIn.duration(240)} style={styles.activeRing} pointerEvents="none" /> : null}
           {it.ring ? (
             <Image source={RING} style={[styles.ringImg, { opacity: on ? 1 : 0.55, transform: [{ scale: on ? 1.08 : 1 }] }]} contentFit="contain" />
+          ) : it.img ? (
+            <Image source={it.img} style={[styles.pulseImg, { opacity: on ? 1 : 0.6, transform: [{ scale: on ? 1.12 : 1 }] }]} contentFit="contain" />
           ) : (
             <Ionicons name={on ? it.iconActive : it.icon} size={on ? 25 : 23} color={on ? colors.brand : colors.onSurfaceSecondary} />
           )}
@@ -114,6 +119,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: colors.brand, backgroundColor: "rgba(212,175,55,0.10)",
   },
   ringImg: { width: 24, height: 24 },
+  pulseImg: { width: 26, height: 26 },
   label: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm - 3, letterSpacing: 0.2 },
   labelOn: { color: colors.brand, fontFamily: fonts.semibold },
   badge: { position: "absolute", top: -4, right: 0, backgroundColor: colors.brand, minWidth: 16, height: 16, borderRadius: 8, alignItems: "center", justifyContent: "center", paddingHorizontal: 3, borderWidth: 1.5, borderColor: "#05060A" },

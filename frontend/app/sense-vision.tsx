@@ -6,7 +6,7 @@ import { CameraPro, CameraProHandle } from "@/src/components/CameraPro";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Animated, {
   useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing, FadeIn, FadeOut,
@@ -14,7 +14,7 @@ import Animated, {
 import Svg, { Circle, Line, G, Defs, RadialGradient, Stop } from "react-native-svg";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
-import { colors, fonts, spacing, type } from "@/src/theme";
+import { colors, fonts, spacing, type, radius } from "@/src/theme";
 import { useObserver, useNow } from "@/src/hooks/useObserver";
 import { useHeading, useAccelerometer, useMagnetometer } from "@/src/hooks/useSensors";
 import { compassPoint, nf } from "@/src/lib/format";
@@ -25,6 +25,7 @@ import { saveObservation } from "@/src/lib/gallery";
 import type { ObsData } from "@/src/lib/gallery";
 import { SenseMark } from "@/src/components/SenseMark";
 import { OverviewShortcut } from "@/src/components/OverviewShortcut";
+import { getPulseTask } from "@/src/lib/pulseTasks";
 
 // The "Invisible Fields" engine, presented to the user as Sense Layers.
 type Layer = { key: string; label: string; tint: string; color: string };
@@ -42,6 +43,8 @@ export default function SenseVision() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const router = useRouter();
+  const { pulse: pulseId } = useLocalSearchParams<{ pulse?: string }>();
+  const pulseTask = useMemo(() => getPulseTask(pulseId), [pulseId]);
   const [perm, requestPerm] = useCameraPermissions();
   const obs = useObserver();
   const now = useNow(1000);
@@ -130,6 +133,11 @@ export default function SenseVision() {
         data.magnetic = { magnitude: mag.magnitude };
         // Viewpoint origin: enables the universal "Go There" (enter this place from above).
         data.from = "sense-vision";
+        // Attach the Pulse™ challenge (curated task) if this capture answers one.
+        if (pulseTask) {
+          data.pulse = { id: pulseTask.id, title: pulseTask.title, theme: pulseTask.theme, prompt: pulseTask.prompt };
+          data.senseLayer = `Pulse · ${pulseTask.title}`;
+        }
         // Show a review step — the user decides to keep or discard (nothing saved yet).
         setReview({ uri: photo.uri, data });
       }
@@ -291,6 +299,15 @@ export default function SenseVision() {
       {/* Bottom — MAKE A SENSE */}
       {stage === "ready" && !review ? (
         <Animated.View entering={FadeIn.delay(200)} style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }]}>
+          {pulseTask ? (
+            <View style={styles.pulseBanner}>
+              <Text style={styles.pulseBannerIcon}>{pulseTask.icon}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.pulseBannerTitle}>PULSE · {pulseTask.title}</Text>
+                <Text style={styles.pulseBannerPrompt} numberOfLines={2}>{pulseTask.prompt}</Text>
+              </View>
+            </View>
+          ) : null}
           {/* Universal "Look Up / Go Inside" language */}
           <View style={styles.pivotRow}>
             <View style={styles.pivotActive}>
@@ -370,6 +387,10 @@ const styles = StyleSheet.create({
   senseBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brand, borderRadius: 999, paddingVertical: spacing.lg, paddingHorizontal: spacing.xl, minWidth: 240, shadowColor: colors.brand, shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 0 } },
   senseBtnText: { color: colors.onBrand, fontFamily: fonts.bold, fontSize: type.lg, letterSpacing: 1.5 },
   captureHint: { color: "#fff", fontFamily: fonts.regular, fontSize: type.sm - 1, opacity: 0.85, textAlign: "center" },
+  pulseBanner: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: "rgba(10,16,26,0.72)", borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: 1, borderColor: colors.brand, width: "100%" },
+  pulseBannerIcon: { fontSize: 22 },
+  pulseBannerTitle: { color: colors.brand, fontFamily: fonts.bold, fontSize: type.sm - 1, letterSpacing: 0.8 },
+  pulseBannerPrompt: { color: "#fff", fontFamily: fonts.regular, fontSize: type.sm - 1, marginTop: 1, opacity: 0.9 },
   bootOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center" },
   scanLine: { position: "absolute", left: "6%", right: "6%", height: 2, backgroundColor: colors.brand, opacity: 0.7, shadowColor: colors.brand, shadowOpacity: 1, shadowRadius: 8 },
   bootCenter: { alignItems: "center", gap: spacing.md },

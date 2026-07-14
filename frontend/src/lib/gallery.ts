@@ -23,6 +23,8 @@ export interface ObsData {
   aiNote?: string;
   // Origin screen — enables the universal "Go There" viewpoint recreation.
   from?: string;
+  // Pulse™ challenge attached to this Senshot (curated task, not AI-generated).
+  pulse?: { id: string; title: string; theme: string; prompt?: string };
 }
 
 export interface Observation {

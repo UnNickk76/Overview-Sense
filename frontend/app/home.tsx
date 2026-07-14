@@ -159,6 +159,10 @@ export default function Home() {
           <View style={styles.dot} />
           <Text style={styles.wordmark}>OverView</Text>
           <View style={styles.brandActions}>
+            <Pressable testID="home-activity" style={styles.brandIcon} hitSlop={10}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(user ? "/activity" as never : "/login" as never); }}>
+              <Ionicons name="notifications-outline" size={24} color={colors.onSurface} />
+            </Pressable>
             <Pressable testID="home-profile" style={styles.brandIcon} hitSlop={10}
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(user ? `/profile?id=${user.id}` as never : "/login" as never); }}>
               <Ionicons name={user ? "person-circle" : "person-circle-outline"} size={28} color={user ? colors.brand : colors.onSurface} />
