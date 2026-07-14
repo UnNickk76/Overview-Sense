@@ -16,6 +16,7 @@ import { eventsApi, ObservationChain } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
 import { nf, compassPoint } from "@/src/lib/format";
 import { SenseSurface } from "@/src/components/SenseSurface";
+import { SenseMatchBar } from "@/src/components/SenseMatchBar";
 import { orderedDataLayers } from "@/src/lib/senseLayers";
 
 // Compute the "Go There" route that recreates a Senshot's original viewpoint.
@@ -172,6 +173,12 @@ export default function ObservationDetail() {
 
         <View style={styles.body}>
           {obs.caption ? <Text style={styles.caption}>{obs.caption}</Text> : null}
+          <View style={{ marginBottom: spacing.md }}>
+            <SenseMatchBar
+              hint={[obs.category, d?.senseLayer, (d as Record<string, unknown> | undefined)?.from, (d as Record<string, unknown> | undefined)?.layer].filter(Boolean).join(" ")}
+              trackId={(d as Record<string, unknown> | undefined)?.senseTrack as string | undefined}
+            />
+          </View>
           <InteractionBar obs={obs} />
           <ActionBar obs={obs} />
 

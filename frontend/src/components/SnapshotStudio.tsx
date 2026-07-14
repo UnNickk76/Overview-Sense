@@ -16,6 +16,8 @@ import * as MediaLibrary from "expo-media-library";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { SenseMark } from "@/src/components/SenseMark";
+import { SenseMatchBar } from "@/src/components/SenseMatchBar";
+import { matchTrack } from "@/src/lib/senseMatch";
 import { socialApi, snapSenseApi } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
@@ -76,6 +78,7 @@ export function SnapshotStudio({ visible, input, onClose, onPublished }: Props) 
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [current, setCurrent] = useState("");
   const currentD = useRef("");
+  const [senseTrack, setSenseTrack] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (visible && input) {
@@ -87,6 +90,7 @@ export function SnapshotStudio({ visible, input, onClose, onPublished }: Props) 
       setStrokes([]);
       setCurrent("");
       currentD.current = "";
+      setSenseTrack(undefined);
     }
   }, [visible, input]);
 
@@ -103,6 +107,7 @@ export function SnapshotStudio({ visible, input, onClose, onPublished }: Props) 
   if (!input) return null;
 
   const tags = autoHashtags(input);
+  const senseHint = [input.layerName, input.snapKind, (input.data as Record<string, unknown> | undefined)?.from].filter(Boolean).join(" ");
   const cardW = Math.min(width - spacing.lg * 2, 520);
   const cardH = Math.round(cardW * 0.75);
   const dateStr = new Date().toLocaleString([], { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -136,7 +141,7 @@ export function SnapshotStudio({ visible, input, onClose, onPublished }: Props) 
         source: input.socialSource ?? "reality",
         caption,
         image_base64: out.base64,
-        data: { ...(input.data ?? {}), hashtags: tags, layer: input.layerName, dataSource: input.source, snapshot: true } as never,
+        data: { ...(input.data ?? {}), hashtags: tags, layer: input.layerName, dataSource: input.source, snapshot: true, senseTrack: senseTrack ?? matchTrack(senseHint).id } as never,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setPublishedId(created.id);
@@ -267,6 +272,9 @@ export function SnapshotStudio({ visible, input, onClose, onPublished }: Props) 
             <View style={styles.tagRow}>
               {tags.map((t) => <Text key={t} style={styles.tagChip}>#{t}</Text>)}
             </View>
+
+            {/* Sense Match™ — pick a royalty-free / CC0 soundtrack for this Senshot */}
+            <SenseMatchBar hint={senseHint} trackId={senseTrack} onPick={setSenseTrack} />
 
             {status ? <Text style={[styles.status, status.includes("✓") && { color: colors.brand }]}>{status}</Text> : null}
           </ScrollView>
