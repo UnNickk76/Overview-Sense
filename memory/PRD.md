@@ -631,3 +631,10 @@ RIMANE: Satellite FASE 2 (globo unico continuo + morph invisibile a GIBS); camer
 - CAMERA (FATTO parziale): abilitati photoHdr (se format.supportsPhotoHdr) e lowLightBoost (se device lo supporta) su CameraPro.native — fotografia computazionale nativa REALE. Stacking multi-frame con allineamento = RINVIATO (rischioso senza test su device; farlo quando testabile).
 
 RIMANE: Satellite calibrazione lon sub-point + (ideale) morph GIBS on-sphere realmente inline; camera stacking multi-frame allineato; estendere Explorer continuo a Luna/pianeti/galassie con stesso paradigma; Documented Reality (Marte/ISS).
+
+### SESSIONE 11c — Fix Terra 3D + effetto sole
+- FIX CRITICO: la Terra appariva sfera vuota (texture remote solarsystemscope bloccate da CORS in WebView). Ora texture NASA Blue Marble BUNDLATE localmente in assets/textures/ (earth_day.jpg 2048x1024 da NASA eoimages world.topo.bathy pubblico dominio; earth_night.jpg luci città NASA). Caricate via expo-asset (downloadAsync→localUri, corretto per device) con fallback resolveAssetSource. TRUCCO CHIAVE: <mesh key={day?...}> remount al caricamento texture → risolve texture "piatta" in r3f su web.
+- EFFETTO SOLE REALISTICO: directionalLight sul punto SUBSOLARE reale (sunDirection da data/ora UTC: declinazione + ora) + luci notturne (emissiveMap) sul lato buio + atmosfera → terminatore giorno/notte realistico. Verificato su web: continenti+oceani+terminatore+luci città visibili.
+- earth-explorer resta la schermata Satellite fullscreen (manovrabile/zoomabile, → GIBS reale a zoom alto, Senshot sempre).
+
+RIMANE (richieste utente non ancora fatte): (1) schermata Satellite principale con layout "card" (foto 3: controlli+layer+Then/Now) col globo dentro, doppio-tap→fullscreen; (2) effetto sole/terminatore anche nel globo SOCIAL (LiveEarth, SVG); (3) calibrazione fine longitudine sub-point handoff; (4) morph GIBS inline sulla sfera; (5) camera stacking multi-frame; (6) Explorer continuo per Luna/pianeti/galassie; Documented Reality Marte/ISS.
