@@ -49,12 +49,12 @@ def public_user(doc: dict) -> dict:
         "id": doc["id"],
         "email": doc.get("email"),
         "nickname": doc.get("nickname"),
+        "display_name": doc.get("display_name", ""),
         "bio": doc.get("bio", ""),
         "avatar": doc.get("avatar"),
+        "links": doc.get("links", []),
         "role": doc.get("role", "user"),
         "protected": doc.get("protected", False),
-        "verified": doc.get("verified", False),
-        "verified_badge": doc.get("verified_badge"),
         "created_at": doc.get("created_at"),
     }
 
@@ -65,13 +65,15 @@ def public_user(doc: dict) -> dict:
 DEVELOPER_EMAIL = os.environ.get("DEVELOPER_EMAIL", "fandrex1@gmail.com")
 DEVELOPER_NICK = os.environ.get("DEVELOPER_NICK", "NeoMorpheus")
 DEVELOPER_PASSWORD = os.environ.get("DEVELOPER_PASSWORD", "")  # seed only; owner-changeable afterwards
-DEVELOPER_BADGE = "Creator"
+DEVELOPER_BADGE = None  # Creator identity is hidden — no public badge.
 
 # Brute-force protection
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
 
-DEVELOPER_FLAGS = {"role": "developer", "protected": True, "verified": True, "verified_badge": DEVELOPER_BADGE}
+# role=developer + protected are kept SERVER-SIDE ONLY (Creator Console access &
+# immutable identity). No visible badge: NeoMorpheus appears as a normal user.
+DEVELOPER_FLAGS = {"role": "developer", "protected": True, "verified": False, "verified_badge": None}
 
 # Apple App Store review account (normal user) — must exist in production for review.
 REVIEW_EMAIL = os.environ.get("REVIEW_EMAIL", "apple@overview.app")

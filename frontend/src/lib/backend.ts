@@ -3,14 +3,17 @@ import { ObsData } from "./gallery";
 
 export { mediaUrl };
 
+export interface ProfileLink { label?: string; url: string }
+
 export interface AuthUser {
   id: string;
   email?: string;
   nickname: string;
+  display_name?: string;
   bio?: string;
   avatar?: string | null;
+  links?: ProfileLink[];
   role?: string;
-  verified_badge?: string | null;
   protected?: boolean;
   created_at?: string;
 }
@@ -76,13 +79,13 @@ export interface DiscoveryLevel {  key: string;
 export interface Profile {
   id: string;
   nickname: string;
+  display_name?: string;
   bio: string;
   avatar?: string | null;
+  links?: ProfileLink[];
   created_at?: string;
-  role?: string;
-  verified_badge?: string | null;
   protected?: boolean;
-  stats: { observations: number; followers: number; following: number };
+  stats: { observations: number; observers: number; oviewers: number; followers: number; following: number };
   discovery_level?: DiscoveryLevel;
   is_following: boolean;
   is_me: boolean;
@@ -115,7 +118,7 @@ export const authApi = {
       method: "POST", body: JSON.stringify({ email, password }),
     }),
   me: () => apiFetch<AuthUser>("/auth/me"),
-  updateProfile: (data: { bio?: string; nickname?: string }) =>
+  updateProfile: (data: { bio?: string; nickname?: string; display_name?: string; links?: ProfileLink[] }) =>
     apiFetch<AuthUser>("/users/me", { method: "PATCH", body: JSON.stringify(data) }),
   changePassword: (current_password: string, new_password: string) =>
     apiFetch<{ ok: boolean }>("/auth/change-password", {
@@ -258,4 +261,83 @@ export const aiApi = {
     apiFetch<{ observe: string; explanations: string; cannot: string }>("/ai/analyze-satellite", {
       method: "POST", body: JSON.stringify(payload),
     }),
+};
+
+// ---- Feedback (in-app) + Creator Console (developer-only) ----
+export type FeedbackType = "suggestion" | "feature" | "bug" | "general";
+export type FeedbackStatus = "open" | "in_progress" | "resolved" | "dismissed";
+
+export interface FeedbackItem {
+  id: string;
+  user_id: string;
+  nickname: string;
+  type: FeedbackType;
+  text: string;
+  status: FeedbackStatus;
+  priority: number;
+  creator_note: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreatorStats {
+  users: number;
+  observations: number;
+  snapsenses: number;
+  feedback: { total: number; open: number; bugs_open: number; by_type: Record<FeedbackType, number> };
+  new_users_month: number;
+}
+
+export const feedbackApi = {
+  create: (type: FeedbackType, text: string) =>
+    apiFetch<{ ok: boolean; id: string }>("/feedback", { method: "POST", body: JSON.stringify({ type, text }) }),
+  mine: () => apiFetch<{ items: FeedbackItem[]; count: number }>("/feedback/mine"),
+};
+
+export const creatorApi = {
+  feedback: (type?: string, status?: string) => {
+    const q = new URLSearchParams();
+    if (type) q.set("type", type);
+    if (status) q.set("status", status);
+    const qs = q.toString();
+    return apiFetch<{ items: FeedbackItem[]; count: number }>(`/creator/feedback${qs ? `?${qs}` : ""}`);
+  },
+  update: (id: string, data: { status?: FeedbackStatus; priority?: number; creator_note?: string }) =>
+    apiFetch<{ ok: boolean }>(`/creator/feedback/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  stats: () => apiFetch<CreatorStats>("/creator/stats"),
+};
+
+
+// ---- Direct Messages (polling) + Senshot condiviso ----
+export interface DMUser { id: string; nickname: string; display_name?: string; avatar?: string | null }
+
+export interface ObsSnapshot {
+  obs_id: string; user_id: string; nickname?: string; image_url?: string | null;
+  subject?: string; caption?: string; ts?: number; lat?: number | null; lon?: number | null;
+  sun?: { alt: number; az: number } | null; moon?: { phase: string; illum: number } | null;
+  cameraAz?: number; cameraAlt?: number; weather?: { temperature_c?: number } | null; created_at?: string;
+}
+
+export interface Conversation {
+  id: string; key: string; participants: string[];
+  last_message: string; last_at: string; last_sender: string | null;
+  other: DMUser; unread: number;
+}
+
+export type DMKind = "text" | "image" | "observation" | "profile" | "location" | "link" | "snapsense" | "compare";
+
+export interface DMMessage {
+  id: string; conv_id: string; sender_id: string; kind: DMKind;
+  text: string; share?: Record<string, unknown> | null; read_by: string[]; created_at: string;
+}
+
+export const dmApi = {
+  start: (user_id: string) => apiFetch<Conversation>("/conversations", { method: "POST", body: JSON.stringify({ user_id }) }),
+  list: () => apiFetch<{ items: Conversation[]; count: number }>("/conversations"),
+  messages: (convId: string) => apiFetch<{ items: DMMessage[] }>(`/conversations/${convId}/messages`),
+  send: (convId: string, payload: { kind: DMKind; text?: string; share?: Record<string, unknown> }) =>
+    apiFetch<DMMessage>(`/conversations/${convId}/messages`, { method: "POST", body: JSON.stringify(payload) }),
+  read: (convId: string) => apiFetch<{ ok: boolean }>(`/conversations/${convId}/read`, { method: "POST" }),
+  compareAdd: (mid: string, obs_id: string) =>
+    apiFetch<{ ok: boolean; share: Record<string, unknown> }>(`/messages/${mid}/compare`, { method: "POST", body: JSON.stringify({ obs_id }) }),
 };

@@ -21,6 +21,8 @@ from ai_features import ai_router
 from events import events_router
 from universe_live import universe_router
 from snapsense import snapsense_router, ensure_snapsense_indexes
+from feedback import feedback_router
+from dm import dm_router, ensure_dm_indexes
 
 ROOT_DIR = Path(__file__).parent
 
@@ -380,6 +382,8 @@ app.include_router(ai_router)
 app.include_router(events_router)
 app.include_router(universe_router)
 app.include_router(snapsense_router)
+app.include_router(feedback_router)
+app.include_router(dm_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -396,6 +400,7 @@ async def _startup_indexes():
         await ensure_auth_indexes()
         await ensure_social_indexes()
         await ensure_snapsense_indexes()
+        await ensure_dm_indexes()
         await ensure_developer_account()
     except Exception as e:
         logger.warning(f"index creation failed: {e}")

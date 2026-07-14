@@ -629,12 +629,14 @@ async def get_profile(user_id: str, viewer: Optional[dict] = Depends(get_optiona
     )
 
     return {
-        "id": u["id"], "nickname": u["nickname"], "bio": u.get("bio", ""),
+        "id": u["id"], "nickname": u["nickname"],
+        "display_name": u.get("display_name", ""),
+        "bio": u.get("bio", ""),
         "avatar": u.get("avatar"), "created_at": u.get("created_at"),
-        "role": u.get("role", "user"),
-        "verified_badge": u.get("verified_badge"),
+        "links": u.get("links", []),
         "protected": u.get("protected", False),
-        "stats": {"observations": obs_count, "followers": followers, "following": following},
+        "stats": {"observations": obs_count, "observers": following, "oviewers": followers,
+                  "followers": followers, "following": following},
         "discovery_level": compute_discovery_level(points),
         "is_following": is_following,
         "is_me": bool(viewer and viewer["id"] == user_id),
@@ -724,9 +726,16 @@ async def repost(obs_id: str, user: dict = Depends(get_current_user)):
     return {"reposted": True}
 
 
+class ProfileLink(BaseModel):
+    label: Optional[str] = None
+    url: str
+
+
 class ProfileUpdate(BaseModel):
     bio: Optional[str] = None
     nickname: Optional[str] = None
+    display_name: Optional[str] = None
+    links: Optional[List[ProfileLink]] = None
 
 
 @social_router.patch("/users/me")
@@ -734,6 +743,18 @@ async def update_me(req: ProfileUpdate, user: dict = Depends(get_current_user)):
     updates = {"updated_at": datetime.now(timezone.utc).isoformat()}
     if req.bio is not None:
         updates["bio"] = req.bio.strip()[:280]
+    if req.display_name is not None:
+        updates["display_name"] = req.display_name.strip()[:40]
+    if req.links is not None:
+        clean = []
+        for lk in req.links[:3]:
+            u = (lk.url or "").strip()
+            if not u:
+                continue
+            if not u.startswith("http://") and not u.startswith("https://"):
+                u = "https://" + u
+            clean.append({"label": (lk.label or "").strip()[:30], "url": u[:300]})
+        updates["links"] = clean
     if req.nickname is not None:
         # Protected (developer/founder) accounts have an immutable nickname.
         if user.get("protected") and req.nickname.strip() != user.get("nickname"):
@@ -746,7 +767,8 @@ async def update_me(req: ProfileUpdate, user: dict = Depends(get_current_user)):
         updates["nickname_lower"] = nn.lower()
     await db.users.update_one({"id": user["id"]}, {"$set": updates})
     u = await db.users.find_one({"id": user["id"]})
-    return {"id": u["id"], "nickname": u["nickname"], "bio": u.get("bio", ""), "avatar": u.get("avatar")}
+    return {"id": u["id"], "nickname": u["nickname"], "display_name": u.get("display_name", ""),
+            "bio": u.get("bio", ""), "avatar": u.get("avatar"), "links": u.get("links", [])}
 
 
 class AvatarReq(BaseModel):

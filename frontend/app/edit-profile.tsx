@@ -21,7 +21,11 @@ export default function EditProfile() {
   const { user, setUser } = useAuth();
 
   const [nickname, setNickname] = useState(user?.nickname ?? "");
+  const [displayName, setDisplayName] = useState(user?.display_name ?? "");
   const [bio, setBio] = useState(user?.bio ?? "");
+  const [links, setLinks] = useState<{ label: string; url: string }[]>(
+    [0, 1, 2].map((i) => ({ label: user?.links?.[i]?.label ?? "", url: user?.links?.[i]?.url ?? "" })),
+  );
   const [hydrated, setHydrated] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMsg, setProfileMsg] = useState<string | null>(null);
@@ -31,7 +35,9 @@ export default function EditProfile() {
   useEffect(() => {
     if (user && !hydrated) {
       setNickname(user.nickname ?? "");
+      setDisplayName(user.display_name ?? "");
       setBio(user.bio ?? "");
+      setLinks([0, 1, 2].map((i) => ({ label: user.links?.[i]?.label ?? "", url: user.links?.[i]?.url ?? "" })));
       setHydrated(true);
     }
   }, [user, hydrated]);
@@ -105,10 +111,11 @@ export default function EditProfile() {
     setSavingProfile(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      const payload: { bio?: string; nickname?: string } = { bio };
+      const cleanLinks = links.map((l) => ({ label: l.label.trim(), url: l.url.trim() })).filter((l) => l.url);
+      const payload: { bio?: string; nickname?: string; display_name?: string; links?: { label: string; url: string }[] } = { bio, display_name: displayName, links: cleanLinks };
       if (!isProtected && nickname.trim() !== user.nickname) payload.nickname = nickname.trim();
       const u = await authApi.updateProfile(payload);
-      setUser({ ...user, nickname: u.nickname, bio: u.bio ?? "" });
+      setUser({ ...user, nickname: u.nickname, bio: u.bio ?? "", display_name: u.display_name ?? "", links: u.links ?? [] });
       setProfileMsg("Profilo aggiornato ✓");
     } catch (e) {
       setProfileMsg(e instanceof ApiError ? e.message : "Salvataggio non riuscito.");
@@ -171,6 +178,11 @@ export default function EditProfile() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Identità</Text>
           <View style={styles.field}>
+            <Text style={styles.label}>Nome visualizzato</Text>
+            <TextInput testID="edit-display-name" style={styles.input} value={displayName} onChangeText={setDisplayName}
+              placeholder="Il tuo nome" placeholderTextColor={colors.onSurfaceSecondary} maxLength={40} />
+          </View>
+          <View style={styles.field}>
             <Text style={styles.label}>Nickname</Text>
             <View style={[styles.inputRow, isProtected && styles.inputLocked]}>
               <TextInput testID="edit-nickname" style={styles.inputFlex} value={nickname} onChangeText={setNickname}
@@ -178,12 +190,25 @@ export default function EditProfile() {
                 placeholder="Il tuo nickname" placeholderTextColor={colors.onSurfaceSecondary} />
               {isProtected ? <Ionicons name="lock-closed" size={16} color={colors.brand} /> : null}
             </View>
-            {isProtected ? <Text style={styles.lockHint}>Account {user.verified_badge ?? "protetto"} · nickname ed email non modificabili</Text> : null}
+            {isProtected ? <Text style={styles.lockHint}>Account protetto · nickname ed email non modificabili</Text> : null}
           </View>
           <View style={styles.field}>
             <Text style={styles.label}>Bio</Text>
             <TextInput testID="edit-bio" style={styles.bioInput} value={bio} onChangeText={setBio} multiline
               placeholder="Scrivi qualcosa su di te…" placeholderTextColor={colors.onSurfaceSecondary} maxLength={280} />
+          </View>
+          <View style={styles.field}>
+            <Text style={styles.label}>Link (fino a 3)</Text>
+            {links.map((lk, i) => (
+              <View key={i} style={styles.linkRow}>
+                <TextInput testID={`edit-link-label-${i}`} style={[styles.input, styles.linkLabel]} value={lk.label}
+                  onChangeText={(t) => setLinks((prev) => prev.map((p, j) => (j === i ? { ...p, label: t } : p)))}
+                  placeholder="Etichetta" placeholderTextColor={colors.onSurfaceSecondary} maxLength={30} />
+                <TextInput testID={`edit-link-url-${i}`} style={[styles.input, styles.linkUrl]} value={lk.url}
+                  onChangeText={(t) => setLinks((prev) => prev.map((p, j) => (j === i ? { ...p, url: t } : p)))}
+                  placeholder="https://…" placeholderTextColor={colors.onSurfaceSecondary} autoCapitalize="none" keyboardType="url" />
+              </View>
+            ))}
           </View>
           {profileMsg ? <Text style={[styles.msg, profileMsg.includes("✓") && styles.okMsg]}>{profileMsg}</Text> : null}
           <Pressable testID="save-profile" style={[styles.primary, savingProfile && { opacity: 0.6 }]} onPress={saveProfile} disabled={savingProfile}>
@@ -245,6 +270,9 @@ const styles = StyleSheet.create({
   inputLocked: { opacity: 0.7, borderColor: colors.brand },
   inputFlex: { flex: 1, paddingVertical: spacing.md, color: colors.onSurface, fontFamily: fonts.regular, fontSize: type.lg },
   lockHint: { color: colors.brand, fontFamily: fonts.regular, fontSize: type.sm - 1 },
+  linkRow: { flexDirection: "row", gap: spacing.sm },
+  linkLabel: { flex: 1, fontSize: type.base },
+  linkUrl: { flex: 1.4, fontSize: type.base },
   bioInput: { backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, padding: spacing.md, color: colors.onSurface, fontFamily: fonts.regular, fontSize: type.base, minHeight: 80, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, textAlignVertical: "top" },
   msg: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.base },
   okMsg: { color: colors.brand },
