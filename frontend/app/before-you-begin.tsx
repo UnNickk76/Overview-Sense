@@ -17,16 +17,16 @@ const CONTENT = {
     switch: "EN",
     title: "BEFORE YOU BEGIN",
     paragraphs: [
-      "Overview è progettata per rivelare informazioni reali che normalmente rimangono al di fuori della percezione umana quotidiana.",
+      "OverView è progettata per rivelare informazioni reali che normalmente rimangono al di fuori della percezione umana quotidiana.",
       "L'app non inventa dati, non crea fenomeni immaginari e non afferma di rilevare ciò che non può essere realmente misurato.",
       "Ogni visualizzazione viene generata utilizzando informazioni reali disponibili attraverso il tuo dispositivo, calcoli scientifici, fonti dati affidabili o sensori compatibili.",
       "L'Intelligenza Artificiale ha il compito di interpretare e rappresentare graficamente queste informazioni per renderle più comprensibili, ma non sostituisce mai dati scientifici né inventa fenomeni.",
       "Alcune funzionalità dipendono dalle capacità hardware del dispositivo utilizzato.",
       "Per questo motivo qualità, precisione e disponibilità di alcune visualizzazioni possono variare da uno smartphone all'altro.",
       "Alcune funzioni potrebbero non essere disponibili su tutti i dispositivi oppure richiedere hardware di nuova generazione o accessori compatibili.",
-      "Quando un'informazione non può essere realmente misurata o verificata, Overview semplicemente non la mostra.",
+      "Quando un'informazione non può essere realmente misurata o verificata, OverView semplicemente non la mostra.",
       "La fotocamera, il microfono, i sensori e gli altri permessi vengono utilizzati esclusivamente quando richiesti dall'utente per le funzionalità corrispondenti.",
-      "La realtà è molto più ricca di quanto i nostri sensi riescano normalmente a percepire. Overview nasce per aiutarti a scoprirla.",
+      "La realtà è molto più ricca di quanto i nostri sensi riescano normalmente a percepire. OverView nasce per aiutarti a scoprirla.",
       "Proseguendo, accetti che ogni visualizzazione rappresenti informazioni reali e misurabili, elaborate graficamente per renderle più comprensibili, senza mai inventare dati o fenomeni inesistenti.",
     ],
     accept: "Ho capito, procedi",
@@ -36,13 +36,13 @@ const CONTENT = {
     switch: "IT",
     title: "BEFORE YOU BEGIN",
     paragraphs: [
-      "Overview is designed to reveal real information that normally remains outside everyday human perception.",
+      "OverView is designed to reveal real information that normally remains outside everyday human perception.",
       "The app does not invent data, create fictional phenomena or claim to detect anything that cannot be measured.",
       "Every visualization is generated from real information available through your device, scientific calculations, trusted data sources or compatible sensors.",
       "Some features depend on the hardware capabilities of your device.",
       "For this reason, certain visualizations may vary in quality, precision or availability from one device to another.",
       "Some functions may not be available on every smartphone or may require future hardware or supported external accessories.",
-      "Whenever data cannot be measured or verified, Overview simply does not display it.",
+      "Whenever data cannot be measured or verified, OverView simply does not display it.",
       "Our goal is simple: not to create another reality, but to reveal more of the one that already exists.",
       "By continuing, you acknowledge that every visualization represents real measurable information interpreted graphically, never invented facts.",
     ],
@@ -51,7 +51,7 @@ const CONTENT = {
   },
 };
 
-const CLOSING = ["Explore your reality.", "Discover the invisible.", "Overview — The Invisible Sense"];
+const CLOSING = ["Explore your reality.", "Discover the invisible.", "OverView — The Invisible Sense"];
 
 export default function BeforeYouBegin() {
   const insets = useSafeAreaInsets();

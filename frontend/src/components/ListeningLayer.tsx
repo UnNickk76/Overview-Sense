@@ -144,7 +144,7 @@ export function ListeningLayer() {
       </Pressable>
 
       <Text style={styles.note}>
-        Overview rende percepibili intensità e impulsi realmente presenti. Lo spettro completo delle frequenze richiede un modulo nativo dedicato: non viene simulato per non inventare dati.
+        OverView rende percepibili intensità e impulsi realmente presenti. Lo spettro completo delle frequenze richiede un modulo nativo dedicato: non viene simulato per non inventare dati.
       </Text>
     </View>
   );

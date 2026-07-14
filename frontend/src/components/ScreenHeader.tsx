@@ -5,15 +5,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { colors, fonts, spacing, type } from "@/src/theme";
+import { OverviewShortcut } from "@/src/components/OverviewShortcut";
 
 interface Props {
   title: string;
   subtitle?: string;
   right?: React.ReactNode;
   showHome?: boolean;
+  showOverview?: boolean;
 }
 
-export function ScreenHeader({ title, subtitle, right, showHome = true }: Props) {
+export function ScreenHeader({ title, subtitle, right, showHome = true, showOverview = true }: Props) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   return (
@@ -35,6 +37,7 @@ export function ScreenHeader({ title, subtitle, right, showHome = true }: Props)
       </View>
       <View style={styles.rightRow}>
         {right}
+        {showOverview ? <OverviewShortcut size={26} /> : null}
         {showHome ? (
           <Pressable
             testID="header-home-button"
@@ -45,7 +48,7 @@ export function ScreenHeader({ title, subtitle, right, showHome = true }: Props)
               router.replace("/home" as never);
             }}
           >
-            <Ionicons name="home" size={18} color={colors.onSurface} />
+            <Ionicons name="apps" size={18} color={colors.onSurface} />
           </Pressable>
         ) : null}
       </View>

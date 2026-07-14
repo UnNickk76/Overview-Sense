@@ -92,9 +92,9 @@ export default function QuiEOra() {
         <ScreenHeader title="Qui e Ora" />
         <View style={styles.center}>
           <Text style={styles.permTitle}>Serve la posizione</Text>
-          <Text style={styles.dim}>Overview usa la tua posizione per calcolare cielo, Sole e Luna reali attorno a te. Nessun dato viene inventato.</Text>
+          <Text style={styles.dim}>OverView usa la tua posizione per calcolare cielo, Sole e Luna reali attorno a te. Nessun dato viene inventato.</Text>
           {Platform.OS === "web" ? (
-            <Text style={styles.dim}>Apri Overview sul tuo iPhone (Expo Go) per concedere la posizione: nell&apos;anteprima web non è possibile.</Text>
+            <Text style={styles.dim}>Apri OverView sul tuo iPhone (Expo Go) per concedere la posizione: nell&apos;anteprima web non è possibile.</Text>
           ) : obs.status === "blocked" ? (
             <Pressable testID="open-settings-button" style={styles.cta} onPress={() => Linking.openSettings()}>
               <Text style={styles.ctaText}>Apri Impostazioni</Text>

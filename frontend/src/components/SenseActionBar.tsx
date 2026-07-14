@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 
-// The UNIVERSAL Overview action language, shown on every object / phenomenon / place.
+// The UNIVERSAL OverView action language, shown on every object / phenomenon / place.
 // "Cambia ciò che possiamo vedere, non ciò che possiamo fare."
 //  🔭 LOOK UP  — observe it for real, from here, now (camera + real sky/sensors).
 //  🌌 GO INSIDE — enter an immersive exploration of the subject.

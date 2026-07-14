@@ -29,14 +29,14 @@ export default function About() {
 
   return (
     <SpaceBackground>
-      <ScreenHeader title="About Overview" />
+      <ScreenHeader title="About OverView" />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["3xl"], gap: spacing.lg }} showsVerticalScrollIndicator={false} testID="about-screen">
         <Animated.View entering={FadeInDown.duration(600)} style={styles.hero}>
           <View style={styles.dot} />
-          <Text style={styles.wordmark}>OVERVIEW</Text>
+          <Text style={styles.wordmark}>OverView</Text>
           <Text style={styles.tagline}>The Invisible Sense</Text>
           <Text style={styles.intro}>
-            Overview è un&apos;esperienza che unisce scienza, tecnologia, osservazione e curiosità per aiutare le persone a
+            OverView è un&apos;esperienza che unisce scienza, tecnologia, osservazione e curiosità per aiutare le persone a
             scoprire ciò che normalmente rimane invisibile. Ogni dato mostrato proviene da fonti reali, sensori del
             dispositivo o calcoli astronomici verificabili.
           </Text>
@@ -46,7 +46,7 @@ export default function About() {
           <Ionicons name="shield-checkmark-outline" size={18} color={colors.brand} />
           <View style={{ flex: 1 }}>
             <Text style={styles.introLinkTitle}>Before You Begin</Text>
-            <Text style={styles.introLinkSub}>La filosofia e i principi di Overview</Text>
+            <Text style={styles.introLinkSub}>La filosofia e i principi di OverView</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />
         </Pressable>
@@ -76,7 +76,7 @@ export default function About() {
         </Section>
 
         <Section title="DISCLAIMER" delay={320}>
-          <Text style={styles.body}>Overview non interpreta fenomeni paranormali. L&apos;app rappresenta esclusivamente dati fisici, astronomici e ambientali realmente misurabili. Ogni eventuale interpretazione personale rimane completamente libera e soggettiva.</Text>
+          <Text style={styles.body}>OverView non interpreta fenomeni paranormali. L&apos;app rappresenta esclusivamente dati fisici, astronomici e ambientali realmente misurabili. Ogni eventuale interpretazione personale rimane completamente libera e soggettiva.</Text>
         </Section>
 
         <Section title="VERSION" delay={380}>
@@ -102,7 +102,7 @@ export default function About() {
 
         <Animated.View entering={FadeInDown.duration(600).delay(560)} style={styles.signatureWrap}>
           <View style={styles.rule} />
-          <Text style={styles.signature}>&ldquo;Overview doesn&apos;t create reality. It reveals it.&rdquo;</Text>
+          <Text style={styles.signature}>&ldquo;OverView doesn&apos;t create reality. It reveals it.&rdquo;</Text>
           <View style={styles.rule} />
           <Text style={styles.copyright}>© Fabio Andreola</Text>
         </Animated.View>
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
   introLinkTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
   introLinkSub: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm, marginTop: 1 },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.brand },
-  wordmark: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type["2xl"], letterSpacing: 7 },
+  wordmark: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type["2xl"], letterSpacing: 2 },
   tagline: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.base, letterSpacing: 3 },
   intro: { color: colors.onSurfaceTertiary, fontFamily: fonts.regular, fontSize: type.base, lineHeight: 22, textAlign: "center", marginTop: spacing.md },
   section: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, gap: spacing.sm },

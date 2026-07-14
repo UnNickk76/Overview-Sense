@@ -334,7 +334,7 @@ export default function SatelliteExplore() {
         <View style={[styles.jSheet, { paddingBottom: insets.bottom + spacing.lg }]}>
           <View style={styles.jHandle} />
           <Text style={styles.jTitle}>Satellite Journey™</Text>
-          <Text style={styles.jSub}>Scegli una destinazione: Overview ti porterà lì con un volo cinematografico.</Text>
+          <Text style={styles.jSub}>Scegli una destinazione: OverView ti porterà lì con un volo cinematografico.</Text>
           <View style={styles.searchRow}>
             <Ionicons name="search" size={18} color={colors.onSurfaceSecondary} />
             <TextInput testID="sat-search" style={styles.searchInput} value={query} onChangeText={setQuery}

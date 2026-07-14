@@ -18,7 +18,7 @@ import { socialApi, snapSenseApi } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 
-// A shared "Snapshot Overview" engine: turns any captured screen/image into a
+// A shared "Snapshot OverView" engine: turns any captured screen/image into a
 // clean, branded, shareable Observation — with title, description, real data
 // lines, source and auto hashtags. Reused across every Layer.
 export interface SnapshotDataLine { icon?: string; label: string }
@@ -45,7 +45,7 @@ interface Props {
 }
 
 function autoHashtags(input: SnapshotInput): string[] {
-  const base = ["Overview", "TheInvisibleSense"];
+  const base = ["OverView", "TheInvisibleSense"];
   if (input.layerName) base.push(input.layerName.replace(/[^\p{L}\p{N}]/gu, ""));
   const extra = (input.hashtags || []).map((h) => h.replace(/^#/, ""));
   return Array.from(new Set([...base, ...extra])).filter(Boolean).slice(0, 6);
@@ -159,7 +159,7 @@ export function SnapshotStudio({ visible, input, onClose, onPublished }: Props) 
       <View style={styles.backdrop}>
         <View style={[styles.sheet, { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.md }]}>
           <View style={styles.handleRow}>
-            <Text style={styles.heading}>Snapshot Overview</Text>
+            <Text style={styles.heading}>Snapshot OverView</Text>
             <Pressable testID="snapstudio-close" onPress={onClose} hitSlop={10}>
               <Ionicons name="close-circle" size={26} color={colors.onSurfaceSecondary} />
             </Pressable>
@@ -173,7 +173,7 @@ export function SnapshotStudio({ visible, input, onClose, onPublished }: Props) 
               <View style={styles.cardTop}>
                 <SenseMark size={26} />
                 <View>
-                  <Text style={styles.wordmark}>OVERVIEW</Text>
+                  <Text style={styles.wordmark}>OverView</Text>
                   <Text style={styles.tag}>THE INVISIBLE SENSE</Text>
                 </View>
               </View>
@@ -205,7 +205,7 @@ export function SnapshotStudio({ visible, input, onClose, onPublished }: Props) 
           {publishedId ? (
             <Pressable testID="snapstudio-open" style={styles.primary} onPress={() => { onClose(); router.push(`/observation-detail?id=${publishedId}` as never); }}>
               <Ionicons name="sparkles" size={16} color={colors.onBrand} />
-              <Text style={styles.primaryText}>Apri nell&apos;Overview Sense Universe</Text>
+              <Text style={styles.primaryText}>Apri nell&apos;OverView Sense Universe</Text>
             </Pressable>
           ) : (
             <Pressable testID="snapstudio-publish" style={[styles.primary, busy && { opacity: 0.7 }]} onPress={publish} disabled={busy}>
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
   heading: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.xl },
   card: { backgroundColor: "#0A0A0A", overflow: "hidden", borderRadius: 18 },
   cardTop: { position: "absolute", top: 14, left: 14, right: 14, flexDirection: "row", alignItems: "center", gap: 9 },
-  wordmark: { color: "#fff", fontFamily: fonts.semibold, fontSize: 15, letterSpacing: 3 },
+  wordmark: { color: "#fff", fontFamily: fonts.semibold, fontSize: 15, letterSpacing: 1 },
   tag: { color: colors.brand, fontFamily: fonts.regular, fontSize: 8, letterSpacing: 2.5, marginTop: 1 },
   cardBottom: { position: "absolute", left: 14, right: 14, bottom: 14, gap: 3 },
   layerLabel: { color: colors.brand, fontFamily: fonts.semibold, fontSize: 10, letterSpacing: 1.5, marginBottom: 2 },

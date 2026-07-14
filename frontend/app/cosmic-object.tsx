@@ -153,7 +153,7 @@ export default function CosmicObjectScreen() {
           )}
           <View style={styles.snapWm}>
             <SenseMark size={16} />
-            <Text style={styles.snapWmText}>Overview · {obj.name}{visualLayer !== "Originale" ? ` · ${visualLayer}` : ""} · {distStr}</Text>
+            <Text style={styles.snapWmText}>OverView · {obj.name}{visualLayer !== "Originale" ? ` · ${visualLayer}` : ""} · {distStr}</Text>
           </View>
         </ViewShot>
 
@@ -371,7 +371,7 @@ export default function CosmicObjectScreen() {
         </View>
         {status ? <Text style={styles.status}>{status}</Text> : null}
 
-        <Text style={styles.note}>Immagini e dati da fonti pubbliche (NASA e cataloghi astronomici standard). Overview li unisce in un&apos;esperienza — senza inventare nulla.</Text>
+        <Text style={styles.note}>Immagini e dati da fonti pubbliche (NASA e cataloghi astronomici standard). OverView li unisce in un&apos;esperienza — senza inventare nulla.</Text>
       </KeyboardAwareScrollView>
 
       {images.length ? (

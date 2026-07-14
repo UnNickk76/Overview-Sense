@@ -52,7 +52,7 @@ export function DiscoveryCard({ obs, publishedId, visualLayer, format, width }: 
       <View style={styles.top}>
         <SenseMark size={28} />
         <View>
-          <Text style={styles.wordmark}>OVERVIEW</Text>
+          <Text style={styles.wordmark}>OverView</Text>
           <Text style={styles.tag}>THE INVISIBLE SENSE</Text>
         </View>
       </View>
@@ -82,7 +82,7 @@ export function DiscoveryCard({ obs, publishedId, visualLayer, format, width }: 
 const styles = StyleSheet.create({
   card: { backgroundColor: "#0A0A0A", overflow: "hidden", borderRadius: 20 },
   top: { position: "absolute", top: 18, left: 18, right: 18, flexDirection: "row", alignItems: "center", gap: 10 },
-  wordmark: { color: "#FFFFFF", fontFamily: fonts.semibold, fontSize: 16, letterSpacing: 3 },
+  wordmark: { color: "#FFFFFF", fontFamily: fonts.semibold, fontSize: 16, letterSpacing: 1 },
   tag: { color: colors.brand, fontFamily: fonts.regular, fontSize: 9, letterSpacing: 2.5, marginTop: 1 },
   bottom: { position: "absolute", left: 18, right: 18, bottom: 18, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 12 },
   dataCol: { flex: 1, gap: 3 },

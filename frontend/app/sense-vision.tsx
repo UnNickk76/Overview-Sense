@@ -23,6 +23,7 @@ import { buildObservation } from "@/src/lib/observationData";
 import { saveObservation } from "@/src/lib/gallery";
 import type { ObsData } from "@/src/lib/gallery";
 import { SenseMark } from "@/src/components/SenseMark";
+import { OverviewShortcut } from "@/src/components/OverviewShortcut";
 
 // The "Invisible Fields" engine, presented to the user as Sense Layers.
 type Layer = { key: string; label: string; tint: string; color: string };
@@ -252,10 +253,13 @@ export default function SenseVision() {
           <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
           <Text style={styles.hudText}>SENSE VISION™</Text>
         </View>
-        <Pressable testID="sense-gallery" style={styles.glassBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/observations" as never); }}>
-          <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
-          <Ionicons name="images-outline" size={20} color="#fff" />
-        </Pressable>
+        <View style={styles.hudRight}>
+          <OverviewShortcut size={26} />
+          <Pressable testID="sense-gallery" style={styles.glassBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/observations" as never); }}>
+            <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+            <Ionicons name="images-outline" size={20} color="#fff" />
+          </Pressable>
+        </View>
       </View>
 
       {/* Sense Layer selector */}
@@ -339,6 +343,7 @@ const styles = StyleSheet.create({
   glassBtn: { width: 40, height: 40, borderRadius: 20, overflow: "hidden", alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   hudPill: { flexDirection: "row", alignItems: "center", borderRadius: 999, overflow: "hidden", paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   hudText: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.sm, letterSpacing: 1.5 },
+  hudRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   hudMeta: { color: "#fff", fontFamily: fonts.mono, fontSize: type.sm - 1, opacity: 0.85 },
   pivotRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
   pivotActive: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(10,16,26,0.6)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 8, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },

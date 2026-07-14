@@ -44,7 +44,7 @@ export default function Register() {
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"], gap: spacing.lg }}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.lead}>Diventa un esploratore di Overview. Il tuo nickname è pubblico e univoco.</Text>
+        <Text style={styles.lead}>Diventa un esploratore di OverView. Il tuo nickname è pubblico e univoco.</Text>
 
         <View style={styles.field}>
           <Text style={styles.label}>Nickname</Text>

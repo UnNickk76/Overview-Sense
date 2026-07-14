@@ -72,7 +72,7 @@ export default function OpportunityDetail() {
   };
   const onShare = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const text = `${opp.emoji} ${opp.title}\n${opp.summary}\n\nvia Overview • The Invisible Sense`;
+    const text = `${opp.emoji} ${opp.title}\n${opp.summary}\n\nvia OverView • The Invisible Sense`;
     if (await Sharing.isAvailableAsync()) {
       try { await Sharing.shareAsync("data:text/plain," + encodeURIComponent(text)); } catch { /* ignore */ }
     }

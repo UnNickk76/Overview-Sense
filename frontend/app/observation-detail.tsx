@@ -112,7 +112,7 @@ export default function ObservationDetail() {
 
   return (
     <SpaceBackground>
-      <ScreenHeader title={obs.category} subtitle={`Overview Score ${obs.overall_score}`} />
+      <ScreenHeader title={obs.category} subtitle={`OverView Score ${obs.overall_score}`} />
       <KeyboardAwareScrollView bottomOffset={20} contentContainerStyle={{ paddingBottom: insets.bottom + spacing["2xl"] }} showsVerticalScrollIndicator={false} testID="observation-detail-remote">
         <Pressable style={styles.author} onPress={() => router.push(`/profile?id=${obs.user_id}` as never)}>
           <View style={styles.avatar}><Text style={styles.avatarText}>{obs.nickname[0].toUpperCase()}</Text></View>
@@ -178,7 +178,7 @@ export default function ObservationDetail() {
               <View style={styles.scoreMain}>
                 <Ionicons name="sparkles" size={16} color={colors.brand} />
                 <Text style={styles.scoreMainValue}>{obs.overall_score}</Text>
-                <Text style={styles.scoreMainLabel}>Overview Score</Text>
+                <Text style={styles.scoreMainLabel}>OverView Score</Text>
               </View>
               {obs.confirmed ? (
                 <View style={styles.confirmedChip}>

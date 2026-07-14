@@ -36,7 +36,7 @@ export function ActionBar({ obs, onComment }: { obs: FeedObservation; onComment?
     const url = `${BASE}/api/observations/${obs.id}`;
     try {
       await Share.share({
-        message: `${obs.category} · Scientific Value ${obs.scientific_value}\n${obs.caption || "Un'Observation su Overview"}\n${url}`,
+        message: `${obs.category} · Scientific Value ${obs.scientific_value}\n${obs.caption || "Un'Observation su OverView"}\n${url}`,
       });
     } catch { /* ignore */ }
   };

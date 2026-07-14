@@ -268,7 +268,7 @@ export default function ObservationView() {
                 <View style={styles.watermark} pointerEvents="none">
                   <LinearGradient colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.55)"]} style={StyleSheet.absoluteFill} />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.wmBrand}>Overview <Text style={styles.wmDot}>•</Text> The Invisible Sense</Text>
+                    <Text style={styles.wmBrand}>OverView <Text style={styles.wmDot}>•</Text> The Invisible Sense</Text>
                     <Text style={styles.wmMeta}>{observationCode(obs.seq)}{d.lat != null ? `  ·  ${nf(d.lat, 2)}°, ${nf(d.lon!, 2)}°` : ""}</Text>
                   </View>
                   <View style={styles.qrBox}>

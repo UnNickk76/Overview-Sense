@@ -38,7 +38,7 @@ export default function Welcome() {
         <Animated.View style={[styles.brandBlock, logoStyle]}>
           <View style={styles.brandRow}>
             <View style={styles.dot} />
-            <Text style={styles.wordmark}>OVERVIEW</Text>
+            <Text style={styles.wordmark}>OverView</Text>
           </View>
           <Text style={styles.tagline}>The Invisible Sense</Text>
           <View style={styles.betaPill}><Text style={styles.betaPillText}>BETA · IN SVILUPPO</Text></View>
@@ -46,7 +46,7 @@ export default function Welcome() {
 
         <Animated.View entering={FadeInDown.duration(700).delay(300)} style={styles.copy}>
           <Text style={styles.lead}>Reality has always been around you.{"\n"}You simply couldn&apos;t see it.</Text>
-          <Text style={styles.signature}>&ldquo;Overview doesn&apos;t create reality. It reveals it.&rdquo;</Text>
+          <Text style={styles.signature}>&ldquo;OverView doesn&apos;t create reality. It reveals it.&rdquo;</Text>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.duration(700).delay(500)} style={styles.actions}>
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
   brandBlock: { alignItems: "center" },
   brandRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.brand },
-  wordmark: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type["2xl"], letterSpacing: 8 },
+  wordmark: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type["2xl"], letterSpacing: 2 },
   tagline: { color: colors.brand, fontFamily: fonts.regular, fontSize: type.base, letterSpacing: 4, textAlign: "center", marginTop: spacing.sm, fontStyle: "italic" },
   betaPill: { marginTop: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 3 },
   betaPillText: { color: colors.brand, fontFamily: fonts.medium, fontSize: type.sm - 3, letterSpacing: 2 },

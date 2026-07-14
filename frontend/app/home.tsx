@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View, Pressable, ScrollView } from "react-native";
+import { Image } from "expo-image";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -23,6 +24,8 @@ import { dayNumber, sun, moon, toHorizontal, moonPhase, earthRotationSpeedKmh, s
 import { loadSatrecs, hasSatrecs, satellitesOverhead } from "@/src/lib/satellites";
 import { nf } from "@/src/lib/format";
 
+const RING = require("@/assets/images/icon-ring.png");
+
 type Viz = "sun" | "orrery" | "field" | null;
 interface Layer {
   key: string; route: string; overline: string; title: string;
@@ -39,7 +42,7 @@ const LAYERS: Layer[] = [
   { key: "satellite", route: "/satellite-explore", overline: "SATELLITE LAYER", title: "Satellite Intelligence", icon: "earth", accent: colors.blue, viz: null },
   { key: "audio", route: "/audio", overline: "SIGNAL LAYER", title: "Sonificazione", icon: "musical-notes", accent: colors.blue, viz: null },
   { key: "timeline", route: "/timeline", overline: "TIME LAYER", title: "Timeline", icon: "time", accent: colors.brand, viz: null },
-  { key: "feed", route: "/feed", overline: "COMMUNITY", title: "Overview Sense Universe", icon: "globe", accent: colors.blue, viz: null },
+  { key: "feed", route: "/feed", overline: "COMMUNITY", title: "OverView Sense Universe", icon: "globe", accent: colors.blue, viz: null },
   { key: "ai", route: "/assistant", overline: "GUIDE", title: "Assistente", icon: "sparkles", accent: colors.blue, viz: null },
 ];
 
@@ -56,7 +59,7 @@ export default function Home() {
   const [satCount, setSatCount] = useState<number | null>(null);
   const [hasNew, setHasNew] = useState(false);
 
-  // Detect new Observations in the Overview Sense Universe since last visit.
+  // Detect new Observations in the OverView Sense Universe since last visit.
   useEffect(() => {
     (async () => {
       try {
@@ -83,10 +86,9 @@ export default function Home() {
   }, [hasNew, dot]);
   const dotStyle = useAnimatedStyle(() => ({ transform: [{ scale: dot.value }] }));
 
-  const openUniverse = () => {
+  const openSenseVision = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setHasNew(false);
-    router.push("/feed" as never);
+    router.push("/sense-vision" as never);
   };
 
   useEffect(() => {
@@ -188,11 +190,17 @@ export default function Home() {
       >
         <View style={styles.brandRow}>
           <View style={styles.dot} />
-          <Text style={styles.wordmark}>OVERVIEW</Text>
-          <Pressable testID="home-profile" style={styles.profileBtn} hitSlop={10}
-            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(user ? `/profile?id=${user.id}` as never : "/login" as never); }}>
-            <Ionicons name={user ? "person-circle" : "person-circle-outline"} size={26} color={user ? colors.brand : colors.onSurface} />
-          </Pressable>
+          <Text style={styles.wordmark}>OverView</Text>
+          <View style={styles.brandActions}>
+            <Pressable testID="home-gallery-shortcut" style={styles.brandIcon} hitSlop={10}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/observations" as never); }}>
+              <Ionicons name="images-outline" size={22} color={colors.brand} />
+            </Pressable>
+            <Pressable testID="home-profile" style={styles.brandIcon} hitSlop={10}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(user ? `/profile?id=${user.id}` as never : "/login" as never); }}>
+              <Ionicons name={user ? "person-circle" : "person-circle-outline"} size={26} color={user ? colors.brand : colors.onSurface} />
+            </Pressable>
+          </View>
         </View>
         <Text style={styles.tagline}>The Invisible Sense</Text>
         <Text style={styles.motto}>The Universe is constantly changing. Don&apos;t miss today&apos;s opportunities.</Text>
@@ -216,7 +224,13 @@ export default function Home() {
               <Pressable testID={`module-${l.key}`} onPress={() => go(l.route)}>
                 <GlassCard style={styles.card}>
                   <View style={styles.cardTop}>
-                    {l.key === "feed" ? <SenseMark size={42} />
+                    {l.key === "feed" ? (
+                      <View>
+                        <Image source={RING} style={styles.ringIcon} contentFit="cover" />
+                        {hasNew && <Animated.View style={[styles.cardNewDot, dotStyle]} pointerEvents="none" />}
+                      </View>
+                    )
+                      : l.key === "fields" ? <SenseMark size={42} />
                       : l.viz === "sun" ? <MiniSun size={42} kp={space?.kp_index?.value ?? 0} />
                       : l.viz === "orrery" ? <MiniOrrery size={42} />
                       : l.viz === "field" ? <MiniField size={42} />
@@ -237,7 +251,7 @@ export default function Home() {
 
         <Pressable testID="home-signature" onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/about" as never); }} style={styles.signatureWrap}>
           <View style={styles.sigRule} />
-          <Text style={styles.signature}>&ldquo;Overview doesn&apos;t create reality. It reveals it.&rdquo;</Text>
+          <Text style={styles.signature}>&ldquo;OverView doesn&apos;t create reality. It reveals it.&rdquo;</Text>
           <View style={styles.sigRule} />
           <Text style={styles.copyright}>© Fabio Andreola</Text>
         </Pressable>
@@ -247,14 +261,14 @@ export default function Home() {
         </Text>
       </ScrollView>
 
+      {/* Top-left: Sense Vision (the "Make a Sense" camera) */}
       <Pressable
-        testID="home-universe-shortcut"
-        onPress={openUniverse}
+        testID="home-sense-vision-shortcut"
+        onPress={openSenseVision}
         style={[styles.universeShortcut, { top: insets.top + spacing.xs }]}
         hitSlop={10}
       >
-        <SenseMark size={38} active={hasNew} />
-        {hasNew && <Animated.View style={[styles.newDot, dotStyle]} pointerEvents="none" />}
+        <SenseMark size={38} />
       </Pressable>
     </SpaceBackground>
   );
@@ -263,8 +277,11 @@ export default function Home() {
 const styles = StyleSheet.create({
   brandRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
   dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.brand },
-  wordmark: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.xl, letterSpacing: 6 },
-  profileBtn: { position: "absolute", right: spacing.lg },
+  wordmark: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.xl, letterSpacing: 1.5 },
+  brandActions: { position: "absolute", right: spacing.lg, flexDirection: "row", alignItems: "center", gap: spacing.md },
+  brandIcon: { alignItems: "center", justifyContent: "center" },
+  ringIcon: { width: 42, height: 42, borderRadius: 21 },
+  cardNewDot: { position: "absolute", top: -2, right: -2, width: 12, height: 12, borderRadius: 6, backgroundColor: colors.brand, borderWidth: 1.5, borderColor: "#000" },
   tagline: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm, letterSpacing: 3, textAlign: "center", marginTop: spacing.xs },
   motto: { color: colors.brand, fontFamily: fonts.regular, fontSize: type.sm, fontStyle: "italic", textAlign: "center", marginTop: spacing.sm, paddingHorizontal: spacing.xl, lineHeight: 18 },
   phraseWrap: { minHeight: 66, justifyContent: "center", paddingHorizontal: spacing.xl, marginTop: spacing.md, marginBottom: spacing.lg },
@@ -284,5 +301,4 @@ const styles = StyleSheet.create({
   signature: { color: colors.brand, fontFamily: fonts.regular, fontSize: type.lg, fontStyle: "italic", textAlign: "center", opacity: 0.8, paddingHorizontal: spacing.xl },
   copyright: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm, opacity: 0.7 },
   universeShortcut: { position: "absolute", left: spacing.lg, width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  newDot: { position: "absolute", top: 2, right: 2, width: 11, height: 11, borderRadius: 6, backgroundColor: colors.brand, borderWidth: 1.5, borderColor: "#000" },
 });

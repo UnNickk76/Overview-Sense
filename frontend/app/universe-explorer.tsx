@@ -8,6 +8,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { GLView } from "expo-gl";
 import { GestureDetector, Gesture } from "react-native-gesture-handler";
 import { UniverseScene, makeControls, ControlState } from "@/src/components/universe/UniverseScene";
+import { OverviewShortcut } from "@/src/components/OverviewShortcut";
 import {
   UObject, UScale, SCALES, objectsForScale, searchUniverse, KIND_LABEL, REP_LABEL,
   JOURNEYS, Journey,
@@ -440,7 +441,7 @@ export default function UniverseExplorer() {
         <View style={[styles.jSheet, { paddingBottom: insets.bottom + spacing.lg }]}>
           <View style={styles.jHandle} />
           <Text style={styles.jSheetTitle}>Viaggi guidati</Text>
-          <Text style={styles.jSheetSub}>Overview ti accompagna in un viaggio narrato tra oggetti reali.</Text>
+          <Text style={styles.jSheetSub}>OverView ti accompagna in un viaggio narrato tra oggetti reali.</Text>
           <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
             {JOURNEYS.map((j) => (
               <Pressable key={j.id} testID={`journey-${j.id}`} style={styles.jRow} onPress={() => startJourney(j)}>

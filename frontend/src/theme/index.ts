@@ -1,4 +1,4 @@
-// Overview design tokens — Apple-style scientific instrument (Black / Gold / Blue).
+// OverView design tokens — Apple-style scientific instrument (Black / Gold / Blue).
 export const colors = {
   surface: "#000000",
   onSurface: "#F5F5F7",

@@ -24,7 +24,7 @@ export default function Scale() {
 
   return (
     <SpaceBackground>
-      <ScreenHeader title="Scale" subtitle="Una vera Overview della realtà" />
+      <ScreenHeader title="Scale" subtitle="Una vera OverView della realtà" />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"] }} showsVerticalScrollIndicator={false} testID="scale-screen">
         <Text style={styles.intro}>Scorri per viaggiare tra le scale dell&apos;Universo, dai confini del cosmo fino ai limiti della materia.</Text>
         <View style={styles.line} />

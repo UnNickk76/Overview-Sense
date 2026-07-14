@@ -9,7 +9,7 @@ import * as Haptics from "expo-haptics";
 import { SenseMark } from "@/src/components/SenseMark";
 import { fonts } from "@/src/theme";
 
-// SenseSurface — the UNIVERSAL Sense interaction standard for Overview Sense Universe.
+// SenseSurface — the UNIVERSAL Sense interaction standard for OverView Sense Universe.
 // Double tap  → Pure Sense™  : the photo, full screen, no UI/data.
 // Single tap  → Reality Sense™: show/hide every real data layer, fluid transition.
 // In Pure Sense™, an optional vertical swipe browses the whole gallery immersively.

@@ -53,7 +53,7 @@ export default function RealtaInvisibile() {
         {Platform.OS === "web" ? (
           <GlassCard testID="web-notice">
             <Text style={styles.cardTitle}>Sensori non disponibili sul web</Text>
-            <Text style={styles.hint}>{"Bussola, magnetometro e gravità richiedono un iPhone reale. Apri Overview sull'app per vedere i valori dal vivo."}</Text>
+            <Text style={styles.hint}>{"Bussola, magnetometro e gravità richiedono un iPhone reale. Apri OverView sull'app per vedere i valori dal vivo."}</Text>
           </GlassCard>
         ) : null}
         <GlassCard testID="compass-card" style={{ alignItems: "center" }}>
