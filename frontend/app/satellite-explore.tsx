@@ -108,6 +108,11 @@ export default function SatelliteExplore() {
   const cmpUrl = useMemo(() => gibsSnapshotUrl(center.lat, center.lon, date, cmpLayer.id, delta, 720),
     [center.lat, center.lon, date, cmpLayer.id, delta]);
 
+  // Double-buffer: the last fully-loaded image stays on screen while the next one
+  // loads underneath/over it → never a black frame during pan/zoom (continuous feel).
+  const [readyUrl, setReadyUrl] = useState(nowUrl);
+  useEffect(() => { setReadyUrl((prev) => prev ?? nowUrl); }, [nowUrl]);
+
   React.useEffect(() => () => { timers.current.forEach(clearTimeout); }, []);
 
   // ---- Map gestures ----
@@ -228,10 +233,19 @@ export default function SatelliteExplore() {
         <View style={[styles.map, { width: SIZE, height: SIZE }]}>
           <GestureDetector gesture={mapGesture}>
             <View style={StyleSheet.absoluteFill}>
-              <Image key={nowUrl} source={{ uri: nowUrl }} style={[StyleSheet.absoluteFill, { transform: [{ translateX: drag.x }, { translateY: drag.y }, { scale }] }]} contentFit="cover" transition={180} />
+              {/* Persistent previous frame — keeps the map visible while the next tile loads */}
+              <Image source={{ uri: readyUrl }} style={[StyleSheet.absoluteFill, { transform: [{ translateX: drag.x }, { translateY: drag.y }, { scale }] }]} contentFit="cover" cachePolicy="memory-disk" />
+              <Image
+                source={{ uri: nowUrl }}
+                style={[StyleSheet.absoluteFill, { transform: [{ translateX: drag.x }, { translateY: drag.y }, { scale }] }]}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={260}
+                onLoad={() => setReadyUrl(nowUrl)}
+              />
               {compare && (
                 <View style={[styles.splitClip, { width: SIZE * split, transform: [{ translateX: drag.x }, { translateY: drag.y }, { scale }] }]}>
-                  <Image key={cmpUrl} source={{ uri: cmpUrl }} style={{ width: SIZE, height: SIZE }} contentFit="cover" transition={180} />
+                  <Image source={{ uri: cmpUrl }} style={{ width: SIZE, height: SIZE }} contentFit="cover" cachePolicy="memory-disk" transition={260} />
                 </View>
               )}
             </View>
