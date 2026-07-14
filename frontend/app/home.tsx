@@ -11,8 +11,6 @@ import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { BlurView } from "expo-blur";
 import { MiniSun, MiniOrrery, MiniField } from "@/src/components/MiniViz";
 import { HomeTopCards } from "@/src/components/HomeTopCards";
-import { SenseMark } from "@/src/components/SenseMark";
-import { OverviewShortcut } from "@/src/components/OverviewShortcut";
 import { BottomNav } from "@/src/components/BottomNav";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { useObserver, useNow } from "@/src/hooks/useObserver";
@@ -43,7 +41,7 @@ const LAYERS: Layer[] = [
   { key: "audio", route: "/audio", overline: "SIGNAL LAYER", title: "Sonificazione", teaser: "Ascolta i dati reali.", icon: "musical-notes", accent: colors.blue, viz: null },
   { key: "timeline", route: "/timeline", overline: "TIME LAYER", title: "Timeline", teaser: "Il cielo di qualsiasi data.", icon: "time", accent: colors.brand, viz: null },
   { key: "gallery", route: "/observations", overline: "I TUOI SENSHOT", title: "Galleria", teaser: "I tuoi momenti.", icon: "images", accent: colors.brand, viz: null },
-  { key: "feed", route: "/feed", overline: "COMMUNITY", title: "Sense Universe", teaser: "Cosa osservano gli altri.", icon: "globe", accent: colors.blue, viz: null },
+  { key: "feed", route: "/feed", overline: "OBSERVE", title: "Observe", teaser: "Cosa osservano gli altri.", icon: "globe", accent: colors.blue, viz: null },
   { key: "ai", route: "/assistant", overline: "GUIDE", title: "Assistente", teaser: "Chiedi cosa osservi.", icon: "sparkles", accent: colors.blue, viz: null },
 ];
 
@@ -84,11 +82,6 @@ export default function Home() {
     }
   }, [hasNew, dot]);
   const dotStyle = useAnimatedStyle(() => ({ transform: [{ scale: dot.value }] }));
-
-  const openSenseVision = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/sense-vision" as never);
-  };
 
   useEffect(() => {
     api.spaceWeather().then(setSpace).catch(() => {});
@@ -166,10 +159,9 @@ export default function Home() {
           <View style={styles.dot} />
           <Text style={styles.wordmark}>OverView</Text>
           <View style={styles.brandActions}>
-            <OverviewShortcut size={26} />
             <Pressable testID="home-profile" style={styles.brandIcon} hitSlop={10}
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(user ? `/profile?id=${user.id}` as never : "/login" as never); }}>
-              <Ionicons name={user ? "person-circle" : "person-circle-outline"} size={26} color={user ? colors.brand : colors.onSurface} />
+              <Ionicons name={user ? "person-circle" : "person-circle-outline"} size={28} color={user ? colors.brand : colors.onSurface} />
             </Pressable>
           </View>
         </View>
@@ -230,16 +222,6 @@ export default function Home() {
           Ogni dato proviene da sensori del dispositivo o da fonti scientifiche pubbliche. Mai inventato.
         </Text>
       </ScrollView>
-
-      {/* Top-left: Sense Vision (the "Make a Sense" camera) */}
-      <Pressable
-        testID="home-sense-vision-shortcut"
-        onPress={openSenseVision}
-        style={[styles.universeShortcut, { top: insets.top + spacing.xs }]}
-        hitSlop={10}
-      >
-        <SenseMark size={38} />
-      </Pressable>
 
       <BottomNav active="home" />
     </SpaceBackground>

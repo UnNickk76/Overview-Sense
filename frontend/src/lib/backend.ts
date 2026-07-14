@@ -28,6 +28,7 @@ export interface FeedObservation {
   id: string;
   user_id: string;
   nickname: string;
+  avatar?: string | null;
   media_type: "image" | "audio" | "video";
   source: "reality" | "listening";
   category: string;
@@ -92,7 +93,7 @@ export interface Profile {
 }
 
 export interface Comment {
-  id: string; obs_id: string; user_id: string; nickname: string; text: string; created_at: string;
+  id: string; obs_id: string; user_id: string; nickname: string; avatar?: string | null; text: string; created_at: string;
 }
 
 export type InteractionType = "observed" | "discovery" | "learned";

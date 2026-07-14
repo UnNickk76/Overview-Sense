@@ -28,7 +28,11 @@ export function ObservationCard({ obs }: { obs: FeedObservation }) {
         </View>
       ) : null}
       <Pressable style={styles.head} onPress={() => router.push(`/profile?id=${obs.user_id}` as never)}>
-        <View style={styles.avatar}><Text style={styles.avatarText}>{(obs.nickname || "?")[0].toUpperCase()}</Text></View>
+        {mediaUrl(obs.avatar) ? (
+          <Image source={{ uri: mediaUrl(obs.avatar)! }} style={styles.avatar} contentFit="cover" />
+        ) : (
+          <View style={styles.avatar}><Text style={styles.avatarText}>{(obs.nickname || "?")[0].toUpperCase()}</Text></View>
+        )}
         <View style={{ flex: 1 }}>
           <Text style={styles.nick}>{obs.nickname}</Text>
           <View style={styles.metaRow}>

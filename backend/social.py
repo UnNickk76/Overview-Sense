@@ -242,6 +242,7 @@ def obs_public(o: dict, viewer_interactions: Optional[set] = None,
         "id": o["id"],
         "user_id": o["user_id"],
         "nickname": o.get("nickname"),
+        "avatar": o.get("avatar"),
         "media_type": o.get("media_type", "image"),
         "source": o.get("source", "reality"),
         "category": o.get("category"),
@@ -311,6 +312,7 @@ async def create_observation(req: CreateObs, user: dict = Depends(get_current_us
         "id": oid,
         "user_id": user["id"],
         "nickname": user["nickname"],
+        "avatar": user.get("avatar"),
         "media_type": req.media_type,
         "source": req.source,
         "caption": req.caption.strip()[:500],
@@ -559,7 +561,7 @@ async def add_comment(obs_id: str, req: CommentReq, user: dict = Depends(get_cur
         raise HTTPException(status_code=404, detail="Observation non trovata")
     doc = {
         "id": str(uuid.uuid4()), "obs_id": obs_id, "user_id": user["id"],
-        "nickname": user["nickname"], "text": text[:1000],
+        "nickname": user["nickname"], "avatar": user.get("avatar"), "text": text[:1000],
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.comments.insert_one(doc)
@@ -797,6 +799,9 @@ async def update_avatar(req: AvatarReq, user: dict = Depends(get_current_user)):
     avatar_url = f"/api/media/{avatar_id}?v={uuid.uuid4().hex[:8]}"
     await db.users.update_one({"id": user["id"]},
                               {"$set": {"avatar": avatar_url, "updated_at": datetime.now(timezone.utc).isoformat()}})
+    # Keep the author's identity fresh across the app (denormalised avatar).
+    await db.observations.update_many({"user_id": user["id"]}, {"$set": {"avatar": avatar_url}})
+    await db.comments.update_many({"user_id": user["id"]}, {"$set": {"avatar": avatar_url}})
     return {"avatar": avatar_url}
 
 

@@ -428,7 +428,7 @@ export default function ObservationView() {
                 <Pressable key={f} testID={`format-${f}`} onPress={() => { Haptics.selectionAsync(); setExportFormat(f); }}
                   style={[styles.formatChip, exportFormat === f && styles.formatChipActive]}>
                   <Ionicons name={f === "square" ? "square-outline" : "phone-portrait-outline"} size={15} color={exportFormat === f ? colors.onBrand : colors.onSurface} />
-                  <Text style={[styles.formatText, exportFormat === f && { color: colors.onBrand }]}>{f === "square" ? "Post 1:1" : "Story 9:16"}</Text>
+                  <Text style={[styles.formatText, exportFormat === f && { color: colors.onBrand }]}>{f === "square" ? "Quadrato 1:1" : "Story 9:16"}</Text>
                 </Pressable>
               ))}
             </View>

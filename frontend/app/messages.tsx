@@ -66,7 +66,7 @@ export default function Messages() {
             const avatar = mediaUrl(c.other.avatar);
             return (
               <Pressable key={c.id} testID={`conv-${c.id}`} style={styles.row}
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(`/chat?id=${c.id}` as never); }}>
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(`/chat?id=${c.id}&name=${encodeURIComponent(c.other.display_name || c.other.nickname)}&avatar=${encodeURIComponent(c.other.avatar || "")}` as never); }}>
                 {avatar ? (
                   <Image source={{ uri: avatar }} style={styles.avatar} contentFit="cover" />
                 ) : (

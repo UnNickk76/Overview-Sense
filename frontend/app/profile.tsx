@@ -162,7 +162,7 @@ export default function Profile() {
                   </Text>
                 </Pressable>
                 <Pressable testID="profile-message" style={styles.msgBtn} onPress={async () => {
-                  try { const c = await dmApi.start(profile.id); router.push(`/chat?id=${c.id}&name=${encodeURIComponent(profile.display_name || profile.nickname)}` as never); } catch { /* ignore */ }
+                  try { const c = await dmApi.start(profile.id); router.push(`/chat?id=${c.id}&name=${encodeURIComponent(profile.display_name || profile.nickname)}&avatar=${encodeURIComponent(profile.avatar || "")}` as never); } catch { /* ignore */ }
                 }}>
                   <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.brand} />
                   <Text style={styles.msgBtnText}>Messaggio</Text>

@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, View, ScrollView, ActivityIndicator, Pressable, RefreshControl, Modal, useWindowDimensions } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
@@ -38,9 +37,7 @@ const CATEGORIES = ["Astronomia", "Atmosfera", "Meteo", "Sole", "Luna", "Pianeti
 
 export default function Feed() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const observer = useObserver();
-  const { user } = useAuth();
   const { width } = useWindowDimensions();
   const [scope, setScope] = useState("smart");
   const [category, setCategory] = useState<string | null>(null);
@@ -67,23 +64,14 @@ export default function Feed() {
 
   return (
     <SpaceBackground>
-      {/* Top bar — feed is the app Home */}
+      {/* Top bar — Observe: the social flow of real observations */}
       <View style={[styles.top, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable testID="feed-brand" style={styles.brandRow} hitSlop={8} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/sense-vision" as never); }}>
+        <View style={styles.brandRow}>
           <SenseMark size={30} />
           <View>
-            <Text style={styles.headerTitle} numberOfLines={1}>OverView Sense Universe™</Text>
+            <Text style={styles.headerTitle} numberOfLines={1}>Observe</Text>
             <Text style={styles.headerSubtitle}>Cosa sta osservando il mondo, ora.</Text>
           </View>
-        </Pressable>
-        <View style={styles.topActions}>
-          <Pressable testID="feed-home" style={styles.iconBtn} hitSlop={8} onPress={() => router.push("/home" as never)}>
-            <Ionicons name="apps" size={20} color={colors.onSurface} />
-          </Pressable>
-          <Pressable testID="feed-profile" style={styles.iconBtn} hitSlop={8}
-            onPress={() => router.push(user ? `/profile?id=${user.id}` as never : "/login" as never)}>
-            <Ionicons name="person-circle-outline" size={24} color={colors.onSurface} />
-          </Pressable>
         </View>
       </View>
 

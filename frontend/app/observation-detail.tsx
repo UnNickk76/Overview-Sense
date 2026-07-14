@@ -257,8 +257,15 @@ export default function ObservationDetail() {
           <Text style={styles.commentsTitle}>Commenti ({comments.length})</Text>
           {comments.map((c) => (
             <View key={c.id} style={styles.comment}>
-              <Text style={styles.commentNick}>{c.nickname}</Text>
-              <Text style={styles.commentText}>{c.text}</Text>
+              {mediaUrl(c.avatar) ? (
+                <Image source={{ uri: mediaUrl(c.avatar)! }} style={styles.commentAvatar} contentFit="cover" />
+              ) : (
+                <View style={[styles.commentAvatar, styles.commentAvatarFb]}><Text style={styles.commentAvatarInit}>{(c.nickname || "?")[0].toUpperCase()}</Text></View>
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.commentNick}>{c.nickname}</Text>
+                <Text style={styles.commentText}>{c.text}</Text>
+              </View>
             </View>
           ))}
           {comments.length === 0 ? <Text style={styles.empty}>Nessun commento. Inizia la conversazione scientifica.</Text> : null}
@@ -348,7 +355,10 @@ const styles = StyleSheet.create({
   chainThumb: { width: 84, height: 84, borderRadius: radius.sm, backgroundColor: colors.tertiary },
   chainThumbEmpty: { alignItems: "center", justifyContent: "center" },
   chainNick: { color: colors.onSurfaceTertiary, fontFamily: fonts.mono, fontSize: type.sm - 2, textAlign: "center" },
-  comment: { gap: 2 },
+  comment: { flexDirection: "row", gap: spacing.sm, alignItems: "flex-start" },
+  commentAvatar: { width: 32, height: 32, borderRadius: 16 },
+  commentAvatarFb: { backgroundColor: colors.tertiary, alignItems: "center", justifyContent: "center" },
+  commentAvatarInit: { color: colors.brand, fontFamily: fonts.bold, fontSize: type.sm },
   commentNick: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.sm },
   commentText: { color: colors.onSurfaceTertiary, fontFamily: fonts.regular, fontSize: type.base, lineHeight: 20 },
   commentBar: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, backgroundColor: colors.surfaceSecondary },

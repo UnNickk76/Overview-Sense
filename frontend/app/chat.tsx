@@ -39,8 +39,9 @@ function CompareCol({ snap }: { snap: Record<string, unknown> }) {
 export default function Chat() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
+  const { id, name, avatar } = useLocalSearchParams<{ id: string; name?: string; avatar?: string }>();
   const { user } = useAuth();
+  const otherAvatar = avatar ? mediaUrl(avatar) : null;
   const [messages, setMessages] = useState<DMMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("");
@@ -175,11 +176,18 @@ export default function Chat() {
             onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}>
             {messages.length === 0 ? (
               <Text style={styles.hint}>Inizia la conversazione. Puoi condividere Senshot, osservazioni e confrontare lo stesso oggetto osservato.</Text>
-            ) : messages.map((m) => (
-              <View key={m.id} style={{ alignItems: m.sender_id === user?.id ? "flex-end" : "flex-start" }}>
-                {renderMsg(m)}
-              </View>
-            ))}
+            ) : messages.map((m) => {
+              const mine = m.sender_id === user?.id;
+              return (
+                <View key={m.id} style={{ flexDirection: "row", alignItems: "flex-end", gap: 6, justifyContent: mine ? "flex-end" : "flex-start" }}>
+                  {!mine ? (
+                    otherAvatar ? <Image source={{ uri: otherAvatar }} style={styles.msgAvatar} contentFit="cover" />
+                      : <View style={[styles.msgAvatar, styles.msgAvatarFb]}><Text style={styles.msgAvatarInit}>{(name || "?").slice(0, 1).toUpperCase()}</Text></View>
+                  ) : null}
+                  {renderMsg(m)}
+                </View>
+              );
+            })}
           </ScrollView>
         )}
 
@@ -251,7 +259,10 @@ const styles = StyleSheet.create({
   headerName: { flex: 1, color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.lg, textAlign: "center" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   hint: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm, textAlign: "center", padding: spacing.lg, lineHeight: 20 },
-  bubble: { maxWidth: "80%", borderRadius: 18, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  bubble: { maxWidth: "78%", borderRadius: 18, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  msgAvatar: { width: 26, height: 26, borderRadius: 13, marginBottom: 2 },
+  msgAvatarFb: { backgroundColor: colors.tertiary, alignItems: "center", justifyContent: "center" },
+  msgAvatarInit: { color: colors.brand, fontFamily: fonts.bold, fontSize: type.sm - 1 },
   mineBubble: { backgroundColor: colors.brand, borderBottomRightRadius: 4 },
   theirBubble: { backgroundColor: colors.surfaceSecondary, borderBottomLeftRadius: 4 },
   bubbleText: { color: colors.onSurface, fontFamily: fonts.regular, fontSize: type.base, lineHeight: 20 },
