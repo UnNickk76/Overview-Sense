@@ -12,6 +12,7 @@ import { BlurView } from "expo-blur";
 import { MiniSun, MiniOrrery, MiniField } from "@/src/components/MiniViz";
 import { HomeTopCards } from "@/src/components/HomeTopCards";
 import { BottomNav } from "@/src/components/BottomNav";
+import { BrandName } from "@/src/components/Brand";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { useObserver, useNow } from "@/src/hooks/useObserver";
 import { useAuth } from "@/src/context/AuthContext";
@@ -157,7 +158,7 @@ export default function Home() {
       >
         <View style={styles.brandRow}>
           <View style={styles.dot} />
-          <Text style={styles.wordmark}>OverView</Text>
+          <BrandName name="OverView" style={styles.wordmark} />
           <View style={styles.brandActions}>
             <Pressable testID="home-activity" style={styles.brandIcon} hitSlop={10}
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(user ? "/activity" as never : "/login" as never); }}>

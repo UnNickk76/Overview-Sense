@@ -691,3 +691,14 @@ Pulse™ = sfida osservativa curata per "osservare la realtà". Libreria OFFLINE
 - **`BottomNav.tsx`**: barra a 5 voci FISSE — Home · **Pulse**(pulse-icon.png) · Make a Sense(centro) · Observe · Messaggi. Attività RIMOSSA dalla barra → campanella in alto a destra su Home e Observe (feed).
 - Verificato: backend curl (create pulse, feed, compare AI restituisce confronto strutturato); lint pulito; screenshot Pulse + Home (barra 5 voci, campanella, Pulse attiva).
 RIMANE: Pulse Notifications (Fase 3, build nativa); aggiungere sfide periodiche; Centro di Controllo barra (4 slot personalizzabili).
+
+### SESSIONE (fork) — Barra banner + Challenges™ + Pulse Globali + Branding ™ (2026-06)
+- **BottomNav** ridisegnata: banner galleggiante arrotondato (90% larghezza, maxWidth 440, r=30), SOLO icone (label rimosse), pulsante Sense Vision centrale che emerge senza essere tagliato (centerHolder absolute su parent non-clippato; blur clippato in `blurClip`). Voci: Home · Challenges(⚡ pulse-icon) · Make a Sense · Observe · Messaggi.
+- **Tab Pulse → hub `Challenges™`** (`app/challenges.tsx`, `app/pulse.tsx` ora Redirect→/challenges): Pulse Globale (se attivo), Pulse di ora, feed community + Pulse Challenge™ (Confronta), "Altre sfide" (Observe/amici/classifiche/eventi = Presto).
+- **Pulse Globali** (backend `social.py`): `_GLOBAL_CALENDAR` (7 temi curati, uno per giorno) = fonte AUTO; override MANUALE dalla Creator Console. `GET /api/pulse/global/active`, `GET /api/pulse/global/{gid}/feed`, `POST/DELETE /api/creator/global-pulse` (guard get_creator). Collezione `global_pulses`. **Conteggio partecipanti/paesi SEMPRE REALE** (distinct user_id/country). `app/pulse-global.tsx`: missione + partecipanti reali + griglia mondiale.
+- **Integrazione SnapSense** (`SnapSenseBar.tsx`): primo ring "⚡ Pulse" (bordo dorato + glow animato reanimated → /challenges); poi i Pulse pubblicati (PulseRing dorato animato) si alternano agli SnapSense; tap Pulse → observation-detail.
+- **Feed unico**: `ObservationCard` mostra badge **⚡ PULSE / GLOBAL PULSE** se `is_pulse`. Observe resta il social principale.
+- **sense-vision**: params estesi (`gTitle/gTheme/gPrompt`) per rispondere a Pulse globali/arbitrari non in libreria.
+- **Branding ™** (`src/components/Brand.tsx`): `<BrandName name>` + `<Tm>` (apice ™ coerente). Applicato a Home wordmark "OverView™", header "Observe™", "Challenges™". Nomi ufficiali: OverView™, Sense Vision™, SnapSense™, Pulse™, Observe™, OverView Guide™.
+- Verificato: backend curl (global auto+manual, participants reali=0); lint pulito; screenshot Challenges (card globale + ™), Observe (ring Pulse dorato animato + Observe™ + campanella), barra banner con Sense Vision integro.
+RIMANE: reverse-geocode `data.country` alla cattura (per conteggio paesi Pulse globale); Creator Console UI per gestire Pulse globali; Pulse Notifications (Fase 3, build nativa); calendario "intelligente" (eventi astronomici/stagioni) per i Pulse globali auto.

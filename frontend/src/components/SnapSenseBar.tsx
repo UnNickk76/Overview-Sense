@@ -9,7 +9,8 @@ import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { snapSenseApi, SnapGroup, mediaUrl } from "@/src/lib/backend";
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from "react-native-reanimated";
+import { snapSenseApi, pulseApi, SnapGroup, FeedObservation, mediaUrl } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 
@@ -40,11 +41,29 @@ function Ring({ group, isOwn, onPress }: { group: SnapGroup; isOwn: boolean; onP
   );
 }
 
+function PulseRing({ obs, glow, onPress }: { obs: FeedObservation; glow: ReturnType<typeof useAnimatedStyle>; onPress: () => void }) {
+  const img = mediaUrl(obs.image_url);
+  return (
+    <Pressable testID={`pulse-ring-${obs.id}`} style={styles.ringItem} onPress={onPress}>
+      <View style={styles.ringPulseWrap}>
+        <Animated.View style={[styles.ringPulseGlow, glow]} pointerEvents="none" />
+        <View style={styles.ringPulse}>
+          {img ? <Image source={{ uri: img }} style={styles.avatar} contentFit="cover" transition={120} />
+            : <View style={[styles.avatar, styles.avatarEmpty]}><Ionicons name="flash" size={22} color={colors.brand} /></View>}
+        </View>
+        <View style={styles.pulseFlash}><Ionicons name="flash" size={10} color={colors.onBrand} /></View>
+      </View>
+      <Text style={styles.ringName} numberOfLines={1}>{obs.nickname}</Text>
+    </Pressable>
+  );
+}
+
 export function SnapSenseBar() {
   const { user } = useAuth();
   const router = useRouter();
   const { width } = useWindowDimensions();
   const [groups, setGroups] = useState<SnapGroup[]>([]);
+  const [pulses, setPulses] = useState<FeedObservation[]>([]);
   const [viewer, setViewer] = useState<{ g: number; i: number } | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [text, setText] = useState("");
@@ -52,8 +71,16 @@ export function SnapSenseBar() {
   const [busy, setBusy] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Shared "pulse" glow for every Pulse ring (gold, subtly alive).
+  const glow = useSharedValue(0);
+  useEffect(() => {
+    glow.value = withRepeat(withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.ease) }), -1, true);
+  }, [glow]);
+  const glowStyle = useAnimatedStyle(() => ({ opacity: 0.35 + glow.value * 0.5, transform: [{ scale: 1 + glow.value * 0.06 }] }));
+
   const load = useCallback(() => {
     snapSenseApi.list().then((r) => setGroups(r.groups)).catch(() => {});
+    pulseApi.feed().then((r) => setPulses(r.items.slice(0, 12))).catch(() => {});
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -135,6 +162,17 @@ export function SnapSenseBar() {
   const curItem = viewer ? groups[viewer.g]?.items[viewer.i] : null;
   const curGroup = viewer ? groups[viewer.g] : null;
 
+  // Interleave user SnapSenses with published Pulses — one natural flow.
+  const orderedGroups = ownGroup
+    ? [ownGroup, ...groups.filter((g) => g.user_id !== user?.id)]
+    : groups.filter((g) => g.user_id !== user?.id);
+  const sequence: Array<{ type: "snap"; group: SnapGroup } | { type: "pulse"; obs: FeedObservation }> = [];
+  const maxLen = Math.max(orderedGroups.length, pulses.length);
+  for (let i = 0; i < maxLen; i++) {
+    if (orderedGroups[i]) sequence.push({ type: "snap", group: orderedGroups[i] });
+    if (pulses[i]) sequence.push({ type: "pulse", obs: pulses[i] });
+  }
+
   return (
     <View style={styles.wrap}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
@@ -146,10 +184,24 @@ export function SnapSenseBar() {
           <Text style={styles.ringName} numberOfLines={1}>SnapSense</Text>
         </Pressable>
 
-        {ownGroup ? <Ring group={ownGroup} isOwn onPress={() => openGroup(groups.indexOf(ownGroup))} /> : null}
-        {groups.filter((g) => g.user_id !== user?.id).map((g) => (
-          <Ring key={g.user_id} group={g} isOwn={false} onPress={() => openGroup(groups.indexOf(g))} />
-        ))}
+        {/* OverView Pulse of the day — always first, gold + alive */}
+        <Pressable testID="pulse-overview-ring" style={styles.ringItem}
+          onPress={() => { Haptics.selectionAsync(); router.push("/challenges" as never); }}>
+          <View style={styles.ringPulseWrap}>
+            <Animated.View style={[styles.ringPulseGlow, glowStyle]} pointerEvents="none" />
+            <View style={[styles.ringPulse, styles.ringPulseHome]}>
+              <Ionicons name="flash" size={26} color={colors.brand} />
+            </View>
+          </View>
+          <Text style={[styles.ringName, { color: colors.brand }]} numberOfLines={1}>Pulse</Text>
+        </Pressable>
+
+        {sequence.map((s) =>
+          s.type === "snap"
+            ? <Ring key={`s-${s.group.user_id}`} group={s.group} isOwn={s.group.user_id === user?.id} onPress={() => openGroup(groups.indexOf(s.group))} />
+            : <PulseRing key={`p-${s.obs.id}`} obs={s.obs} glow={glowStyle}
+                onPress={() => { Haptics.selectionAsync(); router.push(`/observation-detail?id=${s.obs.id}` as never); }} />
+        )}
       </ScrollView>
 
       {/* ---- Viewer ---- */}
@@ -249,6 +301,11 @@ const styles = StyleSheet.create({
   ringItem: { alignItems: "center", width: 68, gap: 4 },
   ring: { width: AV + 6, height: AV + 6, borderRadius: (AV + 6) / 2, borderWidth: 2, borderColor: colors.brand, alignItems: "center", justifyContent: "center" },
   ringCreate: { borderStyle: "dashed", borderColor: colors.brand, backgroundColor: colors.tertiary },
+  ringPulseWrap: { width: AV + 10, height: AV + 10, alignItems: "center", justifyContent: "center" },
+  ringPulseGlow: { position: "absolute", width: AV + 12, height: AV + 12, borderRadius: (AV + 12) / 2, backgroundColor: "rgba(212,175,55,0.28)" },
+  ringPulse: { width: AV + 6, height: AV + 6, borderRadius: (AV + 6) / 2, borderWidth: 2.5, borderColor: colors.brand, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface },
+  ringPulseHome: { backgroundColor: "rgba(212,175,55,0.10)" },
+  pulseFlash: { position: "absolute", right: 2, bottom: 2, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: colors.surface },
   avatar: { width: AV, height: AV, borderRadius: AV / 2, backgroundColor: colors.tertiary },
   avatarEmpty: { alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceTertiary },
   avatarInitial: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.xl },

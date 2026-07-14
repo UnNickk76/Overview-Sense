@@ -43,8 +43,15 @@ export default function SenseVision() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const router = useRouter();
-  const { pulse: pulseId } = useLocalSearchParams<{ pulse?: string }>();
-  const pulseTask = useMemo(() => getPulseTask(pulseId), [pulseId]);
+  const { pulse: pulseId, gTitle, gTheme, gPrompt } = useLocalSearchParams<{ pulse?: string; gTitle?: string; gTheme?: string; gPrompt?: string }>();
+  const pulseTask = useMemo(() => {
+    const lib = getPulseTask(pulseId);
+    if (lib) return lib;
+    if (pulseId && gTitle) {
+      return { id: pulseId, title: gTitle, theme: gTheme || "Osservazione", prompt: gPrompt || "", hint: "", icon: "⚡", windows: ["any"] as const };
+    }
+    return undefined;
+  }, [pulseId, gTitle, gTheme, gPrompt]);
   const [perm, requestPerm] = useCameraPermissions();
   const obs = useObserver();
   const now = useNow(1000);

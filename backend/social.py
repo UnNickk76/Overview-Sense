@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 from database import db
 from auth import get_current_user, get_optional_user
+from feedback import get_creator
 
 social_router = APIRouter(prefix="/api", tags=["social"])
 
@@ -534,6 +535,127 @@ def _pulse_facts(o: dict) -> List[str]:
 class PulseCompareReq(BaseModel):
     obs_id_a: str
     obs_id_b: str
+
+
+# ---------------------------------------------------------------------------
+# Pulse™ Globali — one shared mission for the whole world.
+# Source: (1) auto curated calendar, (2) manual override from the Creator Console.
+# Participant counts are ALWAYS the real number of distinct observers (Beyond View).
+# ---------------------------------------------------------------------------
+# Curated weekly calendar of global themes (real, evergreen observation prompts).
+_GLOBAL_CALENDAR = [
+    {"key": "sky", "title": "Fotografa il cielo", "theme": "Cielo",
+     "prompt": "Ovunque tu sia nel mondo, cattura il cielo sopra di te in questo momento."},
+    {"key": "light", "title": "La luce di casa tua", "theme": "Luce",
+     "prompt": "Mostra come la luce cade sul tuo mondo, ora."},
+    {"key": "water", "title": "L'acqua vicino a te", "theme": "Acqua",
+     "prompt": "Trova dell'acqua — mare, fiume, pioggia, una goccia — e osservala."},
+    {"key": "green", "title": "Un segno di vita", "theme": "Natura",
+     "prompt": "Cattura una pianta, un fiore, un albero: la vita intorno a te."},
+    {"key": "horizon", "title": "Il tuo orizzonte", "theme": "Paesaggio",
+     "prompt": "Inquadra la linea dove la tua terra incontra il cielo."},
+    {"key": "shadow", "title": "Ombre del mondo", "theme": "Luce & Ombra",
+     "prompt": "Trova un'ombra e mostrala: la stessa luce, viste diverse."},
+    {"key": "color", "title": "Il colore di oggi", "theme": "Colore",
+     "prompt": "Qual è il colore che domina il tuo momento? Mostralo."},
+]
+
+
+def _day_bounds(now: datetime):
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    end = start + timedelta(days=1)
+    return start, end
+
+
+def _auto_global_pulse(now: datetime) -> dict:
+    start, end = _day_bounds(now)
+    theme = _GLOBAL_CALENDAR[now.weekday() % len(_GLOBAL_CALENDAR)]
+    return {
+        "id": f"g_{theme['key']}_{start.strftime('%Y%m%d')}",
+        "title": theme["title"],
+        "theme": theme["theme"],
+        "prompt": theme["prompt"],
+        "source": "auto",
+        "global": True,
+        "starts_at": start.isoformat(),
+        "ends_at": end.isoformat(),
+    }
+
+
+async def _resolve_global_pulse(now: datetime) -> dict:
+    """Manual override (Creator Console) wins while active; else the auto calendar."""
+    nowiso = now.isoformat()
+    manual = await db.global_pulses.find_one(
+        {"active": True, "starts_at": {"$lte": nowiso}, "ends_at": {"$gt": nowiso}},
+        {"_id": 0}, sort=[("starts_at", -1)])
+    if manual:
+        return manual
+    return _auto_global_pulse(now)
+
+
+async def _global_participants(gid: str, starts_at: str) -> int:
+    ids = await db.observations.distinct(
+        "user_id", {"is_pulse": True, "pulse_task.id": gid, "created_at": {"$gte": starts_at}})
+    return len(ids)
+
+
+@social_router.get("/pulse/global/active")
+async def pulse_global_active(viewer: Optional[dict] = Depends(get_optional_user)):
+    now = datetime.now(timezone.utc)
+    g = await _resolve_global_pulse(now)
+    participants = await _global_participants(g["id"], g.get("starts_at", ""))
+    return {"pulse": g, "participants": participants}
+
+
+@social_router.get("/pulse/global/{gid}/feed")
+async def pulse_global_feed(gid: str, limit: int = 120,
+                            viewer: Optional[dict] = Depends(get_optional_user)):
+    docs = await db.observations.find(
+        {"is_pulse": True, "pulse_task.id": gid}, {"_id": 0}
+    ).sort("created_at", -1).limit(min(limit, 300)).to_list(300)
+    countries = len({o.get("data", {}).get("country") for o in docs if (o.get("data") or {}).get("country")})
+    my: dict = {}
+    saved: set = set()
+    if viewer:
+        oids = [o["id"] for o in docs]
+        async for it in db.interactions.find({"user_id": viewer["id"], "obs_id": {"$in": oids}}):
+            my.setdefault(it["obs_id"], set()).add(it["type"])
+        async for sv in db.saves.find({"user_id": viewer["id"], "obs_id": {"$in": oids}}):
+            saved.add(sv["obs_id"])
+    participants = len({o["user_id"] for o in docs})
+    return {"items": [obs_public(o, my.get(o["id"], set()), o["id"] in saved) for o in docs],
+            "participants": participants, "countries": countries}
+
+
+class GlobalPulseReq(BaseModel):
+    title: str
+    prompt: str
+    theme: str = "Osservazione"
+    hours: int = 24
+
+
+@social_router.post("/creator/global-pulse")
+async def create_global_pulse(req: GlobalPulseReq, creator: dict = Depends(get_creator)):
+    now = datetime.now(timezone.utc)
+    gid = f"g_manual_{uuid.uuid4().hex[:8]}"
+    doc = {
+        "id": gid, "title": req.title.strip()[:80], "prompt": req.prompt.strip()[:280],
+        "theme": req.theme.strip()[:40] or "Osservazione", "source": "creator", "global": True,
+        "starts_at": now.isoformat(),
+        "ends_at": (now + timedelta(hours=max(1, min(req.hours, 720)))).isoformat(),
+        "active": True, "created_by": creator["id"],
+    }
+    # Only one manual global pulse active at a time.
+    await db.global_pulses.update_many({"active": True}, {"$set": {"active": False}})
+    await db.global_pulses.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@social_router.delete("/creator/global-pulse")
+async def stop_global_pulse(creator: dict = Depends(get_creator)):
+    await db.global_pulses.update_many({"active": True}, {"$set": {"active": False}})
+    return {"ok": True}
 
 
 @social_router.post("/pulse/compare")

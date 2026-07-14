@@ -30,7 +30,7 @@ type Item = {
 // Pulse and Sense Vision are permanent, non-removable pillars.
 const ITEMS: Item[] = [
   { key: "home", label: "Home", route: "/home", icon: "home-outline", iconActive: "home", match: ["/home"] },
-  { key: "pulse", label: "Pulse", route: "/pulse", icon: "pulse-outline", iconActive: "pulse", match: ["/pulse"], img: PULSE },
+  { key: "pulse", label: "Challenges", route: "/challenges", icon: "flash-outline", iconActive: "flash", match: ["/challenges", "/pulse", "/pulse-global"], img: PULSE },
   { key: "observe", label: "Observe", route: "/feed", icon: "globe-outline", iconActive: "globe", match: ["/feed"], ring: true },
   { key: "dm", label: "Messaggi", route: "/messages", icon: "chatbubbles-outline", iconActive: "chatbubbles", match: ["/messages", "/chat"] },
 ];

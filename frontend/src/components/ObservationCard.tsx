@@ -59,6 +59,14 @@ export function ObservationCard({ obs }: { obs: FeedObservation }) {
             <Ionicons name={obs.media_type === "audio" ? "musical-notes" : "image"} size={40} color={colors.onSurfaceSecondary} />
           </View>
         )}
+        {obs.is_pulse ? (
+          <View style={styles.pulseBadge}>
+            <Ionicons name="flash" size={12} color={colors.onBrand} />
+            <Text style={styles.pulseBadgeText}>
+              {obs.pulse_task?.id?.startsWith("g_") ? "GLOBAL PULSE" : "PULSE"}
+            </Text>
+          </View>
+        ) : null}
       </Pressable>
 
       <View style={styles.body}>
@@ -85,6 +93,8 @@ const styles = StyleSheet.create({
   sv: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.tertiary, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 3 },
   svText: { color: colors.brand, fontFamily: fonts.monoMedium, fontSize: type.sm - 1 },
   image: { width: "100%", aspectRatio: 1, backgroundColor: colors.tertiary },
+  pulseBadge: { position: "absolute", top: spacing.sm, left: spacing.sm, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.brand, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 3 },
+  pulseBadgeText: { color: colors.onBrand, fontFamily: fonts.bold, fontSize: type.sm - 3, letterSpacing: 0.6 },
   audioPlaceholder: { alignItems: "center", justifyContent: "center" },
   body: { padding: spacing.md, gap: spacing.md },
   caption: { color: colors.onSurface, fontFamily: fonts.regular, fontSize: type.base, lineHeight: 20 },

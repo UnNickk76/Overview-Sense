@@ -180,6 +180,17 @@ export const socialApi = {
 };
 
 // ---- Pulse™ ----
+export interface GlobalPulse {
+  id: string;
+  title: string;
+  theme: string;
+  prompt: string;
+  source: "auto" | "creator";
+  global: boolean;
+  starts_at: string;
+  ends_at: string;
+}
+
 export const pulseApi = {
   feed: (taskId?: string) => {
     const q = taskId ? `?task_id=${encodeURIComponent(taskId)}` : "";
@@ -189,6 +200,12 @@ export const pulseApi = {
     apiFetch<{ text: string; theme: string }>("/pulse/compare", {
       method: "POST", body: JSON.stringify({ obs_id_a, obs_id_b }),
     }),
+  globalActive: () => apiFetch<{ pulse: GlobalPulse; participants: number }>("/pulse/global/active"),
+  globalFeed: (gid: string) =>
+    apiFetch<{ items: FeedObservation[]; participants: number; countries: number }>(`/pulse/global/${gid}/feed`),
+  setGlobal: (payload: { title: string; prompt: string; theme?: string; hours?: number }) =>
+    apiFetch<GlobalPulse>("/creator/global-pulse", { method: "POST", body: JSON.stringify(payload) }),
+  stopGlobal: () => apiFetch<{ ok: boolean }>("/creator/global-pulse", { method: "DELETE" }),
 };
 
 export interface VerifiedEvent {

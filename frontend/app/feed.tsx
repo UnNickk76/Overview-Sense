@@ -11,6 +11,7 @@ import { BottomNav } from "@/src/components/BottomNav";
 import { LiveEarth } from "@/src/components/LiveEarth";
 import { VerifiedEvents } from "@/src/components/VerifiedEvents";
 import { SenseMark } from "@/src/components/SenseMark";
+import { BrandName } from "@/src/components/Brand";
 import { SnapSenseBar } from "@/src/components/SnapSenseBar";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { socialApi, FeedObservation, FeedFilters } from "@/src/lib/backend";
@@ -72,7 +73,7 @@ export default function Feed() {
         <View style={styles.brandRow}>
           <SenseMark size={30} />
           <View>
-            <Text style={styles.headerTitle} numberOfLines={1}>Observe</Text>
+            <BrandName name="Observe" style={styles.headerTitle} />
             <Text style={styles.headerSubtitle}>Cosa sta osservando il mondo, ora.</Text>
           </View>
         </View>
