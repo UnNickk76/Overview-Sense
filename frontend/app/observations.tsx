@@ -8,6 +8,7 @@ import * as Haptics from "expo-haptics";
 import { createAudioPlayer, AudioPlayer } from "expo-audio";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
+import { BottomNav } from "@/src/components/BottomNav";
 import { colors, fonts, spacing, type } from "@/src/theme";
 import { listObservations, removeObservation, observationCode, Observation } from "@/src/lib/gallery";
 
@@ -41,7 +42,7 @@ export default function Observations() {
   return (
     <SpaceBackground>
       <ScreenHeader title="Le mie osservazioni" subtitle={`${items.length} salvate`} />
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"], gap: spacing.lg }} showsVerticalScrollIndicator={false} testID="observations-screen">
+      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 110, gap: spacing.lg }} showsVerticalScrollIndicator={false} testID="observations-screen">
         {items.length === 0 ? (
           <View style={styles.empty}>
             <Ionicons name="images-outline" size={44} color={colors.brand} />
@@ -90,6 +91,7 @@ export default function Observations() {
           </>
         ) : null}
       </ScrollView>
+      <BottomNav />
     </SpaceBackground>
   );
 }

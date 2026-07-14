@@ -776,3 +776,43 @@ async def update_avatar(req: AvatarReq, user: dict = Depends(get_current_user)):
     await db.users.update_one({"id": user["id"]},
                               {"$set": {"avatar": avatar_url, "updated_at": datetime.now(timezone.utc).isoformat()}})
     return {"avatar": avatar_url}
+
+
+# ---------------------------------------------------------------------------
+# Activity — interactions received on MY observations + comments + new followers
+# ---------------------------------------------------------------------------
+@social_router.get("/activity")
+async def activity(user: dict = Depends(get_current_user), limit: int = 50):
+    obs_ids = [o["id"] async for o in db.observations.find(
+        {"user_id": user["id"]}, {"_id": 0, "id": 1}).limit(500)]
+    events: List[dict] = []
+    if obs_ids:
+        async for it in db.interactions.find(
+            {"obs_id": {"$in": obs_ids}, "user_id": {"$ne": user["id"]}},
+            {"_id": 0}).sort("created_at", -1).limit(150):
+            events.append({"kind": it["type"], "actor_id": it["user_id"],
+                           "obs_id": it["obs_id"], "created_at": it.get("created_at", ""), "text": None})
+        async for c in db.comments.find(
+            {"obs_id": {"$in": obs_ids}, "user_id": {"$ne": user["id"]}},
+            {"_id": 0}).sort("created_at", -1).limit(80):
+            events.append({"kind": "comment", "actor_id": c["user_id"], "actor_nick": c.get("nickname"),
+                           "obs_id": c["obs_id"], "created_at": c.get("created_at", ""), "text": c.get("text")})
+    async for f in db.follows.find(
+            {"following_id": user["id"]}, {"_id": 0}).sort("created_at", -1).limit(80):
+        events.append({"kind": "follow", "actor_id": f["follower_id"],
+                       "obs_id": None, "created_at": f.get("created_at", ""), "text": None})
+
+    events.sort(key=lambda e: e.get("created_at", ""), reverse=True)
+    events = events[:limit]
+
+    actor_ids = list({e["actor_id"] for e in events})
+    users_map = {}
+    if actor_ids:
+        async for u in db.users.find({"id": {"$in": actor_ids}},
+                                     {"_id": 0, "id": 1, "nickname": 1, "avatar": 1}):
+            users_map[u["id"]] = u
+    for e in events:
+        u = users_map.get(e["actor_id"], {})
+        e["actor_nickname"] = e.pop("actor_nick", None) or u.get("nickname") or "Qualcuno"
+        e["actor_avatar"] = u.get("avatar")
+    return {"items": events, "count": len(events)}

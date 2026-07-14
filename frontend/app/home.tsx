@@ -8,17 +8,16 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInDown, useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, Easing } from "react-native-reanimated";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
-import { GlassCard } from "@/src/components/GlassCard";
+import { BlurView } from "expo-blur";
 import { MiniSun, MiniOrrery, MiniField } from "@/src/components/MiniViz";
-import { TodayCard } from "@/src/components/TodayCard";
-import { ObservationOfTheDay } from "@/src/components/ObservationOfTheDay";
-import { SenseVisionCard } from "@/src/components/SenseVisionCard";
+import { HomeTopCards } from "@/src/components/HomeTopCards";
 import { SenseMark } from "@/src/components/SenseMark";
 import { OverviewShortcut } from "@/src/components/OverviewShortcut";
-import { colors, fonts, spacing, type } from "@/src/theme";
+import { BottomNav } from "@/src/components/BottomNav";
+import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { useObserver, useNow } from "@/src/hooks/useObserver";
 import { useAuth } from "@/src/context/AuthContext";
-import { api, Weather, SpaceWeather, ISS } from "@/src/lib/api";
+import { api, SpaceWeather } from "@/src/lib/api";
 import { socialApi } from "@/src/lib/backend";
 import { computeSky } from "@/src/lib/skyObjects";
 import { dayNumber, sun, moon, toHorizontal, moonPhase, earthRotationSpeedKmh, sunLightMinutes, AU_KM, EARTH_RADIUS_KM } from "@/src/lib/astronomy";
@@ -29,23 +28,22 @@ const RING = require("@/assets/images/icon-ring.png");
 
 type Viz = "sun" | "orrery" | "field" | null;
 interface Layer {
-  key: string; route: string; overline: string; title: string;
+  key: string; route: string; overline: string; title: string; teaser: string;
   icon: keyof typeof Ionicons.glyphMap; accent: string; viz: Viz;
 }
 
 const LAYERS: Layer[] = [
-  { key: "now", route: "/qui-e-ora", overline: "EARTH LAYER", title: "Qui e Ora", icon: "pulse", accent: colors.brand, viz: null },
-  { key: "sky", route: "/cielo", overline: "SKY LAYER", title: "Cielo", icon: "telescope", accent: colors.blue, viz: null },
-  { key: "universe", route: "/universo", overline: "UNIVERSE LAYER", title: "Universo", icon: "planet", accent: colors.brand, viz: "orrery" },
-  { key: "invisible", route: "/realta-invisibile", overline: "MAGNETIC LAYER", title: "Realtà Invisibile", icon: "magnet", accent: colors.blue, viz: "field" },
-  { key: "fields", route: "/sense-vision", overline: "SENSE VISION™", title: "Sense Vision", icon: "eye", accent: colors.brand, viz: null },
-  { key: "space-weather", route: "/meteo-spaziale", overline: "SOLAR LAYER", title: "Meteo Spaziale", icon: "sunny", accent: colors.brand, viz: "sun" },
-  { key: "satellite", route: "/earth-explorer", overline: "SATELLITE LAYER", title: "Satellite Observation", icon: "earth", accent: colors.blue, viz: null },
-  { key: "audio", route: "/audio", overline: "SIGNAL LAYER", title: "Sonificazione", icon: "musical-notes", accent: colors.blue, viz: null },
-  { key: "timeline", route: "/timeline", overline: "TIME LAYER", title: "Timeline", icon: "time", accent: colors.brand, viz: null },
-  { key: "gallery", route: "/observations", overline: "I TUOI SENSHOT", title: "Galleria", icon: "images", accent: colors.brand, viz: null },
-  { key: "feed", route: "/feed", overline: "COMMUNITY", title: "OverView Sense Universe", icon: "globe", accent: colors.blue, viz: null },
-  { key: "ai", route: "/assistant", overline: "GUIDE", title: "Assistente", icon: "sparkles", accent: colors.blue, viz: null },
+  { key: "now", route: "/qui-e-ora", overline: "EARTH LAYER", title: "Qui e Ora", teaser: "Scopri il tuo ambiente.", icon: "pulse", accent: colors.brand, viz: null },
+  { key: "sky", route: "/cielo", overline: "SKY LAYER", title: "Cielo", teaser: "Osserva oltre l'orizzonte.", icon: "telescope", accent: colors.blue, viz: null },
+  { key: "universe", route: "/universo", overline: "UNIVERSE LAYER", title: "Universo", teaser: "Esplora il cosmo.", icon: "planet", accent: colors.brand, viz: "orrery" },
+  { key: "invisible", route: "/realta-invisibile", overline: "MAGNETIC LAYER", title: "Realtà Invisibile", teaser: "Ciò che gli altri non vedono.", icon: "magnet", accent: colors.blue, viz: "field" },
+  { key: "satellite", route: "/earth-explorer", overline: "SATELLITE LAYER", title: "Satellite", teaser: "Viaggia sulla Terra.", icon: "earth", accent: colors.blue, viz: null },
+  { key: "space-weather", route: "/meteo-spaziale", overline: "SOLAR LAYER", title: "Meteo Spaziale", teaser: "Il Sole e lo spazio vicino.", icon: "sunny", accent: colors.brand, viz: "sun" },
+  { key: "audio", route: "/audio", overline: "SIGNAL LAYER", title: "Sonificazione", teaser: "Ascolta i dati reali.", icon: "musical-notes", accent: colors.blue, viz: null },
+  { key: "timeline", route: "/timeline", overline: "TIME LAYER", title: "Timeline", teaser: "Il cielo di qualsiasi data.", icon: "time", accent: colors.brand, viz: null },
+  { key: "gallery", route: "/observations", overline: "I TUOI SENSHOT", title: "Galleria", teaser: "I tuoi momenti.", icon: "images", accent: colors.brand, viz: null },
+  { key: "feed", route: "/feed", overline: "COMMUNITY", title: "Sense Universe", teaser: "Cosa osservano gli altri.", icon: "globe", accent: colors.blue, viz: null },
+  { key: "ai", route: "/assistant", overline: "GUIDE", title: "Assistente", teaser: "Chiedi cosa osservi.", icon: "sparkles", accent: colors.blue, viz: null },
 ];
 
 export default function Home() {
@@ -54,9 +52,7 @@ export default function Home() {
   const { user } = useAuth();
   const obs = useObserver();
   const now = useNow(1000);
-  const [weather, setWeather] = useState<Weather | null>(null);
   const [space, setSpace] = useState<SpaceWeather | null>(null);
-  const [iss, setIss] = useState<ISS | null>(null);
   const [phraseIdx, setPhraseIdx] = useState(() => Math.floor(Math.random() * 8));
   const [satCount, setSatCount] = useState<number | null>(null);
   const [hasNew, setHasNew] = useState(false);
@@ -95,14 +91,10 @@ export default function Home() {
 
   useEffect(() => {
     api.spaceWeather().then(setSpace).catch(() => {});
-    api.iss().then(setIss).catch(() => {});
     if (!hasSatrecs()) {
       api.satellites().then((r) => { if (r.available && r.satellites?.length) loadSatrecs(r.satellites); }).catch(() => {});
     }
   }, []);
-  useEffect(() => {
-    if (obs.status === "granted") api.weather(obs.lat, obs.lon).then(setWeather).catch(() => {});
-  }, [obs.status, obs.lat, obs.lon]);
   useEffect(() => {
     if (obs.status === "granted" && hasSatrecs()) {
       try { setSatCount(satellitesOverhead(new Date(), obs.lat, obs.lon).length); } catch { /* ignore */ }
@@ -158,28 +150,6 @@ export default function Home() {
     return () => clearInterval(t);
   }, [phrases.length]);
 
-  const captionFor = (key: string): string => {
-    switch (key) {
-      case "now": {
-        const t = weather?.temperature_c != null ? `${nf(weather.temperature_c, 0)}°` : "—";
-        const sunTxt = live.sunAlt != null ? ` · Sole ${nf(live.sunAlt, 0)}°` : "";
-        return `${t} · ${live.phase.emoji} ${nf(live.phase.illumination * 100, 0)}%${sunTxt}`;
-      }
-      case "sky": return live.highlight;
-      case "space-weather": return space?.kp_index?.available ? `Kp ${nf(space.kp_index.value ?? 0, 1)} · ${space.kp_index.level}` : "NOAA · in ascolto";
-      case "invisible": return iss?.available ? "ISS + campi in tempo reale" : "Campi, forze e satelliti";
-      case "fields": return "Rivela l'invisibile · Make a Sense";
-      case "satellite": return "Osserva la Terra dallo spazio";
-      case "feed": return "The social universe of real discoveries";
-      case "universe": return "Sistema Solare in movimento";
-      case "audio": return "Ascolta i dati reali";
-      case "timeline": return "Il cielo di qualsiasi data";
-      case "gallery": return "I tuoi Senshot salvati";
-      case "ai": return "Chiedi cosa stai osservando";
-      default: return "";
-    }
-  };
-
   const go = (route: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(route as never);
@@ -188,7 +158,7 @@ export default function Home() {
   return (
     <SpaceBackground>
       <ScrollView
-        contentContainerStyle={{ paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xl }}
+        contentContainerStyle={{ paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + 110 }}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.brandRow}>
@@ -210,11 +180,7 @@ export default function Home() {
           </Animated.Text>
         </View>
 
-        <SenseVisionCard />
-
-        <TodayCard />
-
-        <ObservationOfTheDay />
+        <HomeTopCards />
 
         <Text style={styles.sectionLabel}>ACCENDI UNO STRATO DELLA REALTÀ</Text>
 
@@ -222,28 +188,31 @@ export default function Home() {
           {LAYERS.map((l, i) => (
             <Animated.View key={l.key} entering={FadeInDown.delay(i * 55).springify().damping(18)} style={styles.cell}>
               <Pressable testID={`module-${l.key}`} onPress={() => go(l.route)}>
-                <GlassCard style={styles.card}>
-                  <View style={styles.cardTop}>
+                <View style={styles.card}>
+                  <BlurView intensity={26} tint="dark" style={StyleSheet.absoluteFill} />
+                  <View style={styles.cardTint} />
+                  <View style={styles.cardIcon}>
                     {l.key === "feed" ? (
                       <View>
                         <Image source={RING} style={styles.ringIcon} contentFit="cover" />
                         {hasNew && <Animated.View style={[styles.cardNewDot, dotStyle]} pointerEvents="none" />}
                       </View>
                     )
-                      : l.key === "fields" ? <SenseMark size={42} />
-                      : l.viz === "sun" ? <MiniSun size={42} kp={space?.kp_index?.value ?? 0} />
-                      : l.viz === "orrery" ? <MiniOrrery size={42} />
-                      : l.viz === "field" ? <MiniField size={42} />
+                      : l.viz === "sun" ? <MiniSun size={40} kp={space?.kp_index?.value ?? 0} />
+                      : l.viz === "orrery" ? <MiniOrrery size={40} />
+                      : l.viz === "field" ? <MiniField size={40} />
                       : (
                         <View style={[styles.iconWrap, { borderColor: l.accent }]}>
-                          <Ionicons name={l.icon} size={20} color={l.accent} />
+                          <Ionicons name={l.icon} size={19} color={l.accent} />
                         </View>
                       )}
                   </View>
-                  <Text style={styles.overline}>{l.overline}</Text>
-                  <Text style={styles.title}>{l.title}</Text>
-                  <Text style={styles.caption} numberOfLines={2}>{captionFor(l.key)}</Text>
-                </GlassCard>
+                  <View style={styles.cardText}>
+                    <Text style={styles.overline} numberOfLines={1}>{l.overline}</Text>
+                    <Text style={styles.title} numberOfLines={1}>{l.title}</Text>
+                    <Text style={styles.caption} numberOfLines={1}>{l.teaser}</Text>
+                  </View>
+                </View>
               </Pressable>
             </Animated.View>
           ))}
@@ -270,6 +239,8 @@ export default function Home() {
       >
         <SenseMark size={38} />
       </Pressable>
+
+      <BottomNav active="home" />
     </SpaceBackground>
   );
 }
@@ -289,12 +260,14 @@ const styles = StyleSheet.create({
   sectionLabel: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm - 1, letterSpacing: 1.5, textAlign: "center", marginBottom: spacing.lg },
   grid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: spacing.lg, gap: spacing.md },
   cell: { width: "47.5%" },
-  card: { minHeight: 150, justifyContent: "flex-start" },
-  cardTop: { height: 46, marginBottom: spacing.sm },
-  iconWrap: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", borderWidth: 1, backgroundColor: "rgba(0,0,0,0.3)" },
-  overline: { color: colors.brand, fontFamily: fonts.medium, fontSize: type.sm - 3, letterSpacing: 1.2 },
-  title: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.lg, marginTop: 2 },
-  caption: { color: colors.onSurfaceSecondary, fontFamily: fonts.mono, fontSize: type.sm - 1, marginTop: 4, lineHeight: 16 },
+  card: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md, borderRadius: radius.lg, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  cardTint: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(26,29,36,0.75)" },
+  cardIcon: { width: 40, alignItems: "center", justifyContent: "center" },
+  cardText: { flex: 1 },
+  iconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", borderWidth: 1, backgroundColor: "rgba(0,0,0,0.3)" },
+  overline: { color: colors.brand, fontFamily: fonts.medium, fontSize: type.sm - 4, letterSpacing: 0.8 },
+  title: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base, marginTop: 1 },
+  caption: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 2, marginTop: 2 },
   footer: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, textAlign: "center", marginTop: spacing["2xl"], paddingHorizontal: spacing.xl, opacity: 0.55 },
   signatureWrap: { alignItems: "center", gap: spacing.md, paddingVertical: spacing.xl, marginTop: spacing.lg },
   sigRule: { width: 100, height: StyleSheet.hairlineWidth, backgroundColor: colors.borderStrong },

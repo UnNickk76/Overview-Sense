@@ -94,6 +94,16 @@ export interface Comment {
 
 export type InteractionType = "observed" | "discovery" | "learned";
 
+export interface ActivityEvent {
+  kind: "observed" | "discovery" | "learned" | "comment" | "follow";
+  actor_id: string;
+  actor_nickname: string;
+  actor_avatar?: string | null;
+  obs_id: string | null;
+  text?: string | null;
+  created_at: string;
+}
+
 // ---- Auth ----
 export const authApi = {
   register: (email: string, nickname: string, password: string) =>
@@ -153,6 +163,7 @@ export const socialApi = {
   addComment: (id: string, text: string) =>
     apiFetch<Comment>(`/observations/${id}/comments`, { method: "POST", body: JSON.stringify({ text }) }),
   profile: (id: string) => apiFetch<Profile>(`/users/${id}`),
+  activity: () => apiFetch<{ items: ActivityEvent[]; count: number }>("/activity"),
   userObservations: (id: string) => apiFetch<{ items: FeedObservation[] }>(`/users/${id}/observations`),
   follow: (id: string) => apiFetch<{ following: boolean }>(`/users/${id}/follow`, { method: "POST" }),
   unfollow: (id: string) => apiFetch<{ following: boolean }>(`/users/${id}/follow`, { method: "DELETE" }),

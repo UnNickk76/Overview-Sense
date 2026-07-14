@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
+import { BottomNav } from "@/src/components/BottomNav";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { socialApi, Profile as ProfileT, FeedObservation, mediaUrl } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
@@ -89,7 +90,7 @@ export default function Profile() {
       ) : !profile ? (
         <View style={styles.center}><Text style={styles.empty}>Profilo non trovato.</Text></View>
       ) : (
-        <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"], gap: spacing.lg }} showsVerticalScrollIndicator={false} testID="profile-view">
+        <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 110, gap: spacing.lg }} showsVerticalScrollIndicator={false} testID="profile-view">
           <View style={styles.headerCard}>
             {profile.avatar ? (
               <Image source={{ uri: mediaUrl(profile.avatar)! }} style={styles.avatar} contentFit="cover" transition={150} />
@@ -182,6 +183,7 @@ export default function Profile() {
           })()}
         </ScrollView>
       )}
+      <BottomNav active="profile" />
     </SpaceBackground>
   );
 }

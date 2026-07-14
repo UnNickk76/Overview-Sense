@@ -7,6 +7,7 @@ import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { ObservationCard } from "@/src/components/ObservationCard";
+import { BottomNav } from "@/src/components/BottomNav";
 import { LiveEarth } from "@/src/components/LiveEarth";
 import { VerifiedEvents } from "@/src/components/VerifiedEvents";
 import { SenseMark } from "@/src/components/SenseMark";
@@ -95,7 +96,7 @@ export default function Feed() {
       <SnapSenseBar />
 
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: insets.bottom + spacing["3xl"], gap: spacing.lg }}
+        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: insets.bottom + 110, gap: spacing.lg }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.brand} />}
       >
@@ -105,18 +106,14 @@ export default function Feed() {
         ) : items.length === 0 ? (
           <View style={styles.emptyWrap}>
             <Ionicons name="planet-outline" size={40} color={colors.onSurfaceSecondary} />
-            <Text style={styles.empty}>Ancora nessun Sense qui. Tocca il + e sii il primo a mostrare al mondo cosa stai osservando.</Text>
+            <Text style={styles.empty}>Ancora nessun Sense qui. Tocca “Make a Sense” e sii il primo a mostrare al mondo cosa stai osservando.</Text>
           </View>
         ) : (
           items.map((o) => <ObservationCard key={o.id} obs={o} />)
         )}
       </ScrollView>
 
-      {/* Sense Vision "+" — quick create, like Instagram */}
-      <Pressable testID="feed-create" style={[styles.fab, { bottom: insets.bottom + spacing.lg }]}
-        onPress={() => router.push("/sense-vision" as never)}>
-        <Ionicons name="add" size={30} color={colors.onBrand} />
-      </Pressable>
+      <BottomNav active="feed" />
 
       {/* Full-screen Live Earth — the world navigation map + all filters */}
       <Modal visible={earthFull} animationType="slide" onRequestClose={() => setEarthFull(false)}>
