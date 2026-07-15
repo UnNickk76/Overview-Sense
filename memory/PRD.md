@@ -723,3 +723,10 @@ RIMANE: reverse-geocode `data.country` alla cattura (per conteggio paesi Pulse g
 - CHIARIMENTO: la portata dello zoom è GIÀ al 100% dell'hardware (`maxZoom = device.maxZoom`, nessun clamp). Il "16×" era un vecchio clamp `Math.min(maxZoom,32)` (rimosso). L'etichetta = `zoom/neutralZoom`: 61,9× = ingrandimento rispetto al 1× (neutral≈2); il vecchio 123,8× era il fattore grezzo rispetto all'ultra-wide 0,5×. Stessa immagine finale. Scelta utente: mantenere **61,9×** (standard rispetto a 1×). Niente super-res (fedeli a Oltre la Vista).
 - PRESET ALTI: preset ora 0.5× · 1× · 2× · 5× · 10× · 25× · Max (Max = `device.maxZoom/neutral`, filtrati per device). Pill compatte.
 - GHIERA MEZZALUNA (stile iPhone): Pan orizzontale sulla riga dei preset (`wheelPan`, activeOffsetX ±10) → i preset lasciano il posto a un arco/mezzaluna (`ZoomCrescent`, SVG con tacche + tacca centrale dorata) e un readout live dello zoom; scorrendo dx/sx lo zoom cambia in modo fluido (scala log, `dispStart*1.35^(dx/45)`). Rilascio → torna ai preset. Il tap sui preset resta attivo (activeOffsetX). Solo build nativa.
+
+### SESSIONE (fork) — Home raggruppata Earth/Explore/Discover (2026-06)
+- Home alleggerita: la griglia "strati" (12 card) ora mostra 5 card: **Earth (5)**, **Explore (3)**, **Discover (2)** = card-gruppo che aprono un **bottom-sheet menu** con le sottosezioni; **Observe** e **Galleria** restano card indipendenti. Nessuna funzione rimossa: ogni voce apre la sua route esistente.
+  - EARTH: /qui-e-ora, /realta-invisibile, /meteo-spaziale, /audio, /timeline
+  - EXPLORE: /cielo, /universo, /earth-explorer(Satelliti)
+  - DISCOVER: /overview-guide(Guidami), /assistant(Assistente)
+- `app/home.tsx`: sostituito `LAYERS` con `GROUPS` + item-list; stato `menu`; Modal bottom-sheet (handle, header con icona/X, item con MiniViz/icona + teaser + chevron). MiniSun/MiniOrrery/MiniField riusati nel menu. Verificato via screenshot (Home 5 card, menu Earth/Explore aperti). Solo frontend.

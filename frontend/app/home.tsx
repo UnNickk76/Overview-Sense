@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, View, Pressable, ScrollView } from "react-native";
+import { StyleSheet, Text, View, Pressable, ScrollView, Modal } from "react-native";
 import { Image } from "expo-image";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -26,24 +26,39 @@ import { nf } from "@/src/lib/format";
 const RING = require("@/assets/images/icon-ring.png");
 
 type Viz = "sun" | "orrery" | "field" | null;
-interface Layer {
-  key: string; route: string; overline: string; title: string; teaser: string;
+interface Item {
+  key: string; route: string; title: string; teaser: string;
   icon: keyof typeof Ionicons.glyphMap; accent: string; viz: Viz;
 }
+interface Group {
+  key: string; overline: string; title: string; teaser: string;
+  icon: keyof typeof Ionicons.glyphMap; accent: string; items: Item[];
+}
 
-const LAYERS: Layer[] = [
-  { key: "now", route: "/qui-e-ora", overline: "EARTH LAYER", title: "Qui e Ora", teaser: "Scopri il tuo ambiente.", icon: "pulse", accent: colors.brand, viz: null },
-  { key: "guide", route: "/overview-guide", overline: "OVERVIEW GUIDE™", title: "Guidami", teaser: "Chiedi cosa osservare.", icon: "compass", accent: colors.brand, viz: null },
-  { key: "sky", route: "/cielo", overline: "SKY LAYER", title: "Cielo", teaser: "Osserva oltre l'orizzonte.", icon: "telescope", accent: colors.blue, viz: null },
-  { key: "universe", route: "/universo", overline: "UNIVERSE LAYER", title: "Universo", teaser: "Esplora il cosmo.", icon: "planet", accent: colors.brand, viz: "orrery" },
-  { key: "invisible", route: "/realta-invisibile", overline: "MAGNETIC LAYER", title: "Realtà Invisibile", teaser: "Ciò che gli altri non vedono.", icon: "magnet", accent: colors.blue, viz: "field" },
-  { key: "satellite", route: "/earth-explorer", overline: "SATELLITE LAYER", title: "Satellite", teaser: "Viaggia sulla Terra.", icon: "earth", accent: colors.blue, viz: null },
-  { key: "space-weather", route: "/meteo-spaziale", overline: "SOLAR LAYER", title: "Meteo Spaziale", teaser: "Il Sole e lo spazio vicino.", icon: "sunny", accent: colors.brand, viz: "sun" },
-  { key: "audio", route: "/audio", overline: "SIGNAL LAYER", title: "Sonificazione", teaser: "Ascolta i dati reali.", icon: "musical-notes", accent: colors.blue, viz: null },
-  { key: "timeline", route: "/timeline", overline: "TIME LAYER", title: "Timeline", teaser: "Il cielo di qualsiasi data.", icon: "time", accent: colors.brand, viz: null },
-  { key: "gallery", route: "/observations", overline: "I TUOI SENSHOT", title: "Galleria", teaser: "I tuoi momenti.", icon: "images", accent: colors.brand, viz: null },
-  { key: "feed", route: "/feed", overline: "OBSERVE", title: "Observe", teaser: "Cosa osservano gli altri.", icon: "globe", accent: colors.blue, viz: null },
-  { key: "ai", route: "/assistant", overline: "GUIDE", title: "Assistente", teaser: "Chiedi cosa osservi.", icon: "sparkles", accent: colors.blue, viz: null },
+// EARTH — the place we are in, its environment and what we can't normally sense.
+const EARTH_ITEMS: Item[] = [
+  { key: "now", route: "/qui-e-ora", title: "Qui e Ora", teaser: "Scopri il tuo ambiente.", icon: "pulse", accent: colors.brand, viz: null },
+  { key: "invisible", route: "/realta-invisibile", title: "Realtà Invisibile", teaser: "Ciò che gli altri non vedono.", icon: "magnet", accent: colors.blue, viz: "field" },
+  { key: "space-weather", route: "/meteo-spaziale", title: "Meteo Spaziale", teaser: "Il Sole e lo spazio vicino.", icon: "sunny", accent: colors.brand, viz: "sun" },
+  { key: "audio", route: "/audio", title: "Sonificazione", teaser: "Ascolta i dati reali.", icon: "musical-notes", accent: colors.blue, viz: null },
+  { key: "timeline", route: "/timeline", title: "Timeline", teaser: "Il cielo di qualsiasi data.", icon: "time", accent: colors.brand, viz: null },
+];
+// EXPLORE — observation beyond the Earth.
+const EXPLORE_ITEMS: Item[] = [
+  { key: "sky", route: "/cielo", title: "Cielo", teaser: "Osserva oltre l'orizzonte.", icon: "telescope", accent: colors.blue, viz: null },
+  { key: "universe", route: "/universo", title: "Universo", teaser: "Esplora il cosmo.", icon: "planet", accent: colors.brand, viz: "orrery" },
+  { key: "satellite", route: "/earth-explorer", title: "Satelliti", teaser: "Viaggia sulla Terra.", icon: "earth", accent: colors.blue, viz: null },
+];
+// DISCOVER — AI-guided discovery tools.
+const DISCOVER_ITEMS: Item[] = [
+  { key: "guide", route: "/overview-guide", title: "Guidami", teaser: "Chiedi cosa osservare.", icon: "compass", accent: colors.brand, viz: null },
+  { key: "ai", route: "/assistant", title: "Assistente", teaser: "Chiedi cosa stai osservando.", icon: "sparkles", accent: colors.blue, viz: null },
+];
+
+const GROUPS: Group[] = [
+  { key: "earth", overline: "EARTH", title: "Earth", teaser: "Qui, ora e l'invisibile.", icon: "earth", accent: colors.brand, items: EARTH_ITEMS },
+  { key: "explore", overline: "EXPLORE", title: "Explore", teaser: "Oltre la Terra.", icon: "telescope", accent: colors.blue, items: EXPLORE_ITEMS },
+  { key: "discover", overline: "DISCOVER", title: "Discover", teaser: "Scoperta guidata dall'AI.", icon: "sparkles", accent: colors.brand, items: DISCOVER_ITEMS },
 ];
 
 export default function Home() {
@@ -56,6 +71,7 @@ export default function Home() {
   const [phraseIdx, setPhraseIdx] = useState(() => Math.floor(Math.random() * 8));
   const [satCount, setSatCount] = useState<number | null>(null);
   const [hasNew, setHasNew] = useState(false);
+  const [menu, setMenu] = useState<Group | null>(null);
 
   // Detect new Observations in the OverView Sense Universe since last visit.
   useEffect(() => {
@@ -180,40 +196,71 @@ export default function Home() {
 
         <HomeTopCards />
 
-        <Text style={styles.sectionLabel}>ACCENDI UNO STRATO DELLA REALTÀ</Text>
+        <Text style={styles.sectionLabel}>ESPLORA LA REALTÀ</Text>
 
         <View style={styles.grid}>
-          {LAYERS.map((l, i) => (
-            <Animated.View key={l.key} entering={FadeInDown.delay(i * 55).springify().damping(18)} style={styles.cell}>
-              <Pressable testID={`module-${l.key}`} onPress={() => go(l.route)}>
+          {GROUPS.map((g, i) => (
+            <Animated.View key={g.key} entering={FadeInDown.delay(i * 55).springify().damping(18)} style={styles.cell}>
+              <Pressable testID={`group-${g.key}`} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setMenu(g); }}>
                 <View style={styles.card}>
                   <BlurView intensity={26} tint="dark" style={StyleSheet.absoluteFill} />
                   <View style={styles.cardTint} />
                   <View style={styles.cardIcon}>
-                    {l.key === "feed" ? (
-                      <View>
-                        <Image source={RING} style={styles.ringIcon} contentFit="cover" />
-                        {hasNew && <Animated.View style={[styles.cardNewDot, dotStyle]} pointerEvents="none" />}
-                      </View>
-                    )
-                      : l.viz === "sun" ? <MiniSun size={40} kp={space?.kp_index?.value ?? 0} />
-                      : l.viz === "orrery" ? <MiniOrrery size={40} />
-                      : l.viz === "field" ? <MiniField size={40} />
-                      : (
-                        <View style={[styles.iconWrap, { borderColor: l.accent }]}>
-                          <Ionicons name={l.icon} size={19} color={l.accent} />
-                        </View>
-                      )}
+                    <View style={[styles.iconWrap, { borderColor: g.accent }]}>
+                      <Ionicons name={g.icon} size={19} color={g.accent} />
+                    </View>
                   </View>
                   <View style={styles.cardText}>
-                    <Text style={styles.overline} numberOfLines={1}>{l.overline}</Text>
-                    <Text style={styles.title} numberOfLines={1}>{l.title}</Text>
-                    <Text style={styles.caption} numberOfLines={1}>{l.teaser}</Text>
+                    <Text style={styles.overline} numberOfLines={1}>{g.overline} · {g.items.length}</Text>
+                    <Text style={styles.title} numberOfLines={1}>{g.title}</Text>
+                    <Text style={styles.caption} numberOfLines={1}>{g.teaser}</Text>
                   </View>
+                  <Ionicons name="chevron-forward" size={15} color={colors.onSurfaceSecondary} />
                 </View>
               </Pressable>
             </Animated.View>
           ))}
+
+          {/* Observe — the social layer stays independent */}
+          <Animated.View entering={FadeInDown.delay(GROUPS.length * 55).springify().damping(18)} style={styles.cell}>
+            <Pressable testID="module-feed" onPress={() => go("/feed")}>
+              <View style={styles.card}>
+                <BlurView intensity={26} tint="dark" style={StyleSheet.absoluteFill} />
+                <View style={styles.cardTint} />
+                <View style={styles.cardIcon}>
+                  <View>
+                    <Image source={RING} style={styles.ringIcon} contentFit="cover" />
+                    {hasNew && <Animated.View style={[styles.cardNewDot, dotStyle]} pointerEvents="none" />}
+                  </View>
+                </View>
+                <View style={styles.cardText}>
+                  <Text style={styles.overline} numberOfLines={1}>OBSERVE</Text>
+                  <Text style={styles.title} numberOfLines={1}>Observe</Text>
+                  <Text style={styles.caption} numberOfLines={1}>Cosa osservano gli altri.</Text>
+                </View>
+              </View>
+            </Pressable>
+          </Animated.View>
+
+          {/* Gallery — personal collection, independent */}
+          <Animated.View entering={FadeInDown.delay((GROUPS.length + 1) * 55).springify().damping(18)} style={styles.cell}>
+            <Pressable testID="module-gallery" onPress={() => go("/observations")}>
+              <View style={styles.card}>
+                <BlurView intensity={26} tint="dark" style={StyleSheet.absoluteFill} />
+                <View style={styles.cardTint} />
+                <View style={styles.cardIcon}>
+                  <View style={[styles.iconWrap, { borderColor: colors.brand }]}>
+                    <Ionicons name="images" size={19} color={colors.brand} />
+                  </View>
+                </View>
+                <View style={styles.cardText}>
+                  <Text style={styles.overline} numberOfLines={1}>I TUOI SENSHOT</Text>
+                  <Text style={styles.title} numberOfLines={1}>Galleria</Text>
+                  <Text style={styles.caption} numberOfLines={1}>Le tue scoperte.</Text>
+                </View>
+              </View>
+            </Pressable>
+          </Animated.View>
         </View>
 
         <Pressable testID="home-signature" onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/about" as never); }} style={styles.signatureWrap}>
@@ -227,6 +274,47 @@ export default function Home() {
           Ogni dato proviene da sensori del dispositivo o da fonti scientifiche pubbliche. Mai inventato.
         </Text>
       </ScrollView>
+
+      {/* Group menu — opens sub-sections without leaving Home */}
+      <Modal visible={!!menu} transparent animationType="slide" onRequestClose={() => setMenu(null)}>
+        <Pressable style={styles.menuScrim} onPress={() => setMenu(null)}>
+          <Pressable style={[styles.menuSheet, { paddingBottom: insets.bottom + spacing.lg }]} onPress={() => {}}>
+            <View style={styles.menuHandle} />
+            <View style={styles.menuHead}>
+              <View style={[styles.iconWrap, { borderColor: menu?.accent ?? colors.brand }]}>
+                <Ionicons name={menu?.icon ?? "planet"} size={20} color={menu?.accent ?? colors.brand} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.overline}>{menu?.overline}</Text>
+                <Text style={styles.menuTitle}>{menu?.title}</Text>
+              </View>
+              <Pressable testID="menu-close" hitSlop={10} onPress={() => setMenu(null)}>
+                <Ionicons name="close" size={24} color={colors.onSurface} />
+              </Pressable>
+            </View>
+            {menu?.items.map((it) => (
+              <Pressable key={it.key} testID={`menu-item-${it.key}`} style={styles.menuItem}
+                onPress={() => { setMenu(null); go(it.route); }}>
+                <View style={styles.menuItemIcon}>
+                  {it.viz === "sun" ? <MiniSun size={38} kp={space?.kp_index?.value ?? 0} />
+                    : it.viz === "orrery" ? <MiniOrrery size={38} />
+                    : it.viz === "field" ? <MiniField size={38} />
+                    : (
+                      <View style={[styles.iconWrap, { borderColor: it.accent }]}>
+                        <Ionicons name={it.icon} size={18} color={it.accent} />
+                      </View>
+                    )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.menuItemTitle}>{it.title}</Text>
+                  <Text style={styles.menuItemTeaser}>{it.teaser}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />
+              </Pressable>
+            ))}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <BottomNav active="home" />
     </SpaceBackground>
@@ -262,4 +350,13 @@ const styles = StyleSheet.create({
   signature: { color: colors.brand, fontFamily: fonts.regular, fontSize: type.lg, fontStyle: "italic", textAlign: "center", opacity: 0.8, paddingHorizontal: spacing.xl },
   copyright: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm, opacity: 0.7 },
   universeShortcut: { position: "absolute", left: spacing.lg, width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  menuScrim: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
+  menuSheet: { backgroundColor: colors.surfaceSecondary, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, borderWidth: 1, borderColor: colors.border },
+  menuHandle: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: colors.borderStrong, marginBottom: spacing.md },
+  menuHead: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingBottom: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, marginBottom: spacing.sm },
+  menuTitle: { color: colors.onSurface, fontFamily: fonts.bold, fontSize: type.xl },
+  menuItem: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md },
+  menuItemIcon: { width: 40, alignItems: "center", justifyContent: "center" },
+  menuItemTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
+  menuItemTeaser: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, marginTop: 1 },
 });
