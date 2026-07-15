@@ -87,7 +87,13 @@ export default function Activity() {
 
   return (
     <SpaceBackground>
-      <ScreenHeader title="Attività" subtitle="Chi ha reagito alle tue Observation" />
+      <ScreenHeader title="Attività" subtitle="Chi ha reagito alle tue Observation"
+        right={
+          <Pressable testID="notif-settings" hitSlop={10} onPress={() => { Haptics.selectionAsync(); router.push("/notification-settings" as never); }}>
+            <Ionicons name="notifications-outline" size={22} color={colors.onSurface} />
+          </Pressable>
+        }
+      />
       {!user ? (
         <View style={styles.center}>
           <Ionicons name="notifications-off-outline" size={54} color={colors.onSurfaceSecondary} />

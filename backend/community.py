@@ -15,7 +15,7 @@ from pydantic import BaseModel
 
 from database import db
 from auth import get_current_user, get_optional_user
-from push import send_push
+from push import send_push, notify, NOTIF_KINDS
 
 community_router = APIRouter(prefix="/api/community", tags=["community"])
 
@@ -53,6 +53,33 @@ def _privacy_public(u: dict) -> dict:
 @community_router.get("/privacy")
 async def get_privacy(user: dict = Depends(get_current_user)):
     return _privacy_public(user)
+
+
+# ---------------------------------------------------------------------------
+# Notification preferences — the user's Notification Control Center
+# ---------------------------------------------------------------------------
+def _notif_prefs(u: dict) -> dict:
+    saved = u.get("notif_prefs") or {}
+    # Default every category ON unless the user explicitly turned it off.
+    return {k: bool(saved.get(k, True)) for k in NOTIF_KINDS}
+
+
+@community_router.get("/notif-prefs")
+async def get_notif_prefs(user: dict = Depends(get_current_user)):
+    return _notif_prefs(user)
+
+
+class NotifPrefsUpdate(BaseModel):
+    prefs: dict
+
+
+@community_router.patch("/notif-prefs")
+async def update_notif_prefs(req: NotifPrefsUpdate, user: dict = Depends(get_current_user)):
+    updates = {f"notif_prefs.{k}": bool(v) for k, v in (req.prefs or {}).items() if k in NOTIF_KINDS}
+    if updates:
+        await db.users.update_one({"id": user["id"]}, {"$set": updates})
+    u = await db.users.find_one({"id": user["id"]})
+    return _notif_prefs(u)
 
 
 class PrivacyUpdate(BaseModel):
@@ -225,11 +252,17 @@ async def respond_mention(req_id: str, req: RespondReq, user: dict = Depends(get
     if dec == "reject":
         await db.mention_requests.update_one({"id": req_id}, {"$set": {"status": "rejected", "responded_at": now}})
         await _apply_mention(r["obs_id"], user["id"], None)  # ensure not mentioned
+        await notify(r.get("author_id"), "mentions", "OverView™",
+                     "Una tua richiesta di menzione non è stata accettata.",
+                     action_url=f"/observation-detail?id={r['obs_id']}", idempotency_key=f"{req_id}-rej")
         return {"status": "rejected"}
     display = _display_for(user, dec)
     await _apply_mention(r["obs_id"], user["id"], display)
     status = f"accepted_{dec}"
     await db.mention_requests.update_one({"id": req_id}, {"$set": {"status": status, "responded_at": now}})
+    await notify(r.get("author_id"), "mentions", "OverView™",
+                 "La tua richiesta di menzione è stata accettata ✨",
+                 action_url=f"/observation-detail?id={r['obs_id']}", idempotency_key=f"{req_id}-acc")
     return {"status": status}
 
 

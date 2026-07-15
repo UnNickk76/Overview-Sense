@@ -180,6 +180,10 @@ export default function Profile() {
                   <Ionicons name="shield-checkmark-outline" size={15} color={colors.brand} />
                   <Text style={styles.actionText}>Privacy</Text>
                 </Pressable>
+                <Pressable testID="profile-notif" style={styles.actionBtn} onPress={() => router.push("/notification-settings" as never)}>
+                  <Ionicons name="notifications-outline" size={15} color={colors.brand} />
+                  <Text style={styles.actionText}>Notifiche</Text>
+                </Pressable>
                 <Pressable testID="profile-feedback" style={styles.actionBtn} onPress={() => router.push("/feedback" as never)}>
                   <Ionicons name="chatbox-ellipses-outline" size={15} color={colors.brand} />
                   <Text style={styles.actionText}>Feedback</Text>

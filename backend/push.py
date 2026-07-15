@@ -10,7 +10,12 @@ import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from database import db
+
 logger = logging.getLogger("push")
+
+# Notification categories the user can toggle (all default ON).
+NOTIF_KINDS = ("reactions", "comments", "follows", "reposts", "mentions", "pulse", "opportunities")
 
 PUSH_BASE_URL = "https://integrations.emergentagent.com"
 PUSH_KEY = os.environ.get("EMERGENT_PUSH_KEY", "placeholder")
@@ -57,3 +62,25 @@ async def send_push(recipients: list, data: dict, idempotency_key: str = None) -
     if resp.status_code >= 500:
         raise HTTPException(502, "Push provider unavailable")
     resp.raise_for_status()
+
+
+async def notify(user_id: str, kind: str, title: str, message: str,
+                 action_url: str = None, idempotency_key: str = None) -> None:
+    """High-level, preference-aware notification for a single user.
+
+    Respects the recipient's `notif_prefs` toggle for `kind` (default ON) and
+    never raises — a failed/unavailable push must not affect the caller.
+    """
+    if not user_id:
+        return
+    try:
+        u = await db.users.find_one({"id": user_id}, {"_id": 0, "notif_prefs": 1})
+        prefs = (u or {}).get("notif_prefs") or {}
+        if prefs.get(kind) is False:  # opt-out; default is enabled
+            return
+        data = {"title": title, "message": message, "kind": kind}
+        if action_url:
+            data["action_url"] = action_url
+        await send_push([user_id], data, idempotency_key=idempotency_key)
+    except Exception:
+        pass

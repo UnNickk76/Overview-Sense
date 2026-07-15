@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from database import db
 from auth import get_current_user, get_optional_user
 from feedback import get_creator
+from push import notify, send_push
 
 social_router = APIRouter(prefix="/api", tags=["social"])
 
@@ -751,7 +752,27 @@ async def create_global_pulse(req: GlobalPulseReq, creator: dict = Depends(get_c
     await db.global_pulses.update_many({"active": True}, {"$set": {"active": False}})
     await db.global_pulses.insert_one(doc)
     doc.pop("_id", None)
+    # Broadcast to the community (chunked, preference-aware, non-blocking).
+    try:
+        uids = [u["id"] async for u in db.users.find({}, {"_id": 0, "id": 1})]
+        for i in range(0, len(uids), 90):
+            chunk = uids[i:i + 90]
+            allowed = [uid async for uid in _pulse_optin(chunk)]
+            if allowed:
+                await send_push(allowed,
+                                {"title": "Global Pulse™ 🌍", "message": doc["title"],
+                                 "action_url": "/pulse", "kind": "pulse"},
+                                idempotency_key=f"gpulse-{gid}-{i}")
+    except Exception:
+        pass
     return doc
+
+
+async def _pulse_optin(uids: list):
+    """Yield user ids that have NOT opted out of pulse notifications."""
+    async for u in db.users.find({"id": {"$in": uids}}, {"_id": 0, "id": 1, "notif_prefs": 1}):
+        if (u.get("notif_prefs") or {}).get("pulse", True) is not False:
+            yield u["id"]
 
 
 @social_router.delete("/creator/global-pulse")
@@ -836,6 +857,14 @@ async def interact(obs_id: str, req: InteractReq, user: dict = Depends(get_curre
         await db.observations.update_one({"id": obs_id}, {"$inc": {t: 1}})
         active = True
     doc = await db.observations.find_one({"id": obs_id})
+    if active:
+        owner = doc.get("user_id")
+        if owner and owner != user["id"]:
+            verb = {"observed": "ha osservato", "discovery": "ha segnato come Scoperta",
+                    "learned": "ha imparato da"}.get(t, "ha reagito a")
+            await notify(owner, "reactions", "OverView™",
+                         f"@{user['nickname']} {verb} la tua Observation.",
+                         action_url=f"/observation-detail?id={obs_id}")
     return {"active": active, "type": t, "count": doc.get(t, 0)}
 
 
@@ -851,7 +880,7 @@ async def add_comment(obs_id: str, req: CommentReq, user: dict = Depends(get_cur
     text = req.text.strip()
     if not text:
         raise HTTPException(status_code=400, detail="Commento vuoto")
-    o = await db.observations.find_one({"id": obs_id}, {"id": 1})
+    o = await db.observations.find_one({"id": obs_id}, {"id": 1, "user_id": 1})
     if not o:
         raise HTTPException(status_code=404, detail="Observation non trovata")
     doc = {
@@ -861,6 +890,12 @@ async def add_comment(obs_id: str, req: CommentReq, user: dict = Depends(get_cur
     }
     await db.comments.insert_one(doc)
     await db.observations.update_one({"id": obs_id}, {"$inc": {"comments_count": 1}})
+    owner = o.get("user_id")
+    if owner and owner != user["id"]:
+        preview = text[:60] + ("…" if len(text) > 60 else "")
+        await notify(owner, "comments", "OverView™",
+                     f"@{user['nickname']} ha commentato: “{preview}”",
+                     action_url=f"/observation-detail?id={obs_id}")
     doc.pop("_id", None)
     return doc
 
@@ -886,6 +921,9 @@ async def follow(user_id: str, user: dict = Depends(get_current_user)):
             "follower_id": user["id"], "following_id": user_id,
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
+        await notify(user_id, "follows", "OverView™",
+                     f"@{user['nickname']} ha iniziato a seguirti.",
+                     action_url=f"/profile?id={user['id']}")
     except Exception:
         pass
     return {"following": True}
@@ -1009,7 +1047,7 @@ async def collection(user_id: str, viewer: Optional[dict] = Depends(get_optional
 # ---------------------------------------------------------------------------
 @social_router.post("/observations/{obs_id}/repost")
 async def repost(obs_id: str, user: dict = Depends(get_current_user)):
-    o = await db.observations.find_one({"id": obs_id}, {"id": 1})
+    o = await db.observations.find_one({"id": obs_id}, {"id": 1, "user_id": 1})
     if not o:
         raise HTTPException(status_code=404, detail="Observation non trovata")
     existing = await db.reposts.find_one({"user_id": user["id"], "obs_id": obs_id})
@@ -1020,6 +1058,11 @@ async def repost(obs_id: str, user: dict = Depends(get_current_user)):
     await db.reposts.insert_one({"user_id": user["id"], "obs_id": obs_id,
                                  "created_at": datetime.now(timezone.utc).isoformat()})
     await db.observations.update_one({"id": obs_id}, {"$inc": {"repost_count": 1}})
+    owner = o.get("user_id")
+    if owner and owner != user["id"]:
+        await notify(owner, "reposts", "OverView™",
+                     f"@{user['nickname']} ha condiviso la tua Observation.",
+                     action_url=f"/observation-detail?id={obs_id}")
     return {"reposted": True}
 
 

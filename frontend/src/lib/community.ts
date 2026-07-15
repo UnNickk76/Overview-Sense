@@ -31,10 +31,16 @@ export interface MentionItem {
 
 export type MentionDecision = "name" | "nickname" | "none" | "reject";
 
+export type NotifKind = "reactions" | "comments" | "follows" | "reposts" | "mentions" | "pulse" | "opportunities";
+export type NotifPrefs = Record<NotifKind, boolean>;
+
 export const communityApi = {
   getPrivacy: () => apiFetch<PrivacySettings>("/community/privacy"),
   updatePrivacy: (payload: Partial<PrivacySettings>) =>
     apiFetch<PrivacySettings>("/community/privacy", { method: "PATCH", body: JSON.stringify(payload) }),
+  getNotifPrefs: () => apiFetch<NotifPrefs>("/community/notif-prefs"),
+  updateNotifPrefs: (prefs: Partial<NotifPrefs>) =>
+    apiFetch<NotifPrefs>("/community/notif-prefs", { method: "PATCH", body: JSON.stringify({ prefs }) }),
   discover: (limit = 24) => apiFetch<{ items: DiscoverPerson[] }>(`/community/discover?limit=${limit}`),
   invite: () => apiFetch<{ url: string; code: string; nickname: string; message: string }>("/community/invite"),
   incoming: () => apiFetch<{ items: MentionItem[]; appeared: number; count: number }>("/community/mentions/incoming"),
