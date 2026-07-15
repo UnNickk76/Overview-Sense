@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View, Pressable, ScrollView, useWindowDimensions, ActivityIndicator, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import Svg, { Line, Circle, Rect as SvgRect, Text as SvgText, G } from "react-native-svg";
+import Svg, { Line, Circle, Text as SvgText, G } from "react-native-svg";
 import ViewShot, { captureRef } from "react-native-view-shot";
 import QRCode from "react-native-qrcode-svg";
 import * as MediaLibrary from "expo-media-library";
@@ -20,6 +20,8 @@ import { nf, compassPoint } from "@/src/lib/format";
 import { socialApi, aiApi } from "@/src/lib/backend";
 import { ApiError } from "@/src/lib/client";
 import { useAuth } from "@/src/context/AuthContext";
+import { BrandName } from "@/src/components/Brand";
+import { pulseForNow } from "@/src/lib/pulseTasks";
 import { SenseCanvas, layerToVisual, SenseVisualLayer } from "@/src/components/SenseCanvas";
 import { SenseLayerBar } from "@/src/components/SenseLayerBar";
 import { availableDataLayers, orderedDataLayers, recommendedFor } from "@/src/lib/senseLayers";
@@ -50,11 +52,20 @@ export default function ObservationView() {
   const [exportOpen, setExportOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<CardFormat>("square");
   const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [hiddenObj, setHiddenObj] = useState<Set<string>>(new Set());
+  const [legendOn, setLegendOn] = useState(true);
+  const [pubOpen, setPubOpen] = useState(false);
   const shotRef = useRef<ViewShot>(null);
   const cardRef = useRef<ViewShot>(null);
 
   useEffect(() => { if (id) getObservation(id).then(setObs); }, [id]);
-  useEffect(() => { if (obs?.data) setVisualLayer(layerToVisual(obs.data.senseLayer)); }, [obs]);
+  useEffect(() => {
+    if (obs?.data) {
+      setVisualLayer(layerToVisual(obs.data.senseLayer));
+      setHiddenObj(new Set(obs.data.legendHidden ?? []));
+      setLegendOn(obs.data.legendOn !== false);
+    }
+  }, [obs]);
 
   const cardW = width - spacing.lg * 2;
   const cardH = cardW * 1.25;
@@ -83,6 +94,26 @@ export default function ObservationView() {
       gc: d.galacticCenter ? p(d.galacticCenter.az, d.galacticCenter.alt) : null,
     };
   }, [d, camAz, camAlt, cardW, cardH]);
+
+  // Recognized sky objects that can appear in the legend (editable by the user).
+  const recognized = useMemo(() => {
+    if (!d) return [] as { name: string; kind: string }[];
+    const out: { name: string; kind: string }[] = [];
+    (d.planets ?? []).forEach((p) => out.push({ name: p.name, kind: "Pianeta" }));
+    if (d.iss) out.push({ name: "ISS", kind: "Satellite" });
+    (d.satellites ?? []).forEach((s) => out.push({ name: s.name, kind: "Satellite" }));
+    if (d.moon) out.push({ name: "Luna", kind: "Luna" });
+    return out;
+  }, [d]);
+
+  const toggleObj = (name: string) => {
+    Haptics.selectionAsync();
+    setHiddenObj((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  };
 
   const share = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -126,7 +157,7 @@ export default function ObservationView() {
     } catch { setExportStatus("Errore"); }
   };
 
-  const publish = async () => {
+  const publish = async (asPulse: boolean) => {
     if (!obs || !obs.data) return;
     if (!user) { router.push("/login" as never); return; }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -136,18 +167,26 @@ export default function ObservationView() {
         obs.uri, [{ resize: { width: 1280 } }],
         { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true },
       );
+      let pulseTask = obs.data.pulse;
+      if (asPulse && !pulseTask) {
+        const t = pulseForNow();
+        pulseTask = { id: t.id, title: t.title, theme: t.theme, prompt: t.prompt };
+      }
+      const data = { ...obs.data, legendHidden: Array.from(hiddenObj), legendOn };
       const created = await socialApi.createObservation({
         media_type: "image", source: "reality",
-        caption: "", image_base64: manipulated.base64 ?? undefined, data: obs.data,
-        is_pulse: !!obs.data.pulse,
-        pulse_task: obs.data.pulse,
+        caption: "", image_base64: manipulated.base64 ?? undefined, data,
+        is_pulse: asPulse || !!obs.data.pulse,
+        pulse_task: asPulse || obs.data.pulse ? pulseTask : undefined,
       });
+      setPubOpen(false);
       setPublished(created.id);
     } catch (e) {
       const msg = e instanceof ApiError && e.status === 422
         ? e.message
         : "Pubblicazione non riuscita";
       setStatus(msg);
+      setPubOpen(false);
     } finally { setPublishing(false); }
   };
 
@@ -235,25 +274,44 @@ export default function ObservationView() {
                     {overlay.stars.map((s, i) => (
                       <Circle key={`st${i}`} cx={s.x} cy={s.y} r={2.2} fill="#EAF2FF" />
                     ))}
-                    {overlay.planets.map((pl, i) => (
+                    {overlay.planets.filter((pl) => !hiddenObj.has(pl.name)).map((pl, i) => (
                       <G key={`pl${i}`}>
-                        <Circle cx={pl.pt.x} cy={pl.pt.y} r={5} fill="#D4AF37" />
-                        <SvgText x={pl.pt.x + 8} y={pl.pt.y + 4} fill="#D4AF37" fontSize={11} fontWeight="600">{pl.name}</SvgText>
+                        <Circle cx={pl.pt.x} cy={pl.pt.y} r={13} fill="#D4AF37" opacity={0.14} />
+                        <Circle cx={pl.pt.x} cy={pl.pt.y} r={7} stroke="#D4AF37" strokeWidth={1.2} fill="none" opacity={0.85} />
+                        <Circle cx={pl.pt.x} cy={pl.pt.y} r={2.4} fill="#D4AF37" />
+                        {legendOn ? (
+                          <>
+                            <Line x1={pl.pt.x} y1={pl.pt.y - 13} x2={pl.pt.x} y2={pl.pt.y - 27} stroke="#D4AF37" strokeWidth={1} opacity={0.65} />
+                            <SvgText x={pl.pt.x} y={pl.pt.y - 31} fill="#F0DC9A" fontSize={11} fontWeight="600" textAnchor="middle">{pl.name}</SvgText>
+                          </>
+                        ) : null}
                       </G>
                     ))}
-                    {overlay.satellites.map((s, i) => (
+                    {overlay.satellites.filter((s) => !hiddenObj.has(s.name)).map((s, i) => (
                       <G key={`sat${i}`}>
-                        <SvgRect x={s.pt.x - 3} y={s.pt.y - 3} width={6} height={6} fill="#0A84FF" />
-                        <SvgText x={s.pt.x + 7} y={s.pt.y + 3} fill="#8FD0FF" fontSize={9}>{s.name}</SvgText>
+                        <Circle cx={s.pt.x} cy={s.pt.y} r={11} fill="#0A84FF" opacity={0.16} />
+                        <Circle cx={s.pt.x} cy={s.pt.y} r={2.2} fill="#8FD0FF" />
+                        {legendOn ? (
+                          <>
+                            <Line x1={s.pt.x} y1={s.pt.y - 11} x2={s.pt.x} y2={s.pt.y - 24} stroke="#8FD0FF" strokeWidth={1} opacity={0.6} />
+                            <SvgText x={s.pt.x} y={s.pt.y - 28} fill="#8FD0FF" fontSize={9.5} textAnchor="middle">{s.name}</SvgText>
+                          </>
+                        ) : null}
                       </G>
                     ))}
-                    {overlay.iss?.pt ? (
+                    {overlay.iss?.pt && !hiddenObj.has("ISS") ? (
                       <G>
-                        <Circle cx={overlay.iss.pt.x} cy={overlay.iss.pt.y} r={6} fill="none" stroke="#D4AF37" strokeWidth={2} />
-                        <SvgText x={overlay.iss.pt.x + 9} y={overlay.iss.pt.y + 4} fill="#D4AF37" fontSize={11} fontWeight="700">ISS</SvgText>
+                        <Circle cx={overlay.iss.pt.x} cy={overlay.iss.pt.y} r={13} fill="#D4AF37" opacity={0.16} />
+                        <Circle cx={overlay.iss.pt.x} cy={overlay.iss.pt.y} r={7} fill="none" stroke="#D4AF37" strokeWidth={2} />
+                        {legendOn ? (
+                          <>
+                            <Line x1={overlay.iss.pt.x} y1={overlay.iss.pt.y - 13} x2={overlay.iss.pt.x} y2={overlay.iss.pt.y - 27} stroke="#D4AF37" strokeWidth={1} opacity={0.7} />
+                            <SvgText x={overlay.iss.pt.x} y={overlay.iss.pt.y - 31} fill="#F0DC9A" fontSize={11} fontWeight="700" textAnchor="middle">ISS</SvgText>
+                          </>
+                        ) : null}
                       </G>
                     ) : null}
-                    {overlay.moon ? <SvgText x={overlay.moon.x} y={overlay.moon.y} fill="#fff" fontSize={16}>☾</SvgText> : null}
+                    {overlay.moon && !hiddenObj.has("Luna") ? <SvgText x={overlay.moon.x} y={overlay.moon.y} fill="#fff" fontSize={16}>☾</SvgText> : null}
                     {overlay.gc ? <SvgText x={overlay.gc.x - 20} y={overlay.gc.y} fill="#F0C674" fontSize={10}>◄ Via Lattea</SvgText> : null}
                   </Svg>
                 ) : null}
@@ -296,6 +354,33 @@ export default function ObservationView() {
           ) : null}
           <SenseLayerBar value={visualLayer} onChange={setVisualLayer} recommended={subject?.pixel} />
         </View>
+
+        {/* Sky legend — editable: choose which objects are highlighted, toggle names */}
+        {recognized.length ? (
+          <View style={styles.legendCard}>
+            <View style={styles.legendHead}>
+              <Text style={styles.legendCardTitle}>Oggetti riconosciuti · {recognized.length - hiddenObj.size}/{recognized.length}</Text>
+              <Pressable testID="legend-names-toggle" style={[styles.namesToggle, legendOn && styles.namesToggleOn]}
+                onPress={() => { Haptics.selectionAsync(); setLegendOn((v) => !v); }}>
+                <Ionicons name={legendOn ? "pricetag" : "pricetag-outline"} size={13} color={legendOn ? colors.onBrand : colors.brand} />
+                <Text style={[styles.namesToggleText, legendOn && { color: colors.onBrand }]}>Nomi</Text>
+              </Pressable>
+            </View>
+            <Text style={styles.legendCardHint}>Tocca un oggetto per mostrarlo o nasconderlo nel SenseShot.</Text>
+            <View style={styles.legendChips}>
+              {recognized.map((r) => {
+                const shown = !hiddenObj.has(r.name);
+                return (
+                  <Pressable key={r.name} testID={`legend-${r.name}`} onPress={() => toggleObj(r.name)}
+                    style={[styles.legendChip, shown && styles.legendChipOn]}>
+                    <Ionicons name={shown ? "eye" : "eye-off"} size={12} color={shown ? colors.brand : colors.onSurfaceSecondary} />
+                    <Text style={[styles.legendChipText, shown && { color: colors.onSurface }]}>{r.name}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
 
         {dataLayers.length ? (
           <View style={styles.dataSection}>
@@ -359,14 +444,14 @@ export default function ObservationView() {
         {published ? (
           <Pressable testID="published-open-feed" style={styles.publishedBtn} onPress={() => router.push(`/observation-detail?id=${published}` as never)}>
             <Ionicons name="checkmark-circle" size={18} color={colors.success} />
-            <Text style={styles.publishedText}>Sense pubblicato come Observation · Apri</Text>
+            <Text style={styles.publishedText}>Pubblicato · Apri</Text>
           </Pressable>
         ) : (
-          <Pressable testID="publish-observation" style={[styles.publishBtn, publishing && { opacity: 0.6 }]} onPress={publish} disabled={publishing}>
+          <Pressable testID="publish-observation" style={[styles.publishBtn, publishing && { opacity: 0.6 }]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setPubOpen(true); }} disabled={publishing}>
             {publishing ? <ActivityIndicator color={colors.onBrand} /> : (
               <>
                 <Ionicons name="cloud-upload-outline" size={18} color={colors.onBrand} />
-                <Text style={styles.publishText}>Pubblica come Observation</Text>
+                <Text style={styles.publishText}>Pubblica questo SenseShot</Text>
               </>
             )}
           </Pressable>
@@ -414,6 +499,44 @@ export default function ObservationView() {
         </View>
         <Text style={styles.note}>Ogni valore è stato registrato al momento dello scatto. Il cielo (Sole, Luna, pianeti, costellazioni) viene ricalcolato; satelliti e ISS provengono dall&apos;istantanea reale salvata.</Text>
       </ScrollView>
+
+      {/* Publish choice — same SenseShot, published in different ways */}
+      <Modal visible={pubOpen} animationType="slide" transparent onRequestClose={() => setPubOpen(false)}>
+        <Pressable style={styles.pubScrim} onPress={() => setPubOpen(false)}>
+          <Pressable style={[styles.pubSheet, { paddingBottom: insets.bottom + spacing.lg }]} onPress={() => {}}>
+            <View style={styles.menuHandle} />
+            <Text style={styles.pubTitle}>Pubblica questo SenseShot</Text>
+            <Text style={styles.pubHint}>Lo stesso scatto, condiviso come preferisci.</Text>
+
+            <View style={styles.pubItem}>
+              <View style={styles.pubIcon}><Ionicons name="images" size={20} color={colors.brand} /></View>
+              <View style={{ flex: 1 }}>
+                <BrandName name="SnapSense" style={styles.pubItemTitle} />
+                <Text style={styles.pubItemSub}>Già salvato nella tua Galleria.</Text>
+              </View>
+              <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+            </View>
+
+            <Pressable testID="publish-observe" style={styles.pubItem} onPress={() => publish(false)} disabled={publishing}>
+              <View style={styles.pubIcon}><Ionicons name="globe" size={20} color={colors.blue} /></View>
+              <View style={{ flex: 1 }}>
+                <BrandName name="Observe" style={styles.pubItemTitle} />
+                <Text style={styles.pubItemSub}>Nel feed della community.</Text>
+              </View>
+              {publishing ? <ActivityIndicator color={colors.brand} /> : <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />}
+            </Pressable>
+
+            <Pressable testID="publish-pulse" style={styles.pubItem} onPress={() => publish(true)} disabled={publishing}>
+              <View style={styles.pubIcon}><Ionicons name="flash" size={20} color={colors.brand} /></View>
+              <View style={{ flex: 1 }}>
+                <BrandName name="Pulse" style={styles.pubItemTitle} />
+                <Text style={styles.pubItemSub}>{obs?.data?.pulse ? `Sfida: ${obs.data.pulse.title}` : "Come risposta alla Pulse di oggi."}</Text>
+              </View>
+              {publishing ? <ActivityIndicator color={colors.brand} /> : <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />}
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal visible={exportOpen} animationType="slide" transparent onRequestClose={() => setExportOpen(false)}>
         <View style={styles.modalRoot}>
@@ -478,6 +601,26 @@ const styles = StyleSheet.create({
   senseHero: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, alignSelf: "center", backgroundColor: colors.surfaceSecondary, borderRadius: 999, paddingHorizontal: spacing.lg, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
   senseHeroText: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.sm - 1, letterSpacing: 1 },
   layerHint: { marginTop: spacing.xs, gap: spacing.sm },
+  legendCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, gap: spacing.sm, marginTop: spacing.sm },
+  legendHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  legendCardTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.sm },
+  legendCardHint: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 2 },
+  namesToggle: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 999, paddingHorizontal: spacing.sm, paddingVertical: 4, borderWidth: 1, borderColor: colors.brand },
+  namesToggleOn: { backgroundColor: colors.brand },
+  namesToggleText: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.sm - 2 },
+  legendChips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  legendChip: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.tertiary, borderRadius: 999, paddingHorizontal: spacing.sm, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  legendChipOn: { borderColor: colors.brand },
+  legendChipText: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm - 1 },
+  pubScrim: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
+  pubSheet: { backgroundColor: colors.surfaceSecondary, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, borderWidth: 1, borderColor: colors.border },
+  menuHandle: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: colors.borderStrong, marginBottom: spacing.md },
+  pubTitle: { color: colors.onSurface, fontFamily: fonts.bold, fontSize: type.lg },
+  pubHint: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm, marginTop: 2, marginBottom: spacing.sm },
+  pubItem: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  pubIcon: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: colors.tertiary },
+  pubItemTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
+  pubItemSub: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, marginTop: 1 },
   layerHintText: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm - 2, letterSpacing: 0.8 },
   layerRow: { gap: spacing.sm, paddingVertical: spacing.xs },
   layerChip: { backgroundColor: colors.tertiary, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },

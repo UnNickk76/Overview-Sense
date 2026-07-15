@@ -25,6 +25,9 @@ export interface ObsData {
   from?: string;
   // Pulse™ challenge attached to this Senshot (curated task, not AI-generated).
   pulse?: { id: string; title: string; theme: string; prompt?: string };
+  // Sky legend: which recognized objects are hidden, and whether names are shown.
+  legendHidden?: string[];
+  legendOn?: boolean;
 }
 
 export interface Observation {

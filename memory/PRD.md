@@ -739,3 +739,10 @@ RIMANE: reverse-geocode `data.country` alla cattura (per conteggio paesi Pulse g
 
 ### SESSIONE (fork) — Invisible Reality 3D esplicativo (2026-06)
 - `invisible-3d.tsx`: da "bella animazione" a lettura scientifica comprensibile. Aggiunto pannello esplicativo (fuori dal ViewShot, così il Senshot resta pulito): valore grande µT + riga sintetica (direzione bussola, **inclinazione/dip** calcolata da atan2(|z|,hypot(x,y)), gravità g), **frase in linguaggio semplice** ("Il campo magnetico qui è di X µT, orientato verso … e inclinato di ~Y°…"), e **legenda "Cosa stai osservando"** con pallini colore→significato (Anelli=linee di campo, Ago=Nord magnetico, Freccia gialla=direzione basso/gravità, Puntini=particelle STIMATE). Pannello comprimibile (chevron/info), default aperto. Rimosso il readout in-scene (scena catturata più pulita). Verificato via screenshot (web: valori 0, atteso; su iPhone reali).
+
+### SESSIONE (fork) — Sky Fase B (legenda editabile) + Fase C (pubblicazione multipla) (2026-06)
+- `observation.tsx` (schermata dopo lo scatto):
+  - FASE B: reveal "What You Couldn't See" ridisegnato elegante (glow + core + leader line + nome) al posto di pallini/quadratini colorati; pianeti oro, satelliti blu, ISS anello. Nuova **card "Oggetti riconosciuti"**: chip per ogni oggetto (pianeti/ISS/satelliti/Luna) con toggle occhio per mostrarlo/nasconderlo nel SenseShot, + toggle **"Nomi"** (default ON) per le etichette. Selezione salvata in `data.legendHidden` + `data.legendOn` (ObsData esteso). Editabile PRIMA della pubblicazione.
+  - FASE C: pulsante "Pubblica questo SenseShot" → **bottom-sheet scelta**: SnapSense™ (già in Galleria), **Observe** (is_pulse=false), **Pulse™** (is_pulse=true, attacca `pulseForNow()` se non già presente). `publish(asPulse)` include i campi legenda.
+- Verificato: lint pulito, home smoke test OK (nessuna regressione bundle). observation.tsx richiede uno scatto reale per test end-to-end (build).
+- RESTA: editing legenda DOPO la pubblicazione (serve endpoint PATCH `/api/observations/{id}` owner-only + UI su observation-detail). Sky Fase D (zoom computazionale). Invisible Reality 3D già fatto.
