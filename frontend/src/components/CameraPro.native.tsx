@@ -73,7 +73,7 @@ async function enhanceImage(path: string): Promise<string> {
   }
 }
 
-export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean }>(({ enhance = true }, ref) => {
+export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBottom?: number }>(({ enhance = true, hudBottom = 150 }, ref) => {
   // Full physical optical range: ultra-wide → wide → tele. The virtual multi-cam
   // device auto-switches lenses for the widest field of view and Super Macro on
   // supported iPhones (Beyond View: only real optics, never fabricated detail).
@@ -94,12 +94,12 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean }>(({ e
   const [macro, setMacro] = useState(false);
 
   const minZoom = device?.minZoom ?? 1;
-  const maxZoom = Math.min(device?.maxZoom ?? 10, 32);
+  // Full REAL optical+digital range of the device (e.g. up to ~123.8× on Pro tele).
+  // Beyond View: we never fabricate detail, but we expose the sensor's real reach.
+  const maxZoom = device?.maxZoom ?? 10;
   const neutral = device?.neutralZoom ?? 1;
   const zoom = useSharedValue(neutral);
   const startZoom = useSharedValue(neutral);
-  const exposure = useSharedValue(0);
-  const startExp = useSharedValue(0);
   const focusOpacity = useSharedValue(0);
   const lastZoomRef = useRef(neutral);
 
@@ -152,6 +152,7 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean }>(({ e
 
   const doFocus = useCallback((x: number, y: number) => {
     if (lock) return;
+    // Tap = auto-focus AND auto-expose at this point (recovers a dark scene after zoom).
     try { cam.current?.focus({ x, y }); } catch { /* ignore */ }
     Haptics.selectionAsync();
     setFocusPt({ x, y });
@@ -170,20 +171,11 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean }>(({ e
     .onUpdate((e) => { const z = clamp(startZoom.value * e.scale, minZoom, maxZoom); zoom.value = z; showZoom(z); });
   const tap = Gesture.Tap().runOnJS(true).onEnd((e) => doFocus(e.x, e.y));
   const longPress = Gesture.LongPress().runOnJS(true).minDuration(450).onStart(() => toggleLock());
-  // Vertical drag anywhere = exposure compensation.
-  const expPan = Gesture.Pan()
-    .runOnJS(true)
-    .activeOffsetY([-12, 12])
-    .onBegin(() => { startExp.value = exposure.value; })
-    .onUpdate((e) => {
-      if (!device) return;
-      const span = (device.maxExposure - device.minExposure) || 2;
-      const v = clamp(startExp.value - (e.translationY / 260) * span, device.minExposure, device.maxExposure);
-      if (!lock) exposure.value = v;
-    });
-  const gesture = Gesture.Simultaneous(pinch, expPan, Gesture.Exclusive(longPress, tap));
+  const gesture = Gesture.Simultaneous(pinch, Gesture.Exclusive(longPress, tap));
 
-  const animatedProps = useAnimatedProps(() => ({ zoom: zoom.value, exposure: exposure.value }));
+  // Exposure is left on continuous AUTO (exposure bias 0) so the scene never gets
+  // stuck dark after a zoom/lens change. Locking freezes AF/AE at the current point.
+  const animatedProps = useAnimatedProps(() => ({ zoom: zoom.value }));
   const focusStyle = useAnimatedStyle(() => ({ opacity: focusOpacity.value }));
 
   useImperativeHandle(ref, () => ({
@@ -231,7 +223,7 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean }>(({ e
             <SenseRadar zoom={zoomFactor} />
           </View>
         ) : null}
-        <View pointerEvents="box-none" style={styles.hud}>
+        <View pointerEvents="box-none" style={[styles.hud, { bottom: hudBottom }]}>
           <View style={styles.presetRow}>
             {presets.map((p) => {
               const active = zoomLabel === `${(p.z / neutral).toFixed(1)}×`;
@@ -269,7 +261,7 @@ const styles = StyleSheet.create({
   fallbackText: { color: "#fff", fontFamily: fonts.medium, fontSize: type.base },
   focusRing: { position: "absolute", width: 68, height: 68, borderRadius: 12, borderWidth: 1.5, borderColor: colors.brand },
   radarPos: { position: "absolute", top: 70, right: spacing.lg },
-  hud: { position: "absolute", left: 0, right: 0, bottom: 150, alignItems: "center", gap: spacing.sm },
+  hud: { position: "absolute", left: 0, right: 0, alignItems: "center", gap: spacing.sm },
   presetRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 999, padding: 4 },
   presetPill: { minWidth: 40, alignItems: "center", justifyContent: "center", borderRadius: 999, paddingHorizontal: spacing.sm, paddingVertical: 6 },
   presetOn: { backgroundColor: colors.brand },

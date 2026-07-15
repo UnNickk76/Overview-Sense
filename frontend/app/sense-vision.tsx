@@ -208,7 +208,7 @@ export default function SenseVision() {
 
   return (
     <View style={styles.root}>
-      <CameraPro ref={cameraRef} enhance={enhance} />
+      <CameraPro ref={cameraRef} enhance={enhance} hudBottom={insets.bottom + 220} />
       <View style={[StyleSheet.absoluteFill, { backgroundColor: layer.tint }]} pointerEvents="none" />
 
       {/* Real-data Sense visualization overlay (Invisible Fields engine) */}
@@ -282,7 +282,7 @@ export default function SenseVision() {
       {/* Real-enhancement toggle — "observe better", never invents detail */}
       {stage === "ready" && !review ? (
         <Pressable testID="sense-enhance" onPress={() => { Haptics.selectionAsync(); setEnhance((e) => !e); }}
-          style={[styles.enhancePill, { top: insets.top + 54 }, enhance && { backgroundColor: colors.brand, borderColor: colors.brand }]}>
+          style={[styles.enhancePill, { top: insets.top + 104 }, enhance && { backgroundColor: colors.brand, borderColor: colors.brand }]}>
           <Ionicons name="sparkles" size={13} color={enhance ? colors.onBrand : "#fff"} />
           <Text style={[styles.enhanceText, enhance && { color: colors.onBrand }]}>Osserva meglio</Text>
         </Pressable>
@@ -290,7 +290,7 @@ export default function SenseVision() {
 
       {/* Sense Layer selector */}
       {stage === "ready" && !review ? (
-        <Animated.View entering={FadeIn.delay(150)} style={[styles.layerBar, { top: insets.top + 56 }]}>
+        <Animated.View entering={FadeIn.delay(150)} style={[styles.layerBar, { top: insets.top + 52 }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingHorizontal: spacing.lg }}>
             {SENSE_LAYERS.map((m, i) => (
               <Pressable key={m.key} testID={`sense-layer-${m.key}`} onPress={() => { Haptics.selectionAsync(); setLayerIdx(i); }}
@@ -315,7 +315,12 @@ export default function SenseVision() {
               </View>
             </View>
           ) : null}
-          {/* Universal "Look Up / Go Inside" language */}
+          {/* Universal "Look Up / Go Inside" language — placed under the shutter */}
+          <Text style={styles.hudMeta}>{compassPoint(heading)} {heading.toFixed(0)}° · {nf(mag.magnitude, 0)} µT{weather?.temperature_c != null ? ` · ${nf(weather.temperature_c, 0)}°` : ""}</Text>
+          <Pressable testID="make-a-sense" style={[styles.senseBtn, busy && { opacity: 0.85 }]} onPress={makeSense} disabled={busy}>
+            <SenseMark size={26} active={busy} />
+            <Text style={styles.senseBtnText}>MAKE A SENSE</Text>
+          </Pressable>
           <View style={styles.pivotRow}>
             <View style={styles.pivotActive}>
               <Ionicons name="telescope" size={13} color={colors.brand} />
@@ -326,11 +331,6 @@ export default function SenseVision() {
               <Text style={styles.pivotGoText}>GO INSIDE</Text>
             </Pressable>
           </View>
-          <Text style={styles.hudMeta}>{compassPoint(heading)} {heading.toFixed(0)}° · {nf(mag.magnitude, 0)} µT{weather?.temperature_c != null ? ` · ${nf(weather.temperature_c, 0)}°` : ""}</Text>
-          <Pressable testID="make-a-sense" style={[styles.senseBtn, busy && { opacity: 0.85 }]} onPress={makeSense} disabled={busy}>
-            <SenseMark size={26} active={busy} />
-            <Text style={styles.senseBtnText}>MAKE A SENSE</Text>
-          </Pressable>
           <Text style={styles.captureHint}>Rivela i dati reali della scena · Layer: {layer.label}</Text>
         </Animated.View>
       ) : null}

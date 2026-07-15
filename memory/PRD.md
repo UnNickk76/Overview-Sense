@@ -702,3 +702,9 @@ RIMANE: Pulse Notifications (Fase 3, build nativa); aggiungere sfide periodiche;
 - **Branding ™** (`src/components/Brand.tsx`): `<BrandName name>` + `<Tm>` (apice ™ coerente). Applicato a Home wordmark "OverView™", header "Observe™", "Challenges™". Nomi ufficiali: OverView™, Sense Vision™, SnapSense™, Pulse™, Observe™, OverView Guide™.
 - Verificato: backend curl (global auto+manual, participants reali=0); lint pulito; screenshot Challenges (card globale + ™), Observe (ring Pulse dorato animato + Observe™ + campanella), barra banner con Sense Vision integro.
 RIMANE: reverse-geocode `data.country` alla cattura (per conteggio paesi Pulse globale); Creator Console UI per gestire Pulse globali; Pulse Notifications (Fase 3, build nativa); calendario "intelligente" (eventi astronomici/stagioni) per i Pulse globali auto.
+
+### SESSIONE (fork) — Fix Sense Vision camera (build reale, 2026-06)
+- **Zoom fino al massimo REALE** del device (es. 123.8×): rimosso il cap `Math.min(maxZoom,32)` → `maxZoom = device.maxZoom`. Label = z/neutral (onesto, reach reale del sensore, non dettaglio inventato).
+- **Bug "buio dopo lo zoom" + AF/AE mancante**: rimossa la gesture Pan verticale di esposizione manuale (causava bias negativo bloccato → schermo scuro non recuperabile). Ora esposizione su AUTO continuo (`exposure` bias 0), tap-to-focus fa AF+AE sul punto (recupera scene scure), long-press blocca AF/AE.
+- **Layout sense-vision**: LOOK UP/GO INSIDE spostati SOTTO il pulsante MAKE A SENSE (non più sovrapposti a zoom/AF-AE). HUD zoom della CameraPro reso configurabile via prop `hudBottom` (sense-vision passa insets.bottom+220 così sta sopra lo scatto). In alto: barra Sense Layer a top+52, pill "Osserva meglio" spostata a top+104 (niente più sovrapposizione con i filtri).
+- ⚠️ Validabile SOLO su BUILD nativa (VisionCamera) — non su Expo Go/web.
