@@ -52,6 +52,7 @@ export default function Invisible3D() {
 
   const sceneRef = useRef<ViewShot>(null);
   const [layers, setLayers] = useState<Record<LayerKey, boolean>>({ magnetic: true, gravity: true, particles: true });
+  const [explainOpen, setExplainOpen] = useState(true);
   const [snapOpen, setSnapOpen] = useState(false);
   const [snapInput, setSnapInput] = useState<SnapshotInput | null>(null);
   const [busy, setBusy] = useState(false);
@@ -69,6 +70,8 @@ export default function Invisible3D() {
   // Gravity arrow direction on screen (points where "down" is relative to the device).
   const gravLen = clamp(Math.hypot(accel.x, accel.y), 0, 1) * (Math.min(width, height) * 0.28);
   const gravAngle = Math.atan2(-accel.y, accel.x); // screen y is inverted
+  // Magnetic inclination (dip): how steeply the field points down/up, in degrees.
+  const dip = useMemo(() => Math.atan2(Math.abs(mag.z), Math.hypot(mag.x, mag.y)) * (180 / Math.PI), [mag.x, mag.y, mag.z]);
 
   const fieldColor = magNorm > 0.66 ? "#FF6EC7" : magNorm > 0.33 ? colors.brand : "#5AB0FF";
 
@@ -223,17 +226,49 @@ export default function Invisible3D() {
             ) : null}
             <Circle cx={cx} cy={cy} r={4} fill={colors.onSurface} />
           </Svg>
-
-          {/* HUD readouts */}
-          <View style={[styles.readout, { bottom: insets.bottom + 120 }]} pointerEvents="none">
-            <Text style={styles.readMag}>{nf(mag.magnitude, 1)} µT</Text>
-            <Text style={styles.readSub}>
-              {compassPoint(heading)} {nf(heading, 0)}° · gravità {nf(accel.magnitude, 2)} g
-              {obs.status === "granted" ? ` · ${nf(obs.lat, 2)}°, ${nf(obs.lon, 2)}°` : ""}
-            </Text>
-          </View>
         </View>
       </ViewShot>
+
+      {/* Explanatory panel — turns the animation into an understandable reading */}
+      <View style={[styles.explain, { bottom: insets.bottom + 92 }]} pointerEvents="box-none">
+        <Pressable style={styles.explainHead} onPress={() => { Haptics.selectionAsync(); setExplainOpen((v) => !v); }}>
+          <Text style={styles.readMag}>{nf(mag.magnitude, 1)}<Text style={styles.readUnit}> µT</Text></Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.explainSub}>{compassPoint(heading)} {nf(heading, 0)}° · inclinazione ~{nf(dip, 0)}° · gravità {nf(accel.magnitude, 2)} g</Text>
+          </View>
+          <Ionicons name={explainOpen ? "chevron-down" : "information-circle-outline"} size={20} color={colors.brand} />
+        </Pressable>
+        {explainOpen ? (
+          <View style={styles.explainBody}>
+            <Text style={styles.explainText}>
+              Il campo magnetico qui è di {nf(mag.magnitude, 1)} µT, orientato verso {compassPoint(heading)} ({nf(heading, 0)}°) e inclinato di circa {nf(dip, 0)}°. Invisibile a occhio nudo: lo stai vedendo dai sensori reali del tuo dispositivo.
+            </Text>
+            <Text style={styles.legendTitle}>Cosa stai osservando</Text>
+            {layers.magnetic ? (
+              <View style={styles.legendRow}>
+                <View style={[styles.legendDot, { backgroundColor: fieldColor }]} />
+                <Text style={styles.legendText}>Anelli — le linee del campo magnetico attorno a te</Text>
+              </View>
+            ) : null}
+            <View style={styles.legendRow}>
+              <View style={[styles.legendDot, { backgroundColor: colors.brand }]} />
+              <Text style={styles.legendText}>Ago della bussola — il Nord magnetico</Text>
+            </View>
+            {layers.gravity ? (
+              <View style={styles.legendRow}>
+                <View style={[styles.legendDot, { backgroundColor: "#FFD60A" }]} />
+                <Text style={styles.legendText}>Freccia gialla — la direzione del &quot;basso&quot; (gravità)</Text>
+              </View>
+            ) : null}
+            {layers.particles ? (
+              <View style={styles.legendRow}>
+                <View style={[styles.legendDot, { backgroundColor: fieldColor }]} />
+                <Text style={styles.legendText}>Puntini — particelle stimate lungo il campo (non misurate una a una)</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+      </View>
 
       {/* Top controls */}
       <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]} pointerEvents="box-none">
@@ -283,8 +318,18 @@ const styles = StyleSheet.create({
   grid: { alignItems: "center", justifyContent: "flex-end" },
   particle: { position: "absolute", left: 0, top: 0, width: 5, height: 5, borderRadius: 3, shadowOpacity: 0.9, shadowRadius: 4, shadowOffset: { width: 0, height: 0 } },
   readout: { position: "absolute", left: 0, right: 0, alignItems: "center" },
-  readMag: { color: "#fff", fontFamily: fonts.mono, fontSize: type["3xl"] ?? 34, letterSpacing: 1 },
+  readMag: { color: "#fff", fontFamily: fonts.mono, fontSize: type["2xl"] ?? 28, letterSpacing: 0.5 },
+  readUnit: { color: colors.onSurfaceSecondary, fontFamily: fonts.mono, fontSize: type.base },
   readSub: { color: colors.onSurfaceSecondary, fontFamily: fonts.mono, fontSize: type.sm - 1, marginTop: 4 },
+  explain: { position: "absolute", left: spacing.lg, right: spacing.lg, backgroundColor: "rgba(8,12,20,0.86)", borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  explainHead: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  explainSub: { color: colors.onSurfaceSecondary, fontFamily: fonts.mono, fontSize: type.sm - 1 },
+  explainBody: { marginTop: spacing.sm, gap: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingTop: spacing.sm },
+  explainText: { color: colors.onSurface, fontFamily: fonts.regular, fontSize: type.sm, lineHeight: 20 },
+  legendTitle: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.sm - 2, letterSpacing: 0.8, marginTop: 4 },
+  legendRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  legendDot: { width: 10, height: 10, borderRadius: 5 },
+  legendText: { flex: 1, color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, lineHeight: 17 },
   topBar: { position: "absolute", top: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg },
   glassBtn: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(10,16,26,0.6)", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   titlePill: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(10,16,26,0.6)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 8, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
