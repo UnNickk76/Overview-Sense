@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  StyleSheet, Text, View, Pressable, TextInput, ActivityIndicator, ScrollView, Platform, Linking,
+  StyleSheet, Text, View, Pressable, TextInput, ActivityIndicator, ScrollView, Platform, Linking, Keyboard,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -52,6 +52,14 @@ export default function OverviewGuide() {
   const [error, setError] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [kbOpen, setKbOpen] = useState(false);
+  const [kbHeight, setKbHeight] = useState(0);
+
+  useEffect(() => {
+    const s = Keyboard.addListener("keyboardDidShow", (e) => { setKbOpen(true); setKbHeight(e.endCoordinates?.height ?? 0); });
+    const h = Keyboard.addListener("keyboardDidHide", () => { setKbOpen(false); setKbHeight(0); });
+    return () => { s.remove(); h.remove(); };
+  }, []);
 
   useEffect(() => {
     if (!hasSatrecs()) api.satellites().then((r) => { if (r.available && r.satellites?.length) loadSatrecs(r.satellites); }).catch(() => {});
@@ -172,7 +180,12 @@ export default function OverviewGuide() {
 
   return (
     <View style={styles.root}>
-      <CameraPro ref={cameraRef} enhance />
+      <CameraPro ref={cameraRef} enhance hudBottom={insets.bottom + 236} />
+
+      {/* Tap anywhere above the input to dismiss the keyboard */}
+      {kbOpen ? (
+        <Pressable testID="guide-kb-dismiss" style={StyleSheet.absoluteFill} onPress={() => Keyboard.dismiss()} />
+      ) : null}
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
@@ -220,7 +233,7 @@ export default function OverviewGuide() {
 
       {/* Input bar (only when no active target) */}
       {!target ? (
-        <View style={[styles.bottomPanel, { paddingBottom: insets.bottom + 16 }]}>
+        <View style={[styles.bottomPanel, { paddingBottom: (kbOpen ? spacing.md : insets.bottom + 16) + (Platform.OS === "ios" ? kbHeight : 0) }]}>
           <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
           {error ? <Text style={styles.error}>{error}</Text> : (
             <Text style={styles.lead}>Cosa vuoi osservare? Scrivi o parla.</Text>

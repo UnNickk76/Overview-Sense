@@ -708,3 +708,9 @@ RIMANE: reverse-geocode `data.country` alla cattura (per conteggio paesi Pulse g
 - **Bug "buio dopo lo zoom" + AF/AE mancante**: rimossa la gesture Pan verticale di esposizione manuale (causava bias negativo bloccato → schermo scuro non recuperabile). Ora esposizione su AUTO continuo (`exposure` bias 0), tap-to-focus fa AF+AE sul punto (recupera scene scure), long-press blocca AF/AE.
 - **Layout sense-vision**: LOOK UP/GO INSIDE spostati SOTTO il pulsante MAKE A SENSE (non più sovrapposti a zoom/AF-AE). HUD zoom della CameraPro reso configurabile via prop `hudBottom` (sense-vision passa insets.bottom+220 così sta sopra lo scatto). In alto: barra Sense Layer a top+52, pill "Osserva meglio" spostata a top+104 (niente più sovrapposizione con i filtri).
 - ⚠️ Validabile SOLO su BUILD nativa (VisionCamera) — non su Expo Go/web.
+
+### SESSIONE (fork) — Fix OverView Guide™ & Visual Assistant (build reale, 2026-06)
+- **OverView Guide zoom non visibile**: la HUD zoom di CameraPro (etichetta zoom + preset + AF/AE) era coperta dal pannello input → passato `hudBottom={insets.bottom+236}` così l'etichetta "x.x×" è sempre visibile sopra il pannello.
+- **Tastiera non chiudibile**: aggiunti listener Keyboard (kbOpen/kbHeight); overlay Pressable su tutta l'area (tranne pannello) che fa `Keyboard.dismiss()` al tocco; il pannello input si solleva sopra la tastiera (paddingBottom += kbHeight su iOS) così si vede ciò che si scrive.
+- **Visual Assistant descrizione senza chiusura**: aggiunta **X** in alto a destra (`va-close`) che chiude la descrizione e torna al live (oltre a Riprova/Crea Senshot).
+- ⚠️ Validabile SOLO su BUILD nativa (CameraPro.native/VisionCamera).

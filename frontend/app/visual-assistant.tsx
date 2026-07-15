@@ -222,6 +222,10 @@ export default function VisualAssistant() {
               <Text style={styles.reviewBadgeText}>Comprendo</Text>
             </View>
           </View>
+          <Pressable testID="va-close" style={[styles.resultClose, { top: insets.top + 8 }]} onPress={retry} hitSlop={10}>
+            <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+            <Ionicons name="close" size={22} color="#fff" />
+          </Pressable>
 
           <View style={[styles.resultSheet, { paddingBottom: insets.bottom + 16, maxHeight: height * 0.62 }]}>
             <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
@@ -274,6 +278,7 @@ const styles = StyleSheet.create({
   resultOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "#000" },
   resultScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.28)" },
   resultTop: { position: "absolute", top: 0, left: 0, right: 0, alignItems: "center" },
+  resultClose: { position: "absolute", right: spacing.lg, width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   reviewBadge: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: "rgba(10,16,26,0.7)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   reviewBadgeText: { color: "#fff", fontFamily: fonts.medium, fontSize: type.sm },
   resultSheet: { position: "absolute", left: 0, right: 0, bottom: 0, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: "hidden", borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
