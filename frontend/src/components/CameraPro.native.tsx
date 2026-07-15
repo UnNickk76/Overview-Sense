@@ -9,6 +9,9 @@ import { Camera, useCameraDevice, useCameraFormat, PhotoFile } from "react-nativ
 import { Skia, ImageFormat } from "@shopify/react-native-skia";
 import Svg, { Path, Line } from "react-native-svg";
 import { SenseRadar } from "@/src/components/SenseRadar";
+import { LiveSense } from "@/src/components/LiveSense";
+import { hydrateLiveSense, useLiveSense, setLiveOn } from "@/src/lib/liveSense";
+import { useRouter } from "expo-router";
 import { colors, fonts, spacing, type } from "@/src/theme";
 
 // iPhone-style "half-moon" zoom dial (decorative arc + live readout).
@@ -157,6 +160,8 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
   const supportsHdr = !!format?.supportsPhotoHdr;
   const supportsLowLight = !!device?.supportsLowLightBoost;
   const cam = useRef<Camera>(null);
+  const router = useRouter();
+  const live = useLiveSense();
   const [hasPerm, setHasPerm] = useState(false);
   const [lock, setLock] = useState(false);
   const [focusPt, setFocusPt] = useState<{ x: number; y: number } | null>(null);
@@ -203,6 +208,7 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
       if (status === "granted") setHasPerm(true);
       else { const r = await Camera.requestCameraPermission(); setHasPerm(r === "granted"); }
     })();
+    hydrateLiveSense();
   }, []);
 
   const showZoom = useCallback((z: number) => {
@@ -315,6 +321,7 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
             <SenseRadar zoom={zoomFactor} />
           </View>
         ) : null}
+        <LiveSense zoomFactor={zoomFactor} active={hasPerm && !!device} />
         <View pointerEvents="box-none" style={[styles.hud, { bottom: hudBottom }]}>
           <GestureDetector gesture={wheelPan}>
             <View style={styles.presetZone}>
@@ -336,6 +343,12 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
             </View>
           </GestureDetector>
           <View style={styles.hudRow}>
+            <Pressable testID="livesense-toggle" style={[styles.liveChip, !live.on && styles.liveChipOff]}
+              onPress={() => { Haptics.selectionAsync(); setLiveOn(!live.on); }}
+              onLongPress={() => router.push("/live-sense" as never)}>
+              <Ionicons name={live.on ? "eye" : "eye-off"} size={13} color={live.on ? colors.brand : "#fff"} />
+              <Text style={[styles.liveChipText, live.on && { color: colors.brand }]}>Live Sense</Text>
+            </Pressable>
             <View style={styles.zoomPill}><Text style={styles.zoomText}>{zoomLabel}</Text></View>
             {zoomFactor >= 5 ? (
               <View style={styles.skyPill}>
@@ -382,6 +395,9 @@ const styles = StyleSheet.create({
   skyPill: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.brand, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6 },
   skyText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.sm - 2, letterSpacing: 0.5 },
   zoomPill: { backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6 },
+  liveChip: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
+  liveChipOff: { borderColor: "rgba(255,255,255,0.3)" },
+  liveChipText: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.sm - 2, letterSpacing: 0.3 },
   zoomText: { color: "#fff", fontFamily: fonts.mono, fontSize: type.sm },
   lockBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.3)" },
   lockOn: { backgroundColor: colors.brand, borderColor: colors.brand },
