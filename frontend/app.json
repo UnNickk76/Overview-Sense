@@ -18,11 +18,13 @@
         "NSMotionUsageDescription": "Point at the sky and sense magnetic fields",
         "NSMicrophoneUsageDescription": "Analyse the real soundscape around you",
         "NSPhotoLibraryUsageDescription": "Choose a photo for your profile avatar",
-        "NSPhotoLibraryAddUsageDescription": "Save your enhanced observations to Photos"
+        "NSPhotoLibraryAddUsageDescription": "Save your enhanced observations to Photos",
+        "NSContactsUsageDescription": "Invite friends you choose to OverView"
       }
     },
     "android": {
       "package": "sense.invisible.overview",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000000"
@@ -32,7 +34,8 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "CAMERA",
-        "HIGH_SAMPLING_RATE_SENSORS"
+        "HIGH_SAMPLING_RATE_SENSORS",
+        "READ_CONTACTS"
       ]
     },
     "web": {
@@ -85,7 +88,8 @@
           "backgroundColor": "#000000"
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      ["expo-notifications", { "color": "#D4AF37" }]
     ],
     "experiments": {
       "typedRoutes": true

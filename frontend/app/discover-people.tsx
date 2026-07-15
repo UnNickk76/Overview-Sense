@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, Share, Modal, RefreshControl } from "react-native";
+import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, Share, Modal, RefreshControl, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
+import * as Contacts from "expo-contacts";
 import QRCode from "react-native-qrcode-svg";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
@@ -49,6 +50,20 @@ export default function DiscoverPeople() {
     setCopied(true);
     Haptics.selectionAsync();
     setTimeout(() => setCopied(false), 1600);
+  };
+  const inviteViaContacts = async () => {
+    if (!invite) return;
+    try {
+      let { status, canAskAgain } = await Contacts.getPermissionsAsync();
+      if (status !== "granted") {
+        if (!canAskAgain) { Linking.openSettings(); return; }
+        status = (await Contacts.requestPermissionsAsync()).status;
+      }
+      if (status !== "granted") return;
+      Haptics.selectionAsync();
+      // With the user's consent, open the native picker to send the invite.
+      await Share.share({ message: invite.message });
+    } catch { /* contacts unavailable on this platform */ }
   };
 
   return (
@@ -115,6 +130,10 @@ export default function DiscoverPeople() {
               {invite ? <QRCode value={invite.url} size={168} color="#0A0A0A" backgroundColor="#FFFFFF" /> : null}
             </View>
             <Text style={styles.linkText} numberOfLines={1}>{invite?.url}</Text>
+            <Pressable testID="invite-contacts" style={styles.contactsBtn} onPress={inviteViaContacts}>
+              <Ionicons name="people-circle-outline" size={18} color={colors.onSurface} />
+              <Text style={styles.contactsText}>Invita dalla rubrica</Text>
+            </Pressable>
             <View style={styles.inviteActions}>
               <Pressable testID="invite-copy" style={styles.inviteAction} onPress={copyLink}>
                 <Ionicons name={copied ? "checkmark" : "copy-outline"} size={18} color={colors.brand} />
@@ -158,6 +177,8 @@ const styles = StyleSheet.create({
   sheetSub: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm },
   qrWrap: { backgroundColor: "#fff", padding: spacing.md, borderRadius: radius.md, marginVertical: spacing.md },
   linkText: { color: colors.brand, fontFamily: fonts.medium, fontSize: type.sm },
+  contactsBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", paddingVertical: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, marginTop: spacing.md },
+  contactsText: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
   inviteActions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.md, width: "100%" },
   inviteAction: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   inviteActionPrimary: { backgroundColor: colors.brand, borderColor: colors.brand },

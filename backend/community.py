@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from database import db
 from auth import get_current_user, get_optional_user
+from push import send_push
 
 community_router = APIRouter(prefix="/api/community", tags=["community"])
 
@@ -160,6 +161,16 @@ async def create_mention(req: MentionReq, user: dict = Depends(get_current_user)
         await db.mention_requests.insert_one(doc)
     except Exception:
         raise HTTPException(status_code=409, detail="Richiesta già inviata per questo Senshot")
+    # Notify the target (identity of the author is public; the target's is NOT revealed).
+    try:
+        await send_push(
+            recipients=[req.target_id],
+            data={"title": "OverView™", "message": "Qualcuno vorrebbe menzionarti in un Senshot™.",
+                  "action_url": "/match-history"},
+            idempotency_key=doc["id"],
+        )
+    except Exception as e:  # push must never block the request
+        pass
     return {"status": "pending"}
 
 
@@ -327,3 +338,70 @@ async def invite(user: dict = Depends(get_current_user)):
         "nickname": nick,
         "message": f"Osserva la realtà invisibile con me su OverView™ 🔭 {url}",
     }
+
+
+# ---------------------------------------------------------------------------
+# Face engine (Beyond View, privacy-first) — MATH ONLY, never a photo.
+# The camera computes a face embedding ON-DEVICE (native build) and sends only
+# the vector. The owner enrolls their own vector for 1:1 self-recognition; the
+# match endpoint compares a detected face against CONSENTING users (level ≥ 2)
+# and returns a target_id WITHOUT ever revealing who it is.
+# ---------------------------------------------------------------------------
+import math as _math
+
+FACE_MATCH_THRESHOLD = 0.62  # cosine on L2-normalized FaceNet-style embeddings
+
+
+def _cosine(a, b) -> float:
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    dot = sum(x * y for x, y in zip(a, b))
+    na = _math.sqrt(sum(x * x for x in a))
+    nb = _math.sqrt(sum(y * y for y in b))
+    if na == 0 or nb == 0:
+        return 0.0
+    return dot / (na * nb)
+
+
+class EmbeddingReq(BaseModel):
+    embedding: List[float]
+
+
+@community_router.post("/face/enroll")
+async def enroll_face(req: EmbeddingReq, user: dict = Depends(get_current_user)):
+    """Owner enrols their own face embedding (opt-in). No image is stored."""
+    if not req.embedding or len(req.embedding) < 64:
+        raise HTTPException(status_code=400, detail="Embedding non valido")
+    await db.users.update_one({"id": user["id"]},
+                              {"$set": {"face_embedding": req.embedding, "face_scanned": True}})
+    return {"ok": True, "dims": len(req.embedding)}
+
+
+@community_router.delete("/face")
+async def delete_face(user: dict = Depends(get_current_user)):
+    """Delete the biometric template at any time."""
+    await db.users.update_one({"id": user["id"]},
+                              {"$unset": {"face_embedding": ""}, "$set": {"face_scanned": False}})
+    return {"ok": True}
+
+
+@community_router.post("/face/match")
+async def face_match(req: EmbeddingReq, user: dict = Depends(get_current_user)):
+    """Match a detected face against CONSENTING users. Identity is NEVER revealed
+    here — only an opaque target_id + confidence, to seed a mention request."""
+    if not req.embedding:
+        raise HTTPException(status_code=400, detail="Embedding non valido")
+    best_id, best_sim = None, 0.0
+    cursor = db.users.find(
+        {"presence_level": {"$gte": 2}, "face_embedding": {"$exists": True}},
+        {"_id": 0, "id": 1, "face_embedding": 1},
+    )
+    async for u in cursor:
+        if u["id"] == user["id"]:
+            continue
+        sim = _cosine(req.embedding, u.get("face_embedding") or [])
+        if sim > best_sim:
+            best_sim, best_id = sim, u["id"]
+    if best_id and best_sim >= FACE_MATCH_THRESHOLD:
+        return {"matched": True, "target_id": best_id, "confidence": round(best_sim, 3)}
+    return {"matched": False}

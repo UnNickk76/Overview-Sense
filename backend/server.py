@@ -24,6 +24,7 @@ from snapsense import snapsense_router, ensure_snapsense_indexes
 from feedback import feedback_router
 from dm import dm_router, ensure_dm_indexes
 from community import community_router, ensure_community_indexes
+from push import push_router
 
 ROOT_DIR = Path(__file__).parent
 
@@ -386,6 +387,7 @@ app.include_router(snapsense_router)
 app.include_router(feedback_router)
 app.include_router(dm_router)
 app.include_router(community_router)
+app.include_router(push_router)
 
 app.add_middleware(
     CORSMiddleware,

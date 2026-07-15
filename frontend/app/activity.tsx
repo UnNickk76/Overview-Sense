@@ -10,6 +10,7 @@ import { BottomNav } from "@/src/components/BottomNav";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { useAuth } from "@/src/context/AuthContext";
 import { socialApi, mediaUrl, ActivityEvent } from "@/src/lib/backend";
+import { communityApi } from "@/src/lib/community";
 
 const KIND_META: Record<ActivityEvent["kind"], { icon: keyof typeof Ionicons.glyphMap; color: string; verb: string }> = {
   observed: { icon: "eye", color: colors.blue, verb: "ha osservato la tua Observation" },
@@ -40,12 +41,20 @@ export default function Activity() {
   const [items, setItems] = useState<ActivityEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [discoverCount, setDiscoverCount] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
 
   const load = useCallback(async () => {
     if (!user) { setLoading(false); return; }
     try {
-      const res = await socialApi.activity();
+      const [res, sum, disc] = await Promise.all([
+        socialApi.activity(),
+        communityApi.summary().catch(() => ({ pending: 0, appeared: 0 })),
+        communityApi.discover(20).catch(() => ({ items: [] })),
+      ]);
       setItems(res.items);
+      setPendingCount(sum.pending);
+      setDiscoverCount(disc.items.length);
     } catch { /* offline */ } finally { setLoading(false); setRefreshing(false); }
   }, [user]);
 
@@ -56,6 +65,25 @@ export default function Activity() {
     if (e.kind === "follow") router.push(`/profile?id=${e.actor_id}` as never);
     else if (e.obs_id) router.push(`/observation-detail?id=${e.obs_id}` as never);
   };
+
+  const summaries = (
+    <View style={{ gap: spacing.sm }}>
+      {pendingCount > 0 ? (
+        <Pressable testID="summary-mentions" style={styles.summary} onPress={() => { Haptics.selectionAsync(); router.push("/match-history" as never); }}>
+          <View style={[styles.summaryIcon, { backgroundColor: "rgba(212,175,55,0.15)" }]}><Ionicons name="person-circle-outline" size={18} color={colors.brand} /></View>
+          <Text style={styles.summaryText}>Hai {pendingCount} {pendingCount === 1 ? "richiesta di menzione" : "richieste di menzione"} in attesa.</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.onSurfaceSecondary} />
+        </Pressable>
+      ) : null}
+      {discoverCount > 0 ? (
+        <Pressable testID="summary-discover" style={styles.summary} onPress={() => { Haptics.selectionAsync(); router.push("/discover-people" as never); }}>
+          <View style={[styles.summaryIcon, { backgroundColor: "rgba(10,132,255,0.15)" }]}><Ionicons name="people-outline" size={18} color={colors.blue} /></View>
+          <Text style={styles.summaryText}>Hai {discoverCount} {discoverCount === 1 ? "persona" : "persone"} che potresti conoscere.</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.onSurfaceSecondary} />
+        </Pressable>
+      ) : null}
+    </View>
+  );
 
   return (
     <SpaceBackground>
@@ -71,19 +99,24 @@ export default function Activity() {
       ) : loading ? (
         <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>
       ) : items.length === 0 ? (
-        <View style={styles.center}>
-          <Ionicons name="notifications-outline" size={54} color={colors.onSurfaceSecondary} />
-          <Text style={styles.emptyTitle}>Nessuna attività per ora</Text>
-          <Text style={styles.emptyText}>Quando la community reagisce alle tue Observation, lo vedrai qui.</Text>
-        </View>
+        <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 110, gap: spacing.md }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} />}>
+          {summaries}
+          <View style={styles.centerInline}>
+            <Ionicons name="notifications-outline" size={54} color={colors.onSurfaceSecondary} />
+            <Text style={styles.emptyTitle}>Nessuna attività per ora</Text>
+            <Text style={styles.emptyText}>Quando la community reagisce alle tue Observation, lo vedrai qui.</Text>
+          </View>
+        </ScrollView>
       ) : (
         <ScrollView
           contentContainerStyle={{ padding: spacing.lg, paddingBottom: 110, gap: spacing.sm }}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} />}
         >
+          {summaries}
           {items.map((e, i) => {
-            const meta = KIND_META[e.kind];
+            const meta = KIND_META[e.kind] ?? { icon: "notifications" as const, color: colors.brand, verb: "ha interagito" };
             const avatar = mediaUrl(e.actor_avatar);
             return (
               <Pressable key={`${e.kind}-${e.actor_id}-${e.obs_id}-${i}`} testID={`activity-${i}`} style={styles.row} onPress={() => openEvent(e)}>
@@ -119,6 +152,10 @@ export default function Activity() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.xl, gap: spacing.md, paddingBottom: 90 },
+  centerInline: { alignItems: "center", gap: spacing.md, paddingTop: spacing["2xl"], paddingHorizontal: spacing.lg },
+  summary: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  summaryIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  summaryText: { flex: 1, color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.sm },
   emptyTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.lg, marginTop: spacing.sm },
   emptyText: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.base, textAlign: "center", lineHeight: 21 },
   cta: { backgroundColor: colors.brand, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderRadius: radius.pill, marginTop: spacing.sm },
