@@ -477,7 +477,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   senseHero: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, alignSelf: "center", backgroundColor: colors.surfaceSecondary, borderRadius: 999, paddingHorizontal: spacing.lg, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
   senseHeroText: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.sm - 1, letterSpacing: 1 },
-  layerHint: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.xs },
+  layerHint: { marginTop: spacing.xs, gap: spacing.sm },
   layerHintText: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm - 2, letterSpacing: 0.8 },
   layerRow: { gap: spacing.sm, paddingVertical: spacing.xs },
   layerChip: { backgroundColor: colors.tertiary, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },

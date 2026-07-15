@@ -714,3 +714,7 @@ RIMANE: reverse-geocode `data.country` alla cattura (per conteggio paesi Pulse g
 - **Tastiera non chiudibile**: aggiunti listener Keyboard (kbOpen/kbHeight); overlay Pressable su tutta l'area (tranne pannello) che fa `Keyboard.dismiss()` al tocco; il pannello input si solleva sopra la tastiera (paddingBottom += kbHeight su iOS) così si vede ciò che si scrive.
 - **Visual Assistant descrizione senza chiusura**: aggiunta **X** in alto a destra (`va-close`) che chiude la descrizione e torna al live (oltre a Riprova/Crea Senshot).
 - ⚠️ Validabile SOLO su BUILD nativa (CameraPro.native/VisionCamera).
+
+### SESSIONE (fork) — Fix "frammento dorato fuori schermo" in observation.tsx (2026-06)
+- CAUSA: lo stile `layerHint` era `flexDirection: "row"` e conteneva 2 figli affiancati: il banner "Soggetto rilevato" + la `SenseLayerBar`. Quando l'AI riconosce un soggetto, il banner spinge la SenseLayerBar fuori dallo schermo a destra → si vedeva solo il bordo sinistro (SenseMark dorato + testo reveals "L'immagine reale…" = "L'i…").
+- FIX: `layerHint` ora in colonna (`{ marginTop: spacing.xs, gap: spacing.sm }`) → banner sopra a tutta larghezza, SenseLayerBar sotto a tutta larghezza. La sezione resta (come richiesto) e ora è interamente visibile. Fix di solo layout, valido anche su web.
