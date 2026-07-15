@@ -221,8 +221,28 @@ export default function Home() {
             </Animated.View>
           ))}
 
-          {/* Observe — the social layer stays independent */}
+          {/* Pulse — daily observational challenges */}
           <Animated.View entering={FadeInDown.delay(GROUPS.length * 55).springify().damping(18)} style={styles.cell}>
+            <Pressable testID="module-pulse" onPress={() => go("/challenges")}>
+              <View style={styles.card}>
+                <BlurView intensity={26} tint="dark" style={StyleSheet.absoluteFill} />
+                <View style={styles.cardTint} />
+                <View style={styles.cardIcon}>
+                  <View style={[styles.iconWrap, { borderColor: colors.brand }]}>
+                    <Ionicons name="flash" size={19} color={colors.brand} />
+                  </View>
+                </View>
+                <View style={styles.cardText}>
+                  <Text style={styles.overline} numberOfLines={1}>PULSE™</Text>
+                  <BrandName name="Pulse" style={styles.title} />
+                  <Text style={styles.caption} numberOfLines={1}>Sfide per osservare.</Text>
+                </View>
+              </View>
+            </Pressable>
+          </Animated.View>
+
+          {/* Observe — the social layer stays independent */}
+          <Animated.View entering={FadeInDown.delay((GROUPS.length + 1) * 55).springify().damping(18)} style={styles.cell}>
             <Pressable testID="module-feed" onPress={() => go("/feed")}>
               <View style={styles.card}>
                 <BlurView intensity={26} tint="dark" style={StyleSheet.absoluteFill} />
@@ -243,7 +263,7 @@ export default function Home() {
           </Animated.View>
 
           {/* Gallery — personal collection, independent */}
-          <Animated.View entering={FadeInDown.delay((GROUPS.length + 1) * 55).springify().damping(18)} style={styles.cell}>
+          <Animated.View entering={FadeInDown.delay((GROUPS.length + 2) * 55).springify().damping(18)} style={styles.cell}>
             <Pressable testID="module-gallery" onPress={() => go("/observations")}>
               <View style={styles.card}>
                 <BlurView intensity={26} tint="dark" style={StyleSheet.absoluteFill} />

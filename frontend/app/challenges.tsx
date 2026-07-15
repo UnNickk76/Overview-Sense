@@ -99,7 +99,7 @@ export default function Challenges() {
     <SpaceBackground>
       <View style={[styles.top, { paddingTop: insets.top + spacing.sm }]}>
         <View style={{ flex: 1 }}>
-          <BrandName name="Challenges" style={styles.title} />
+          <BrandName name="Pulse" style={styles.title} />
           <Text style={styles.subtitle}>Osserva la realtà. Ogni giorno una sfida.</Text>
         </View>
         <Pressable testID="pulse-compare-toggle" hitSlop={8} style={[styles.compareBtn, compareMode && styles.compareBtnOn]}
@@ -173,7 +173,7 @@ export default function Challenges() {
 
         {compareMode ? (
           <View style={styles.compareHint}>
-            <Text style={styles.compareHintText}>Seleziona due Pulse ({picks.length}/2) per confrontarle con Pulse Challenge™.</Text>
+            <Text style={styles.compareHintText}>Seleziona due Pulse ({picks.length}/2) per confrontarle con il Confronto Pulse™.</Text>
             <Pressable testID="pulse-run-compare" disabled={picks.length !== 2 || comparing}
               style={[styles.runBtn, (picks.length !== 2 || comparing) && { opacity: 0.5 }]} onPress={runCompare}>
               {comparing ? <ActivityIndicator color={colors.onBrand} size="small" /> : <Text style={styles.runText}>Confronta</Text>}
@@ -231,7 +231,7 @@ export default function Challenges() {
           <View style={[styles.modalCard, { paddingBottom: insets.bottom + spacing.lg }]}>
             <View style={styles.modalHead}>
               <Ionicons name="git-compare" size={20} color={colors.brand} />
-              <Text style={styles.modalTitle}>Pulse Challenge™</Text>
+              <Text style={styles.modalTitle}>Confronto Pulse™</Text>
               <Pressable testID="pulse-close-challenge" hitSlop={10} onPress={() => setChallenge(null)}>
                 <Ionicons name="close" size={22} color={colors.onSurface} />
               </Pressable>
