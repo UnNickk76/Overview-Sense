@@ -494,6 +494,32 @@ async def observation_of_the_day(viewer: Optional[dict] = Depends(get_optional_u
 # ---------------------------------------------------------------------------
 # Pulse™ — daily observational challenges (curated themes, real observations)
 # ---------------------------------------------------------------------------
+class UpdateObs(BaseModel):
+    caption: Optional[str] = None
+    legend_hidden: Optional[List[str]] = None
+    legend_on: Optional[bool] = None
+
+
+@social_router.patch("/observations/{obs_id}")
+async def update_observation(obs_id: str, req: UpdateObs, user: dict = Depends(get_current_user)):
+    o = await db.observations.find_one({"id": obs_id}, {"_id": 0})
+    if not o:
+        raise HTTPException(status_code=404, detail="Observation non trovata")
+    if o["user_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Non sei l'autore di questa osservazione")
+    data = dict(o.get("data") or {})
+    if req.legend_hidden is not None:
+        data["legendHidden"] = req.legend_hidden
+    if req.legend_on is not None:
+        data["legendOn"] = req.legend_on
+    update: dict = {"data": data}
+    if req.caption is not None:
+        update["caption"] = req.caption.strip()[:500]
+    await db.observations.update_one({"id": obs_id}, {"$set": update})
+    updated = await db.observations.find_one({"id": obs_id}, {"_id": 0})
+    return obs_public(updated, set(), False)
+
+
 @social_router.get("/pulse/feed")
 async def pulse_feed(task_id: Optional[str] = None, limit: int = 60,
                      viewer: Optional[dict] = Depends(get_optional_user)):

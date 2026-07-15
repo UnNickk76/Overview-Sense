@@ -69,6 +69,10 @@ export default function ObservationDetail() {
   const [layersVisible, setLayersVisible] = useState(true);
   const [gallery, setGallery] = useState<string[]>([]);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [hiddenObj, setHiddenObj] = useState<Set<string>>(new Set());
+  const [legendOn, setLegendOn] = useState(true);
+  const [editOpen, setEditOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;

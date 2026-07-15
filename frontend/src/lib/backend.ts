@@ -177,6 +177,8 @@ export const socialApi = {
   save: (id: string) => apiFetch<{ saved: boolean }>(`/observations/${id}/save`, { method: "POST" }),
   repost: (id: string) => apiFetch<{ reposted: boolean }>(`/observations/${id}/repost`, { method: "POST" }),
   collection: (id: string) => apiFetch<{ items: FeedObservation[] }>(`/users/${id}/collection`),
+  updateObservation: (id: string, payload: { caption?: string; legend_hidden?: string[]; legend_on?: boolean }) =>
+    apiFetch<FeedObservation>(`/observations/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
 };
 
 // ---- Pulse™ ----
