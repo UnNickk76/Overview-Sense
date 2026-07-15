@@ -34,3 +34,24 @@ export function celestialThumb(id: string, name: string): string | null {
   // Bright stars: no single canonical photo → no thumbnail (label only).
   return null;
 }
+
+// Real reference thumbnail for ANY recognized subject, via Wikipedia search.
+// Returns a Wikimedia thumbnail URL (real photo of the subject) or null.
+export async function wikiThumb(query: string): Promise<string | null> {
+  if (!query) return null;
+  const headers = { "User-Agent": "OverViewApp/1.0 (live-sense)", "Api-User-Agent": "OverViewApp/1.0" };
+  for (const lang of ["it", "en"]) {
+    try {
+      const r = await fetch(`https://${lang}.wikipedia.org/w/rest.php/v1/search/page?q=${encodeURIComponent(query)}&limit=1`, { headers });
+      if (!r.ok) continue;
+      const j = await r.json();
+      let url: string | undefined = j?.pages?.[0]?.thumbnail?.url;
+      if (url) {
+        if (url.startsWith("//")) url = `https:${url}`;
+        // Request a larger crop than the tiny default (…/60px-… → …/240px-…).
+        return url.replace(/\/\d+px-/, "/240px-");
+      }
+    } catch { /* try next language */ }
+  }
+  return null;
+}

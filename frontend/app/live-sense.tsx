@@ -77,7 +77,7 @@ export default function LiveSenseControl() {
             })}
           </View>
 
-          <Text style={styles.note}>🌌 Astronomia usa solo dati reali (bussola, sensori, GPS, calcoli): zero AI, nessun dato inventato. Le altre categorie arrivano progressivamente e vengono mostrate solo con buona affidabilità.</Text>
+          <Text style={styles.note}>🌌 Astronomia usa solo dati reali (bussola, sensori, GPS, calcoli): zero AI, nessun dato inventato. Le altre categorie vengono riconosciute in tempo reale e mostrate solo con buona affidabilità (✔ Riconosciuto o ≈ Probabile). Meglio nessuna informazione che una sbagliata.</Text>
         </View>
       </ScrollView>
     </SpaceBackground>

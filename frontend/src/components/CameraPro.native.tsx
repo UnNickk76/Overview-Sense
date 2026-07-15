@@ -147,6 +147,26 @@ async function enhanceImage(path: string, zoomFactor = 1): Promise<string> {
   }
 }
 
+// Fast, low-cost frame grab for Live Sense™ recognition (downscaled JPEG base64).
+async function downscaleToBase64(path: string, edge: number): Promise<string | null> {
+  try {
+    const b64 = await FileSystem.readAsStringAsync(path, { encoding: FileSystem.EncodingType.Base64 });
+    const data = Skia.Data.fromBase64(b64);
+    const img = Skia.Image.MakeImageFromEncoded(data);
+    if (!img) return b64;
+    const iw = img.width(), ih = img.height();
+    const scale = Math.min(1, edge / Math.max(iw, ih));
+    const W = Math.max(1, Math.round(iw * scale)), H = Math.max(1, Math.round(ih * scale));
+    const surface = Skia.Surface.MakeOffscreen(W, H);
+    if (!surface) return b64;
+    surface.getCanvas().drawImageRect(img, Skia.XYWHRect(0, 0, iw, ih), Skia.XYWHRect(0, 0, W, H), Skia.Paint());
+    return surface.makeImageSnapshot().encodeToBase64(ImageFormat.JPEG, 78);
+  } catch {
+    return null;
+  }
+}
+
+
 export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBottom?: number }>(({ enhance = true, hudBottom = 150 }, ref) => {
   // Full physical optical range: ultra-wide → wide → tele. The virtual multi-cam
   // device auto-switches lenses for the widest field of view and Super Macro on
@@ -290,6 +310,15 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
     },
   }), [enhance, zoom, neutral]);
 
+  // Live Sense™ frame grab — fast preview snapshot, downscaled for cheap AI calls.
+  const snapshotBase64 = useCallback(async (): Promise<string | null> => {
+    if (!cam.current) return null;
+    try {
+      const snap = await cam.current.takeSnapshot({ quality: 80 });
+      return await downscaleToBase64(snap.path, 640);
+    } catch { return null; }
+  }, []);
+
   if (!device) {
     return <View style={styles.fallback}><Text style={styles.fallbackText}>Fotocamera non disponibile</Text></View>;
   }
@@ -321,7 +350,7 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
             <SenseRadar zoom={zoomFactor} />
           </View>
         ) : null}
-        <LiveSense zoomFactor={zoomFactor} active={hasPerm && !!device} />
+        <LiveSense zoomFactor={zoomFactor} active={hasPerm && !!device} snapshot={snapshotBase64} />
         <View pointerEvents="box-none" style={[styles.hud, { bottom: hudBottom }]}>
           <GestureDetector gesture={wheelPan}>
             <View style={styles.presetZone}>

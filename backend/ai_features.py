@@ -167,6 +167,103 @@ async def see(req: SeeReq):
         raise HTTPException(status_code=503, detail="Assistente Visivo non disponibile")
 
 
+# ---------------------------------------------------------------------------
+# Live Sense™ — universal real-time recognition (terrestrial / general).
+# The AI is an invisible tool: for the user there is only "Live Sense™". It must
+# stay HONEST (Beyond View): identify one real subject only when reasonably sure,
+# otherwise recognize=false. It never invents. Celestial objects are handled by
+# the deterministic real-data engine, so this endpoint ignores the pure sky.
+# ---------------------------------------------------------------------------
+LIVE_CATEGORY_LABELS = {
+    "monuments": "monumenti, luoghi e opere celebri (es. Colosseo, Torre Eiffel)",
+    "nature": "paesaggi e fenomeni naturali (cascate, dune, aurore, arcobaleni)",
+    "botany": "piante, alberi, fiori, funghi",
+    "animals": "animali, uccelli, insetti, pesci, razze di cani/gatti",
+    "architecture": "edifici, ponti, chiese, castelli e stili architettonici",
+    "art": "opere d'arte, sculture, dipinti",
+    "geology": "montagne, rocce, formazioni geologiche, minerali",
+    "sea": "mari, laghi, fiumi e ambienti acquatici",
+    "technology": "dispositivi tecnologici e veicoli spaziali (NON oggetti celesti)",
+    "vehicles": "veicoli: auto, moto, bici, treni, aerei, barche",
+    "objects": "oggetti comuni, mobili, elettrodomestici, strumenti musicali",
+}
+
+LIVE_RECOGNIZE_SYSTEM = (
+    "Sei il motore di riconoscimento di Live Sense™ per l'app OverView. Ricevi una foto reale "
+    "inquadrata dalla fotocamera dell'utente. Identifica UN SOLO soggetto principale, il più "
+    "prominente e riconoscibile, SCEGLIENDO SOLO tra le categorie abilitate che ti verranno indicate. "
+    "REGOLE ASSOLUTE (filosofia 'Oltre la Vista'): non inventare mai; se non sei ragionevolmente "
+    "sicuro, imposta recognized=false; NON identificare oggetti celesti (cielo, stelle, pianeti, Luna, "
+    "Sole, galassie) perché sono gestiti separatamente: se l'inquadratura è solo cielo, recognized=false. "
+    "Fornisci l'etichetta più specifica possibile e onesta (es. 'Lavanda' non 'fiore'; 'Colosseo' non "
+    "'edificio'; 'Volpe rossa' non 'animale') SOLO se sei sicuro; altrimenti usa un'etichetta più generica "
+    "con confidenza più bassa. Rispondi SOLO con JSON compatto, senza prosa, in questa forma esatta: "
+    '{"recognized": <bool>, "label": <etichetta in italiano>, "category": <una delle categorie abilitate>, '
+    '"subtitle": <descrizione brevissima in italiano, max 5 parole>, "emoji": <una emoji pertinente>, '
+    '"confidence": <numero 0.0-1.0>, "wiki": <termine di ricerca in italiano per una foto di riferimento reale>}'
+)
+
+
+class LiveRecognizeReq(BaseModel):
+    image_base64: str
+    categories: List[str] = []
+
+
+@ai_router.post("/live-recognize")
+async def live_recognize(req: LiveRecognizeReq):
+    """Live Sense™ universal recognition. Fails to recognized=false (never invents)."""
+    import json as _json
+    from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+    none = {"recognized": False}
+    raw = (req.image_base64 or "").strip()
+    if "," in raw and raw.startswith("data:"):
+        raw = raw.split(",", 1)[1]
+    cats = [c for c in (req.categories or []) if c in LIVE_CATEGORY_LABELS]
+    if not EMERGENT_LLM_KEY or not raw or not cats:
+        return none
+    allowed = "\n".join(f"- {c}: {LIVE_CATEGORY_LABELS[c]}" for c in cats)
+    prompt = (
+        "Categorie ABILITATE (usa SOLO queste per 'category'):\n" + allowed + "\n\n"
+        "Analizza la foto e identifica il soggetto principale secondo le regole. Restituisci solo il JSON."
+    )
+    try:
+        chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=str(uuid.uuid4()),
+                       system_message=LIVE_RECOGNIZE_SYSTEM).with_model("openai", "gpt-5.4")
+        resp = await chat.send_message(UserMessage(
+            text=prompt, file_contents=[ImageContent(image_base64=raw)]))
+        text = resp if isinstance(resp, str) else (getattr(resp, "text", None) or str(resp))
+        s, e = text.find("{"), text.rfind("}")
+        if s == -1 or e == -1:
+            return none
+        data = _json.loads(text[s:e + 1])
+        if not data.get("recognized") or not data.get("label"):
+            return none
+        cat = data.get("category")
+        if cat not in cats:
+            return none
+        conf = float(data.get("confidence", 0) or 0)
+        # Reliability tiers: never show anything below "probable".
+        if conf >= 0.82:
+            reliability = "confirmed"
+        elif conf >= 0.55:
+            reliability = "probable"
+        else:
+            return none
+        return {
+            "recognized": True,
+            "label": str(data.get("label"))[:60],
+            "category": cat,
+            "subtitle": str(data.get("subtitle", ""))[:80],
+            "emoji": str(data.get("emoji", ""))[:4],
+            "confidence": round(conf, 2),
+            "reliability": reliability,
+            "wiki": str(data.get("wiki") or data.get("label"))[:80],
+        }
+    except Exception:
+        return none
+
+
+
 PULSE_COMPARE_SYSTEM = (
     "Sei il giudice-narratore di Pulse™, la sfida osservativa di OverView. Ricevi DUE foto reali "
     "scattate da due osservatori diversi sullo stesso tema, più i dati reali di ciascuna. "

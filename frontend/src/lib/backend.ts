@@ -282,6 +282,17 @@ export const snapSenseApi = {
 };
 
 // ---- AI narration ----
+export interface LiveRecognition {
+  recognized: boolean;
+  label?: string;
+  category?: string;
+  subtitle?: string;
+  emoji?: string;
+  confidence?: number;
+  reliability?: "confirmed" | "probable";
+  wiki?: string;
+}
+
 export const aiApi = {
   explainOpportunity: (title: string, facts: string[], kind?: string) =>
     apiFetch<{ text: string }>("/ai/explain-opportunity", {
@@ -296,6 +307,10 @@ export const aiApi = {
   recognizeSubject: (image_base64: string) =>
     apiFetch<{ subject: string; label_it: string }>("/ai/recognize-subject", {
       method: "POST", body: JSON.stringify({ image_base64 }),
+    }),
+  liveRecognize: (image_base64: string, categories: string[]) =>
+    apiFetch<LiveRecognition>("/ai/live-recognize", {
+      method: "POST", body: JSON.stringify({ image_base64, categories }),
     }),
   analyzeSatellite: (payload: { location: string; date: string; layer: string; layer_desc: string; notes?: string }) =>
     apiFetch<{ observe: string; explanations: string; cannot: string }>("/ai/analyze-satellite", {
