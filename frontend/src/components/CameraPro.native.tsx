@@ -175,7 +175,9 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
     physicalDevices: ["ultra-wide-angle-camera", "wide-angle-camera", "telephoto-camera"],
   });
   const singleDevice = useCameraDevice("back");
-  const device = multiDevice ?? singleDevice;
+  const frontDevice = useCameraDevice("front");
+  const [facing, setFacing] = useState<"back" | "front">("back");
+  const device = facing === "front" ? frontDevice : (multiDevice ?? singleDevice);
   const format = useCameraFormat(device, [{ photoResolution: "max" }]);
   const supportsHdr = !!format?.supportsPhotoHdr;
   const supportsLowLight = !!device?.supportsLowLightBoost;
@@ -230,6 +232,14 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
     })();
     hydrateLiveSense();
   }, []);
+
+  // Reset zoom when flipping camera (front/back have different optical ranges).
+  useEffect(() => {
+    zoom.value = neutral;
+    setZoomFactor(1);
+    setZoomLabel("1.0×");
+    setMacro(false);
+  }, [facing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const showZoom = useCallback((z: number) => {
     setZoomLabel(`${(z / neutral).toFixed(1)}×`);
@@ -350,7 +360,7 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
             <SenseRadar zoom={zoomFactor} />
           </View>
         ) : null}
-        <LiveSense zoomFactor={zoomFactor} active={hasPerm && !!device} snapshot={snapshotBase64} />
+        <LiveSense zoomFactor={zoomFactor} active={hasPerm && !!device} snapshot={snapshotBase64} facing={facing} />
         <View pointerEvents="box-none" style={[styles.hud, { bottom: hudBottom }]}>
           <GestureDetector gesture={wheelPan}>
             <View style={styles.presetZone}>
@@ -395,6 +405,12 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
               <Ionicons name={lock ? "lock-closed" : "lock-open"} size={15} color={lock ? colors.onBrand : "#fff"} />
               <Text style={[styles.lockText, lock && { color: colors.onBrand }]}>AF/AE</Text>
             </Pressable>
+            {frontDevice ? (
+              <Pressable testID="camerapro-flip" style={styles.flipBtn}
+                onPress={() => { Haptics.selectionAsync(); setFacing((f) => (f === "back" ? "front" : "back")); }}>
+                <Ionicons name="camera-reverse-outline" size={18} color={facing === "front" ? colors.brand : "#fff"} />
+              </Pressable>
+            ) : null}
           </View>
         </View>
       </View>
@@ -427,6 +443,7 @@ const styles = StyleSheet.create({
   liveChip: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
   liveChipOff: { borderColor: "rgba(255,255,255,0.3)" },
   liveChipText: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.sm - 2, letterSpacing: 0.3 },
+  flipBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.3)" },
   zoomText: { color: "#fff", fontFamily: fonts.mono, fontSize: type.sm },
   lockBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.3)" },
   lockOn: { backgroundColor: colors.brand, borderColor: colors.brand },

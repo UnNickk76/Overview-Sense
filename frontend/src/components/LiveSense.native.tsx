@@ -13,7 +13,7 @@ import { colors, fonts, type } from "@/src/theme";
 
 type SnapFn = () => Promise<string | null>;
 
-interface Props { zoomFactor?: number; active: boolean; snapshot?: SnapFn }
+interface Props { zoomFactor?: number; active: boolean; snapshot?: SnapFn; facing?: "back" | "front" }
 
 // Live Sense™ — OverView's single universal recognition engine embedded in the
 // camera. It has two honest sources under one experience:
@@ -21,7 +21,7 @@ interface Props { zoomFactor?: number; active: boolean; snapshot?: SnapFn }
 //  • Live Sense™ (AI): terrestrial/general subjects, shown only when reliable.
 // For the user there is only one thing: point the camera, OverView tells you what
 // you're observing. Beyond View: nothing is ever invented.
-export function LiveSense({ zoomFactor = 1, active, snapshot }: Props) {
+export function LiveSense({ zoomFactor = 1, active, snapshot, facing = "back" }: Props) {
   const settings = useLiveSense();
   const skyOn = active && settings.on && isCategoryActive("astronomy", settings);
   const aiCats = active && settings.on
@@ -31,7 +31,7 @@ export function LiveSense({ zoomFactor = 1, active, snapshot }: Props) {
   if (!skyOn && !aiOn) return null;
   return (
     <>
-      {skyOn ? <LiveSkyEngine zoomFactor={zoomFactor} /> : null}
+      {skyOn ? <LiveSkyEngine zoomFactor={zoomFactor} facing={facing} /> : null}
       {aiOn ? <LiveAIEngine snapshot={snapshot!} categories={aiCats} /> : null}
     </>
   );
@@ -44,26 +44,29 @@ const KIND_RANK: Record<SkyObject["kind"], number> = {
 
 interface Marked { o: SkyObject; x: number; y: number; center: number; score: number }
 
-function LiveSkyEngine({ zoomFactor }: { zoomFactor: number }) {
+function LiveSkyEngine({ zoomFactor, facing }: { zoomFactor: number; facing: "back" | "front" }) {
   const { width, height } = useWindowDimensions();
   const obs = useObserver();
   const heading = useHeading(true, 150);
   const accel = useAccelerometer(true, 150);
   const now = useNow(2000);
 
+  // Front camera looks the opposite way to the phone's back → offset azimuth 180°.
+  const camAz = facing === "front" ? (heading + 180) % 360 : heading;
+  const mirror = facing === "front";
   const cameraAlt = useMemo(
     () => -Math.atan2(accel.z, Math.hypot(accel.x, accel.y)) * (180 / Math.PI),
     [accel.x, accel.y, accel.z],
   );
 
-  const prev = useRef({ h: heading, a: cameraAlt, t: Date.now() });
+  const prev = useRef({ h: camAz, a: cameraAlt, t: Date.now() });
   const [stable, setStable] = useState(false);
   useEffect(() => {
     const dt = Math.max(1, Date.now() - prev.current.t);
-    const speed = (Math.abs(angDiff(heading, prev.current.h)) + Math.abs(cameraAlt - prev.current.a)) / (dt / 1000);
-    prev.current = { h: heading, a: cameraAlt, t: Date.now() };
+    const speed = (Math.abs(angDiff(camAz, prev.current.h)) + Math.abs(cameraAlt - prev.current.a)) / (dt / 1000);
+    prev.current = { h: camAz, a: cameraAlt, t: Date.now() };
     setStable(speed < 8);
-  }, [heading, cameraAlt]);
+  }, [camAz, cameraAlt]);
 
   const objects = useMemo(() => {
     if (obs.status !== "granted") return [] as SkyObject[];
@@ -75,15 +78,16 @@ function LiveSkyEngine({ zoomFactor }: { zoomFactor: number }) {
     const cx = width / 2, cy = height / 2;
     const out: Marked[] = [];
     for (const o of objects) {
-      const p = project(o.az, o.alt, heading, cameraAlt, width, height, fovH);
+      const p = project(o.az, o.alt, camAz, cameraAlt, width, height, fovH);
       if (!p) continue;
-      const center = Math.hypot(p.x - cx, p.y - cy) / Math.hypot(cx, cy);
+      const x = mirror ? width - p.x : p.x;
+      const center = Math.hypot(x - cx, p.y - cy) / Math.hypot(cx, cy);
       const bright = Math.max(0, 1 - (o.magnitude + 2) / 8);
       const score = KIND_RANK[o.kind] * 2 + bright * 3 - center * 4;
-      out.push({ o, x: p.x, y: p.y, center, score });
+      out.push({ o, x, y: p.y, center, score });
     }
     return out.sort((a, b) => b.score - a.score).slice(0, 6);
-  }, [objects, heading, cameraAlt, width, height, fovH]);
+  }, [objects, camAz, cameraAlt, width, height, fovH, mirror]);
 
   const primary = marked[0] ?? null;
   const [phase, setPhase] = useState<"idle" | "analyzing" | "revealed">("idle");

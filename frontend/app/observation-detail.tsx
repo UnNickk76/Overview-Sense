@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, View, ScrollView, ActivityIndicator, Pressable, TextInput, useWindowDimensions } from "react-native";
+import { StyleSheet, Text, View, ScrollView, ActivityIndicator, Pressable, TextInput, useWindowDimensions, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
@@ -15,8 +15,10 @@ import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { InteractionBar } from "@/src/components/InteractionBar";
 import { ActionBar } from "@/src/components/ActionBar";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
-import { socialApi, FeedObservation, Comment, mediaUrl, eventsApi, ObservationChain } from "@/src/lib/backend";
+import { socialApi, FeedObservation, Comment, mediaUrl, eventsApi, ObservationChain, snapSenseApi } from "@/src/lib/backend";
 import type { GeoPrecision } from "@/src/lib/backend";
+import { pulseForNow } from "@/src/lib/pulseTasks";
+import * as ImageManipulator from "expo-image-manipulator";
 import { useAuth } from "@/src/context/AuthContext";
 import { nf, compassPoint } from "@/src/lib/format";
 import { SenseSurface } from "@/src/components/SenseSurface";
@@ -83,6 +85,9 @@ export default function ObservationDetail() {
   const [savingGeo, setSavingGeo] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [sharing, setSharing] = useState<null | "snapsense" | "pulse">(null);
+  const [shareMsg, setShareMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -188,6 +193,33 @@ export default function ObservationDetail() {
       setDeleteOpen(false);
       router.back();
     } catch { setDeleting(false); }
+  };
+
+  const shareAs = async (target: "snapsense" | "pulse") => {
+    const shareUri = mediaUrl(obs?.image_url);
+    if (!shareUri) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSharing(target);
+    setShareMsg(null);
+    try {
+      const m = await ImageManipulator.manipulateAsync(shareUri, [{ resize: { width: 1280 } }],
+        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true });
+      if (target === "snapsense") {
+        await snapSenseApi.create({ kind: "photo", image_base64: m.base64 ?? undefined, caption: obs?.caption || undefined, source: obs?.source });
+        setShareMsg("Condiviso come SenseShot™ ✓");
+      } else {
+        const t = pulseForNow();
+        await socialApi.createObservation({
+          media_type: "image", source: "reality", caption: obs?.caption || "",
+          image_base64: m.base64 ?? undefined, data: obs?.data, is_pulse: true,
+          pulse_task: { id: t.id, title: t.title, theme: t.theme, prompt: t.prompt },
+        });
+        setShareMsg("Condiviso come Pulse™ ✓");
+      }
+      setTimeout(() => { setShareOpen(false); setShareMsg(null); }, 1300);
+    } catch {
+      setShareMsg("Condivisione non riuscita");
+    } finally { setSharing(null); }
   };
 
   const send = async () => {
@@ -451,6 +483,13 @@ export default function ObservationDetail() {
           ) : null}
 
           {isAuthor ? (
+            <Pressable testID="obs-share" style={styles.shareBtn} onPress={() => { Haptics.selectionAsync(); setShareOpen(true); }}>
+              <Ionicons name="share-social-outline" size={17} color={colors.brand} />
+              <Text style={styles.shareText}>Condividi anche come SenseShot™ o Pulse™</Text>
+            </Pressable>
+          ) : null}
+
+          {isAuthor ? (
             <Pressable testID="obs-delete" style={styles.deleteBtn} onPress={() => { Haptics.selectionAsync(); setDeleteOpen(true); }}>
               <Ionicons name="trash-outline" size={17} color={colors.error} />
               <Text style={styles.deleteText}>Elimina {obs.is_pulse ? "questo Pulse™" : "questo Senshot"}</Text>
@@ -495,6 +534,33 @@ export default function ObservationDetail() {
         onConfirm={confirmDelete}
         onCancel={() => setDeleteOpen(false)}
       />
+
+      <Modal visible={shareOpen} transparent animationType="slide" onRequestClose={() => setShareOpen(false)}>
+        <Pressable style={styles.shareBackdrop} onPress={() => sharing ? undefined : setShareOpen(false)}>
+          <Pressable style={styles.shareSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.shareHandle} />
+            <Text style={styles.shareTitle}>Condividi questo Observe™</Text>
+            <Text style={styles.shareHint}>Lo stesso punto di vista, in un altro formato di OverView™.</Text>
+            <Pressable testID="share-snapsense" style={styles.shareItem} onPress={() => shareAs("snapsense")} disabled={!!sharing}>
+              <View style={styles.shareIcon}><Ionicons name="flash" size={20} color={colors.brand} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.shareItemTitle}>Come SenseShot™</Text>
+                <Text style={styles.shareItemSub}>Appare nella barra SnapSense™ per 24 ore.</Text>
+              </View>
+              {sharing === "snapsense" ? <ActivityIndicator size="small" color={colors.brand} /> : <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />}
+            </Pressable>
+            <Pressable testID="share-pulse" style={styles.shareItem} onPress={() => shareAs("pulse")} disabled={!!sharing}>
+              <View style={styles.shareIcon}><Ionicons name="pulse" size={20} color={colors.brand} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.shareItemTitle}>Come Pulse™</Text>
+                <Text style={styles.shareItemSub}>Come risposta alla sfida osservativa di oggi.</Text>
+              </View>
+              {sharing === "pulse" ? <ActivityIndicator size="small" color={colors.brand} /> : <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />}
+            </Pressable>
+            {shareMsg ? <Text style={styles.shareMsg}>{shareMsg}</Text> : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SpaceBackground>
   );
 }
@@ -563,6 +629,18 @@ const styles = StyleSheet.create({
   geoFoot: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 2, fontStyle: "italic", lineHeight: 15 },
   deleteBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, paddingVertical: spacing.md, borderRadius: radius.md, backgroundColor: "rgba(255,69,58,0.10)", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.error },
   deleteText: { color: colors.error, fontFamily: fonts.semibold, fontSize: type.base },
+  shareBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, paddingVertical: spacing.md, borderRadius: radius.md, backgroundColor: "rgba(212,175,55,0.10)", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand, marginBottom: spacing.sm },
+  shareText: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.base },
+  shareBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
+  shareSheet: { backgroundColor: colors.surfaceSecondary, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.lg, paddingBottom: spacing["2xl"], borderWidth: StyleSheet.hairlineWidth, borderColor: colors.borderStrong, gap: spacing.sm },
+  shareHandle: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: spacing.sm },
+  shareTitle: { color: colors.onSurface, fontFamily: fonts.bold, fontSize: type.xl },
+  shareHint: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm, marginBottom: spacing.sm },
+  shareItem: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, padding: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  shareIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(212,175,55,0.12)", alignItems: "center", justifyContent: "center" },
+  shareItemTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
+  shareItemSub: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, marginTop: 1 },
+  shareMsg: { color: colors.brand, fontFamily: fonts.medium, fontSize: type.sm, textAlign: "center", marginTop: spacing.sm },
   goThereWrap: { marginHorizontal: spacing.lg, marginTop: spacing.sm, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand, gap: spacing.sm },
   goThereLabel: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base, lineHeight: 20 },
   goThereRow: { flexDirection: "row", gap: spacing.md },
