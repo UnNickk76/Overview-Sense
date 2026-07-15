@@ -69,7 +69,35 @@ half4 main(float2 xy) {
   return half4(clamp(sharp, 0.0, 1.0), c.a);
 }`;
 
-async function enhanceImage(path: string): Promise<string> {
+// Sky Fase D — Computational zoom for celestial subjects. At extreme zoom the sensor
+// signal is faint and noisy: this pass DENOISES (blend toward the real 3×3 local mean)
+// and then applies a stronger unsharp mask. Beyond View: it only reweights pixels that
+// were actually captured — no super-resolution, no invented stars, no AI hallucination.
+const CELESTIAL = `
+uniform shader image;
+uniform float2 texel;
+uniform float amount;
+uniform float denoise;
+half4 main(float2 xy) {
+  half4 c = image.eval(xy);
+  half3 sum = c.rgb;
+  sum += image.eval(xy + float2(-texel.x, -texel.y)).rgb;
+  sum += image.eval(xy + float2(0.0,      -texel.y)).rgb;
+  sum += image.eval(xy + float2(texel.x,  -texel.y)).rgb;
+  sum += image.eval(xy + float2(-texel.x,  0.0)).rgb;
+  sum += image.eval(xy + float2(texel.x,   0.0)).rgb;
+  sum += image.eval(xy + float2(-texel.x,  texel.y)).rgb;
+  sum += image.eval(xy + float2(0.0,       texel.y)).rgb;
+  sum += image.eval(xy + float2(texel.x,   texel.y)).rgb;
+  half3 avg = sum / 9.0;
+  half3 base = mix(c.rgb, avg, denoise);
+  half3 cross = image.eval(xy + float2(0.0, -texel.y)).rgb + image.eval(xy + float2(0.0, texel.y)).rgb
+              + image.eval(xy + float2(-texel.x, 0.0)).rgb + image.eval(xy + float2(texel.x, 0.0)).rgb;
+  half3 sharp = base * (1.0 + 4.0 * amount) - cross * amount;
+  return half4(clamp(sharp, 0.0, 1.0), c.a);
+}`;
+
+async function enhanceImage(path: string, zoomFactor = 1): Promise<string> {
   try {
     const b64 = await FileSystem.readAsStringAsync(path, { encoding: FileSystem.EncodingType.Base64 });
     const data = Skia.Data.fromBase64(b64);
@@ -81,19 +109,26 @@ async function enhanceImage(path: string): Promise<string> {
     const surface = Skia.Surface.MakeOffscreen(W, H);
     if (!surface) return "file://" + path;
     const canvas = surface.getCanvas();
-    const effect = Skia.RuntimeEffect.Make(SHARPEN);
+    // Celestial computational mode kicks in at extreme zoom (faint, noisy signal).
+    const sky = zoomFactor >= 5;
+    const effect = Skia.RuntimeEffect.Make(sky ? CELESTIAL : SHARPEN);
     const paint = Skia.Paint();
-    // Gentle local contrast (real, content-preserving).
+    // Local contrast — stronger for the sky so faint real stars separate from the dark
+    // background, gentle otherwise. Pure tone reweighting of captured pixels.
+    const g = sky ? 1.16 : 1.08;
+    const o = sky ? -0.055 : -0.03;
     const cf = Skia.ColorFilter.MakeMatrix([
-      1.08, 0, 0, 0, -0.03,
-      0, 1.08, 0, 0, -0.03,
-      0, 0, 1.08, 0, -0.03,
+      g, 0, 0, 0, o,
+      0, g, 0, 0, o,
+      0, 0, g, 0, o,
       0, 0, 0, 1, 0,
     ]);
     paint.setColorFilter(cf);
     if (effect) {
       const imgShader = img.makeShaderOptions(0, 0, 1, 1, Skia.Matrix().scale(scale, scale));
-      const shader = effect.makeShaderWithChildren([1 / iw, 1 / ih, 0.6], [imgShader]);
+      // Sharper unsharp + real denoise blend when zoomed into the sky.
+      const uniforms = sky ? [1 / iw, 1 / ih, 0.95, 0.5] : [1 / iw, 1 / ih, 0.6];
+      const shader = effect.makeShaderWithChildren(uniforms, [imgShader]);
       paint.setShader(shader);
       canvas.drawRect(Skia.XYWHRect(0, 0, W, H), paint);
     } else {
@@ -240,13 +275,14 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
       try {
         const photo: PhotoFile = await cam.current.takePhoto({ flash: "off", enableShutterSound: false });
         const raw = photo.path;
-        const finalUri = enhance ? await enhanceImage(raw) : "file://" + raw;
+        const zf = zoom.value / neutral;
+        const finalUri = enhance ? await enhanceImage(raw, zf) : "file://" + raw;
         let base64: string | undefined;
         try { base64 = await FileSystem.readAsStringAsync(finalUri.replace("file://", ""), { encoding: FileSystem.EncodingType.Base64 }); } catch { /* ignore */ }
         return { uri: finalUri, base64 };
       } catch { return null; }
     },
-  }), [enhance]);
+  }), [enhance, zoom, neutral]);
 
   if (!device) {
     return <View style={styles.fallback}><Text style={styles.fallbackText}>Fotocamera non disponibile</Text></View>;
@@ -301,6 +337,12 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
           </GestureDetector>
           <View style={styles.hudRow}>
             <View style={styles.zoomPill}><Text style={styles.zoomText}>{zoomLabel}</Text></View>
+            {zoomFactor >= 5 ? (
+              <View style={styles.skyPill}>
+                <Ionicons name="sparkles" size={12} color={colors.onBrand} />
+                <Text style={styles.skyText}>SKY BOOST</Text>
+              </View>
+            ) : null}
             {macro ? (
               <View style={styles.macroPill}>
                 <Ionicons name="leaf" size={12} color={colors.onBrand} />
@@ -337,6 +379,8 @@ const styles = StyleSheet.create({
   hudRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.md },
   macroPill: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.brand, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6 },
   macroText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.sm - 2, letterSpacing: 0.5 },
+  skyPill: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.brand, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6 },
+  skyText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.sm - 2, letterSpacing: 0.5 },
   zoomPill: { backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6 },
   zoomText: { color: "#fff", fontFamily: fonts.mono, fontSize: type.sm },
   lockBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.3)" },

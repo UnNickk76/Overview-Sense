@@ -1,9 +1,13 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View, ScrollView, ActivityIndicator, Pressable, TextInput, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
+import Svg, { Line, Circle, Text as SvgText, G } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
+import { CONSTELLATION_LINES } from "@/src/lib/stars";
+import { project } from "@/src/lib/project";
+import type { ObsPoint } from "@/src/lib/gallery";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import * as Haptics from "expo-haptics";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
@@ -71,7 +75,6 @@ export default function ObservationDetail() {
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [hiddenObj, setHiddenObj] = useState<Set<string>>(new Set());
   const [legendOn, setLegendOn] = useState(true);
-  const [editOpen, setEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -93,6 +96,72 @@ export default function ObservationDetail() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (obs?.data) {
+      setHiddenObj(new Set(obs.data.legendHidden ?? []));
+      setLegendOn(obs.data.legendOn !== false);
+    }
+  }, [obs]);
+
+  const isAuthor = !!user && user.id === obs?.user_id;
+  const dd = obs?.data;
+  const camAz = dd?.cameraAz ?? 0;
+  const camAlt = dd?.cameraAlt ?? 0;
+
+  // Project the recorded sky (Beyond View: recomputed from saved az/alt, nothing invented).
+  const overlay = useMemo(() => {
+    if (!dd) return null;
+    const p = (az: number, alt: number) => project(az, alt, camAz, camAlt, width, width);
+    const starPts = new Map<string, { x: number; y: number }>();
+    (dd.stars ?? []).forEach((s) => { const pt = p(s.az, s.alt); if (pt) starPts.set(s.name, pt); });
+    const lines = CONSTELLATION_LINES
+      .map(([a, b]) => ({ a: starPts.get(a), b: starPts.get(b) }))
+      .filter((l) => l.a && l.b) as { a: { x: number; y: number }; b: { x: number; y: number } }[];
+    const mk = (arr: ObsPoint[] | undefined) =>
+      (arr ?? []).map((o) => ({ ...o, pt: p(o.az, o.alt) })).filter((o) => o.pt) as (ObsPoint & { pt: { x: number; y: number } })[];
+    return {
+      stars: Array.from(starPts.values()),
+      lines,
+      planets: mk(dd.planets),
+      satellites: mk(dd.satellites),
+      iss: dd.iss ? { ...dd.iss, pt: p(dd.iss.az, dd.iss.alt) } : null,
+      moon: dd.moon ? p(dd.moon.az, dd.moon.alt) : null,
+      gc: dd.galacticCenter ? p(dd.galacticCenter.az, dd.galacticCenter.alt) : null,
+    };
+  }, [dd, camAz, camAlt, width]);
+
+  const recognized = useMemo(() => {
+    if (!dd) return [] as { name: string; kind: string }[];
+    const out: { name: string; kind: string }[] = [];
+    (dd.planets ?? []).forEach((p) => out.push({ name: p.name, kind: "Pianeta" }));
+    if (dd.iss) out.push({ name: "ISS", kind: "Satellite" });
+    (dd.satellites ?? []).forEach((s) => out.push({ name: s.name, kind: "Satellite" }));
+    if (dd.moon) out.push({ name: "Luna", kind: "Luna" });
+    return out;
+  }, [dd]);
+
+  const persistLegend = useCallback(async (hidden: Set<string>, on: boolean) => {
+    if (!id || !isAuthor) return;
+    setSaving(true);
+    try {
+      await socialApi.updateObservation(id, { legend_hidden: Array.from(hidden), legend_on: on });
+    } catch { /* ignore */ } finally { setSaving(false); }
+  }, [id, isAuthor]);
+
+  const toggleObj = (name: string) => {
+    Haptics.selectionAsync();
+    setHiddenObj((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      persistLegend(next, legendOn);
+      return next;
+    });
+  };
+
+  const toggleNames = () => {
+    Haptics.selectionAsync();
+    setLegendOn((v) => { const nv = !v; persistLegend(hiddenObj, nv); return nv; });
+  };
 
   const send = async () => {
     if (!user) { router.push("/login" as never); return; }
@@ -138,16 +207,69 @@ export default function ObservationDetail() {
             gallery={gallery}
             initialIndex={galleryIndex}
             photo={<Image source={{ uri }} style={styles.image} contentFit="cover" transition={200} />}
-            overlay={dataLayers.length ? (
-              <View style={styles.dataOverlay} pointerEvents="none">
-                {dataLayers.map((l) => (
-                  <View key={l.key} style={styles.dataPill}>
-                    <Text style={styles.dataPillEmoji}>{l.emoji}</Text>
-                    <Text style={styles.dataPillText}>{l.current}</Text>
+            overlay={
+              <>
+                {overlay && recognized.length ? (
+                  <Svg width={width} height={width} style={StyleSheet.absoluteFill} pointerEvents="none">
+                    {overlay.lines.map((l, i) => (
+                      <Line key={`l${i}`} x1={l.a.x} y1={l.a.y} x2={l.b.x} y2={l.b.y} stroke="#5AB0FF" strokeWidth={1.2} opacity={0.55} />
+                    ))}
+                    {overlay.stars.map((s, i) => (
+                      <Circle key={`st${i}`} cx={s.x} cy={s.y} r={2} fill="#EAF2FF" />
+                    ))}
+                    {overlay.planets.filter((pl) => !hiddenObj.has(pl.name)).map((pl, i) => (
+                      <G key={`pl${i}`}>
+                        <Circle cx={pl.pt.x} cy={pl.pt.y} r={13} fill="#D4AF37" opacity={0.14} />
+                        <Circle cx={pl.pt.x} cy={pl.pt.y} r={7} stroke="#D4AF37" strokeWidth={1.2} fill="none" opacity={0.85} />
+                        <Circle cx={pl.pt.x} cy={pl.pt.y} r={2.4} fill="#D4AF37" />
+                        {legendOn ? (
+                          <>
+                            <Line x1={pl.pt.x} y1={pl.pt.y - 13} x2={pl.pt.x} y2={pl.pt.y - 27} stroke="#D4AF37" strokeWidth={1} opacity={0.65} />
+                            <SvgText x={pl.pt.x} y={pl.pt.y - 31} fill="#F0DC9A" fontSize={11} fontWeight="600" textAnchor="middle">{pl.name}</SvgText>
+                          </>
+                        ) : null}
+                      </G>
+                    ))}
+                    {overlay.satellites.filter((s) => !hiddenObj.has(s.name)).map((s, i) => (
+                      <G key={`sat${i}`}>
+                        <Circle cx={s.pt.x} cy={s.pt.y} r={11} fill="#0A84FF" opacity={0.16} />
+                        <Circle cx={s.pt.x} cy={s.pt.y} r={2.2} fill="#8FD0FF" />
+                        {legendOn ? (
+                          <>
+                            <Line x1={s.pt.x} y1={s.pt.y - 11} x2={s.pt.x} y2={s.pt.y - 24} stroke="#8FD0FF" strokeWidth={1} opacity={0.6} />
+                            <SvgText x={s.pt.x} y={s.pt.y - 28} fill="#8FD0FF" fontSize={9.5} textAnchor="middle">{s.name}</SvgText>
+                          </>
+                        ) : null}
+                      </G>
+                    ))}
+                    {overlay.iss?.pt && !hiddenObj.has("ISS") ? (
+                      <G>
+                        <Circle cx={overlay.iss.pt.x} cy={overlay.iss.pt.y} r={13} fill="#D4AF37" opacity={0.16} />
+                        <Circle cx={overlay.iss.pt.x} cy={overlay.iss.pt.y} r={7} fill="none" stroke="#D4AF37" strokeWidth={2} />
+                        {legendOn ? (
+                          <>
+                            <Line x1={overlay.iss.pt.x} y1={overlay.iss.pt.y - 13} x2={overlay.iss.pt.x} y2={overlay.iss.pt.y - 27} stroke="#D4AF37" strokeWidth={1} opacity={0.7} />
+                            <SvgText x={overlay.iss.pt.x} y={overlay.iss.pt.y - 31} fill="#F0DC9A" fontSize={11} fontWeight="700" textAnchor="middle">ISS</SvgText>
+                          </>
+                        ) : null}
+                      </G>
+                    ) : null}
+                    {overlay.moon && !hiddenObj.has("Luna") ? <SvgText x={overlay.moon.x} y={overlay.moon.y} fill="#fff" fontSize={16}>☾</SvgText> : null}
+                    {overlay.gc ? <SvgText x={overlay.gc.x - 20} y={overlay.gc.y} fill="#F0C674" fontSize={10}>◄ Via Lattea</SvgText> : null}
+                  </Svg>
+                ) : null}
+                {dataLayers.length ? (
+                  <View style={styles.dataOverlay} pointerEvents="none">
+                    {dataLayers.map((l) => (
+                      <View key={l.key} style={styles.dataPill}>
+                        <Text style={styles.dataPillEmoji}>{l.emoji}</Text>
+                        <Text style={styles.dataPillText}>{l.current}</Text>
+                      </View>
+                    ))}
                   </View>
-                ))}
-              </View>
-            ) : undefined}
+                ) : null}
+              </>
+            }
           />
         ) : (
           <View style={[styles.image, styles.placeholder]}>
@@ -157,6 +279,34 @@ export default function ObservationDetail() {
 
         {uri && dataLayers.length ? (
           <Text style={styles.gestureHint}>👆 Tap: Reality Sense™ · 👆👆 Doppio tap: Pure Sense™</Text>
+        ) : null}
+
+        {isAuthor && recognized.length ? (
+          <View style={styles.legendCard}>
+            <View style={styles.legendHead}>
+              <Text style={styles.legendCardTitle}>Oggetti riconosciuti · {recognized.length - hiddenObj.size}/{recognized.length}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+                {saving ? <ActivityIndicator size="small" color={colors.brand} /> : null}
+                <Pressable testID="legend-names-toggle" style={[styles.namesToggle, legendOn && styles.namesToggleOn]} onPress={toggleNames}>
+                  <Ionicons name={legendOn ? "pricetag" : "pricetag-outline"} size={13} color={legendOn ? colors.onBrand : colors.brand} />
+                  <Text style={[styles.namesToggleText, legendOn && { color: colors.onBrand }]}>Nomi</Text>
+                </Pressable>
+              </View>
+            </View>
+            <Text style={styles.legendCardHint}>Modifica la legenda anche dopo la pubblicazione: tocca un oggetto per mostrarlo o nasconderlo. Le modifiche si salvano subito.</Text>
+            <View style={styles.legendChips}>
+              {recognized.map((r) => {
+                const shown = !hiddenObj.has(r.name);
+                return (
+                  <Pressable key={r.name} testID={`legend-${r.name}`} onPress={() => toggleObj(r.name)}
+                    style={[styles.legendChip, shown && styles.legendChipOn]}>
+                    <Ionicons name={shown ? "eye" : "eye-off"} size={12} color={shown ? colors.brand : colors.onSurfaceSecondary} />
+                    <Text style={[styles.legendChipText, shown && { color: colors.onSurface }]}>{r.name}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
         ) : null}
 
         {goThere ? (
@@ -334,6 +484,17 @@ const styles = StyleSheet.create({
   dataPillEmoji: { fontSize: 12 },
   dataPillText: { color: "#fff", fontFamily: fonts.mono, fontSize: type.sm - 1, letterSpacing: 0.2 },
   gestureHint: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 2, textAlign: "center", opacity: 0.65, paddingVertical: spacing.sm },
+  legendCard: { marginHorizontal: spacing.lg, marginTop: spacing.sm, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, gap: spacing.sm },
+  legendHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  legendCardTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.sm },
+  legendCardHint: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 2 },
+  namesToggle: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 999, paddingHorizontal: spacing.sm, paddingVertical: 4, borderWidth: 1, borderColor: colors.brand },
+  namesToggleOn: { backgroundColor: colors.brand },
+  namesToggleText: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.sm - 2 },
+  legendChips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  legendChip: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.tertiary, borderRadius: 999, paddingHorizontal: spacing.sm, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  legendChipOn: { borderColor: colors.brand },
+  legendChipText: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm - 1 },
   goThereWrap: { marginHorizontal: spacing.lg, marginTop: spacing.sm, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand, gap: spacing.sm },
   goThereLabel: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base, lineHeight: 20 },
   goThereRow: { flexDirection: "row", gap: spacing.md },
