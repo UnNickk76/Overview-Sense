@@ -7,8 +7,44 @@ import { GestureDetector, Gesture } from "react-native-gesture-handler";
 import Reanimated, { useSharedValue, useAnimatedProps, useAnimatedStyle, withTiming } from "react-native-reanimated";
 import { Camera, useCameraDevice, useCameraFormat, PhotoFile } from "react-native-vision-camera";
 import { Skia, ImageFormat } from "@shopify/react-native-skia";
+import Svg, { Path, Line } from "react-native-svg";
 import { SenseRadar } from "@/src/components/SenseRadar";
 import { colors, fonts, spacing, type } from "@/src/theme";
+
+// iPhone-style "half-moon" zoom dial (decorative arc + live readout).
+function ZoomCrescent({ label }: { label: string }) {
+  const W = 300, H = 66;
+  const p0 = { x: 16, y: 16 }, p1 = { x: W / 2, y: H - 6 }, p2 = { x: W - 16, y: 16 };
+  const N = 18;
+  const ticks: { x1: number; y1: number; x2: number; y2: number; major: boolean; mid: boolean }[] = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    const mt = 1 - t;
+    const x = mt * mt * p0.x + 2 * mt * t * p1.x + t * t * p2.x;
+    const y = mt * mt * p0.y + 2 * mt * t * p1.y + t * t * p2.y;
+    const dx = 2 * mt * (p1.x - p0.x) + 2 * t * (p2.x - p1.x);
+    const dy = 2 * mt * (p1.y - p0.y) + 2 * t * (p2.y - p1.y);
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len, ny = dx / len;
+    const mid = i === N / 2;
+    const major = i % 3 === 0;
+    const L = mid ? 14 : major ? 10 : 6;
+    ticks.push({ x1: x, y1: y, x2: x + nx * L, y2: y + ny * L, major, mid });
+  }
+  return (
+    <View style={styles.crescentWrap}>
+      <View style={styles.crescentLabel}><Text style={styles.crescentLabelText}>{label}</Text></View>
+      <Svg width={W} height={H + 16}>
+        <Path d={`M ${p0.x} ${p0.y} Q ${p1.x} ${p1.y} ${p2.x} ${p2.y}`} stroke="rgba(255,255,255,0.25)" strokeWidth={1.5} fill="none" />
+        {ticks.map((tk, i) => (
+          <Line key={i} x1={tk.x1} y1={tk.y1} x2={tk.x2} y2={tk.y2}
+            stroke={tk.mid ? colors.brand : tk.major ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.35)"}
+            strokeWidth={tk.mid ? 2.5 : 1.5} strokeLinecap="round" />
+        ))}
+      </Svg>
+    </View>
+  );
+}
 
 const ReanimatedCamera = Reanimated.createAnimatedComponent(Camera);
 Reanimated.addWhitelistedNativeProps({ zoom: true, exposure: true });
@@ -92,6 +128,7 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
   const [zoomLabel, setZoomLabel] = useState("1.0×");
   const [zoomFactor, setZoomFactor] = useState(1);
   const [macro, setMacro] = useState(false);
+  const [wheelOpen, setWheelOpen] = useState(false);
 
   const minZoom = device?.minZoom ?? 1;
   // Full REAL optical+digital range of the device (e.g. up to ~123.8× on Pro tele).
@@ -117,7 +154,11 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
       arr.push({ label: `${f < 1 ? f.toFixed(1) : f.toFixed(0)}×`, z: minZoom });
     }
     arr.push({ label: "1×", z: neutral });
-    [2, 3, 5].forEach((f) => { if (neutral * f <= maxZoom + 0.01) arr.push({ label: `${f}×`, z: neutral * f }); });
+    [2, 5, 10, 25].forEach((f) => { if (neutral * f <= maxZoom - 0.01) arr.push({ label: `${f}×`, z: neutral * f }); });
+    // Always offer the device's TRUE maximum as a one-tap stop.
+    const maxDisp = maxZoom / neutral;
+    const lastF = arr.length ? parseFloat(arr[arr.length - 1].label) : 1;
+    if (maxDisp - lastF > 2) arr.push({ label: `${maxDisp.toFixed(maxDisp < 10 ? 1 : 0)}×`, z: maxZoom });
     return arr;
   }, [minZoom, neutral, maxZoom]);
 
@@ -173,6 +214,21 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
   const longPress = Gesture.LongPress().runOnJS(true).minDuration(450).onStart(() => toggleLock());
   const gesture = Gesture.Simultaneous(pinch, Gesture.Exclusive(longPress, tap));
 
+  // iPhone-style dial: slide left/right on the preset row → smooth decimal zoom.
+  const wheelPan = Gesture.Pan()
+    .runOnJS(true)
+    .activeOffsetX([-10, 10])
+    .onBegin(() => { startZoom.value = zoom.value; setWheelOpen(true); Haptics.selectionAsync(); })
+    .onUpdate((e) => {
+      const dispStart = startZoom.value / neutral;
+      const dispNew = clamp(dispStart * Math.pow(1.35, e.translationX / 45), minZoom / neutral, maxZoom / neutral);
+      const z = clamp(dispNew * neutral, minZoom, maxZoom);
+      zoom.value = z;
+      showZoom(z);
+    })
+    .onEnd(() => setWheelOpen(false))
+    .onFinalize(() => setWheelOpen(false));
+
   // Exposure is left on continuous AUTO (exposure bias 0) so the scene never gets
   // stuck dark after a zoom/lens change. Locking freezes AF/AE at the current point.
   const animatedProps = useAnimatedProps(() => ({ zoom: zoom.value }));
@@ -224,17 +280,25 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
           </View>
         ) : null}
         <View pointerEvents="box-none" style={[styles.hud, { bottom: hudBottom }]}>
-          <View style={styles.presetRow}>
-            {presets.map((p) => {
-              const active = zoomLabel === `${(p.z / neutral).toFixed(1)}×`;
-              return (
-                <Pressable key={p.label} testID={`zoom-${p.label}`} onPress={() => setPreset(p.z)}
-                  style={[styles.presetPill, active && styles.presetOn]}>
-                  <Text style={[styles.presetText, active && { color: colors.onBrand }]}>{p.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <GestureDetector gesture={wheelPan}>
+            <View style={styles.presetZone}>
+              {wheelOpen ? (
+                <ZoomCrescent label={zoomLabel} />
+              ) : (
+                <View style={styles.presetRow}>
+                  {presets.map((p) => {
+                    const active = zoomLabel === `${(p.z / neutral).toFixed(1)}×`;
+                    return (
+                      <Pressable key={p.label} testID={`zoom-${p.label}`} onPress={() => setPreset(p.z)}
+                        style={[styles.presetPill, active && styles.presetOn]}>
+                        <Text style={[styles.presetText, active && { color: colors.onBrand }]}>{p.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+          </GestureDetector>
           <View style={styles.hudRow}>
             <View style={styles.zoomPill}><Text style={styles.zoomText}>{zoomLabel}</Text></View>
             {macro ? (
@@ -262,10 +326,14 @@ const styles = StyleSheet.create({
   focusRing: { position: "absolute", width: 68, height: 68, borderRadius: 12, borderWidth: 1.5, borderColor: colors.brand },
   radarPos: { position: "absolute", top: 70, right: spacing.lg },
   hud: { position: "absolute", left: 0, right: 0, alignItems: "center", gap: spacing.sm },
-  presetRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 999, padding: 4 },
-  presetPill: { minWidth: 40, alignItems: "center", justifyContent: "center", borderRadius: 999, paddingHorizontal: spacing.sm, paddingVertical: 6 },
+  presetZone: { minHeight: 74, alignItems: "center", justifyContent: "center" },
+  presetRow: { flexDirection: "row", alignItems: "center", gap: 2, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 999, padding: 4 },
+  presetPill: { minWidth: 34, alignItems: "center", justifyContent: "center", borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 },
   presetOn: { backgroundColor: colors.brand },
   presetText: { color: "#fff", fontFamily: fonts.mono, fontSize: type.sm - 1 },
+  crescentWrap: { alignItems: "center", justifyContent: "flex-end", height: 74 },
+  crescentLabel: { position: "absolute", top: 0, alignSelf: "center", backgroundColor: colors.brand, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 5, zIndex: 2 },
+  crescentLabelText: { color: colors.onBrand, fontFamily: fonts.bold, fontSize: type.base, letterSpacing: 0.5 },
   hudRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.md },
   macroPill: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.brand, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6 },
   macroText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.sm - 2, letterSpacing: 0.5 },
