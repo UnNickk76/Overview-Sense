@@ -28,6 +28,8 @@ export interface ObsData {
   // Sky legend: which recognized objects are hidden, and whether names are shown.
   legendHidden?: string[];
   legendOn?: boolean;
+  // Go There™ location privacy chosen by the author (default exact for legacy).
+  geoPrecision?: "none" | "area" | "approx" | "exact";
 }
 
 export interface Observation {

@@ -6,6 +6,7 @@ completeness and the presence of notable phenomena (planets, ISS, rare events).
 """
 import uuid
 import math
+import hashlib
 import base64
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
@@ -238,8 +239,60 @@ def compute_discovery_level(points: int) -> dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# Go There™ location privacy — 4 sharing levels chosen by the author.
+# The RAW capture coordinates never leave the server; public responses expose
+# only a deterministically fuzzed position matching the chosen precision.
+# ---------------------------------------------------------------------------
+GEO_LEVELS = ("none", "area", "approx", "exact")
+_GEO_RADIUS_M = {"area": 7000.0, "approx": 300.0}
+
+
+def _fuzz_coords(oid: str, lat, lon, level: str):
+    if lat is None or lon is None:
+        return None, None
+    if level == "exact":
+        return lat, lon
+    if level == "none":
+        return None, None
+    r = _GEO_RADIUS_M.get(level, 300.0)
+    seed = int(hashlib.md5(f"{oid}:{level}".encode()).hexdigest()[:8], 16)
+    angle = ((seed % 3600) / 10.0) * math.pi / 180.0
+    jr = r * (0.5 + (seed % 1000) / 2000.0)  # deterministic radius in [0.5r, r]
+    dlat = (jr * math.cos(angle)) / 111320.0
+    dlon = (jr * math.sin(angle)) / (111320.0 * max(0.2, math.cos(math.radians(lat))))
+    flat, flon = lat + dlat, lon + dlon
+    if level == "area":  # snap to a ~0.05° grid → reads as a generic zone
+        flat = round(flat / 0.05) * 0.05
+        flon = round(flon / 0.05) * 0.05
+    return round(flat, 4), round(flon, 4)
+
+
+def _public_geo(o: dict):
+    """Return (pub_lat, pub_lon, sanitized_data) with location privacy applied."""
+    data = o.get("data")
+    level = (data or {}).get("geoPrecision") or "exact"
+    if level not in GEO_LEVELS:
+        level = "exact"
+    pub_lat, pub_lon = _fuzz_coords(o["id"], o.get("lat"), o.get("lon"), level)
+    if data is None:
+        return pub_lat, pub_lon, None
+    pub = dict(data)
+    if "lat" in pub:
+        pub["lat"] = pub_lat
+    if "lon" in pub:
+        pub["lon"] = pub_lon
+    pub["geoPrecision"] = level
+    if level == "none":
+        # No terrestrial viewpoint → Go There™ is unavailable for this Senshot.
+        for k in ("cameraAz", "cameraAlt", "altitude"):
+            pub.pop(k, None)
+    return pub_lat, pub_lon, pub
+
+
 def obs_public(o: dict, viewer_interactions: Optional[set] = None,
                saved: bool = False, reposted_by: Optional[str] = None) -> dict:
+    pub_lat, pub_lon, pub_data = _public_geo(o)
     return {
         "id": o["id"],
         "user_id": o["user_id"],
@@ -255,9 +308,10 @@ def obs_public(o: dict, viewer_interactions: Optional[set] = None,
         "is_pulse": o.get("is_pulse", False),
         "pulse_task": o.get("pulse_task"),
         "image_url": f"/api/media/{o['id']}" if o.get("has_image") else None,
-        "lat": o.get("lat"),
-        "lon": o.get("lon"),
-        "data": o.get("data"),
+        "lat": pub_lat,
+        "lon": pub_lon,
+        "data": pub_data,
+        "geo_precision": (pub_data or {}).get("geoPrecision", "exact") if pub_data is not None else "exact",
         "views": o.get("views", 0),
         "observed": o.get("observed", 0),
         "discovery": o.get("discovery", 0),
@@ -498,6 +552,7 @@ class UpdateObs(BaseModel):
     caption: Optional[str] = None
     legend_hidden: Optional[List[str]] = None
     legend_on: Optional[bool] = None
+    geo_precision: Optional[str] = None
 
 
 @social_router.patch("/observations/{obs_id}")
@@ -512,12 +567,33 @@ async def update_observation(obs_id: str, req: UpdateObs, user: dict = Depends(g
         data["legendHidden"] = req.legend_hidden
     if req.legend_on is not None:
         data["legendOn"] = req.legend_on
+    if req.geo_precision is not None:
+        if req.geo_precision not in GEO_LEVELS:
+            raise HTTPException(status_code=400, detail="Livello di posizione non valido")
+        data["geoPrecision"] = req.geo_precision
     update: dict = {"data": data}
     if req.caption is not None:
         update["caption"] = req.caption.strip()[:500]
     await db.observations.update_one({"id": obs_id}, {"$set": update})
     updated = await db.observations.find_one({"id": obs_id}, {"_id": 0})
     return obs_public(updated, set(), False)
+
+
+@social_router.delete("/observations/{obs_id}")
+async def delete_observation(obs_id: str, user: dict = Depends(get_current_user)):
+    """Author-only permanent removal of a published Senshot / Pulse / observation."""
+    o = await db.observations.find_one({"id": obs_id}, {"_id": 0, "user_id": 1})
+    if not o:
+        raise HTTPException(status_code=404, detail="Observation non trovata")
+    if o["user_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Non sei l'autore di questa osservazione")
+    await db.observations.delete_one({"id": obs_id})
+    await db.media.delete_one({"id": obs_id})
+    await db.interactions.delete_many({"obs_id": obs_id})
+    await db.comments.delete_many({"obs_id": obs_id})
+    await db.saves.delete_many({"obs_id": obs_id})
+    await db.reposts.delete_many({"obs_id": obs_id})
+    return {"ok": True}
 
 
 @social_router.get("/pulse/feed")

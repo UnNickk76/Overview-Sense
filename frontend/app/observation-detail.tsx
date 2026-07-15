@@ -15,13 +15,16 @@ import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { InteractionBar } from "@/src/components/InteractionBar";
 import { ActionBar } from "@/src/components/ActionBar";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
-import { socialApi, FeedObservation, Comment, mediaUrl } from "@/src/lib/backend";
-import { eventsApi, ObservationChain } from "@/src/lib/backend";
+import { socialApi, FeedObservation, Comment, mediaUrl, eventsApi, ObservationChain } from "@/src/lib/backend";
+import type { GeoPrecision } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
 import { nf, compassPoint } from "@/src/lib/format";
 import { SenseSurface } from "@/src/components/SenseSurface";
 import { SenseMatchBar } from "@/src/components/SenseMatchBar";
 import { orderedDataLayers } from "@/src/lib/senseLayers";
+import { GeoPrivacyPicker } from "@/src/components/GeoPrivacyPicker";
+import { ConfirmSheet } from "@/src/components/ConfirmSheet";
+import { geoLevel } from "@/src/lib/geoPrivacy";
 
 // Compute the "Go There" route that recreates a Senshot's original viewpoint.
 function goThereRoute(d: Record<string, unknown> | null | undefined): string | null {
@@ -45,11 +48,11 @@ function goThereRoute(d: Record<string, unknown> | null | undefined): string | n
     if (d.layer) q.set("layer", String(d.layer));
     return `/satellite-explore?${q.toString()}`;
   }
-  // Terrestrial camera Senshot (Sense Vision): "Go There" enters the place from above.
+  // Terrestrial camera Senshot (Sense Vision): "Go There" enters the place from above,
+  // landing close (satellite-explore defaults to a near zoom + Sentinel-2 HD).
   if (d.from === "sense-vision" && d.lat != null && d.lon != null) {
     const q = new URLSearchParams();
     q.set("lat", String(d.lat)); q.set("lon", String(d.lon));
-    q.set("zoom", "6");
     return `/satellite-explore?${q.toString()}`;
   }
   // Invisible Reality 3D field Senshot: "Go There" re-opens the immersive field.
@@ -76,6 +79,10 @@ export default function ObservationDetail() {
   const [hiddenObj, setHiddenObj] = useState<Set<string>>(new Set());
   const [legendOn, setLegendOn] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [geoPrec, setGeoPrec] = useState<GeoPrecision>("exact");
+  const [savingGeo, setSavingGeo] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -101,6 +108,7 @@ export default function ObservationDetail() {
       setHiddenObj(new Set(obs.data.legendHidden ?? []));
       setLegendOn(obs.data.legendOn !== false);
     }
+    if (obs) setGeoPrec((obs.geo_precision ?? obs.data?.geoPrecision ?? "exact") as GeoPrecision);
   }, [obs]);
 
   const isAuthor = !!user && user.id === obs?.user_id;
@@ -163,6 +171,25 @@ export default function ObservationDetail() {
     setLegendOn((v) => { const nv = !v; persistLegend(hiddenObj, nv); return nv; });
   };
 
+  const changeGeo = async (p: GeoPrecision) => {
+    if (!id || !isAuthor) return;
+    setGeoPrec(p);
+    setSavingGeo(true);
+    try { const u = await socialApi.updateObservation(id, { geo_precision: p }); setObs(u); }
+    catch { /* ignore */ } finally { setSavingGeo(false); }
+  };
+
+  const confirmDelete = async () => {
+    if (!id) return;
+    setDeleting(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      await socialApi.deleteObservation(id);
+      setDeleteOpen(false);
+      router.back();
+    } catch { setDeleting(false); }
+  };
+
   const send = async () => {
     if (!user) { router.push("/login" as never); return; }
     if (!text.trim() || !id || sending) return;
@@ -186,6 +213,8 @@ export default function ObservationDetail() {
   const uri = mediaUrl(obs.image_url);
   const dataLayers = orderedDataLayers(d).slice(0, 4);
   const goThere = goThereRoute(d as unknown as Record<string, unknown>);
+  const placeFrom = (d as Record<string, unknown> | undefined)?.from as string | undefined;
+  const hasPlace = isAuthor && (["sense-vision", "satellite-explore", "invisible-3d", "earth-explorer"].includes(placeFrom ?? "") || obs.lat != null || geoPrec === "none");
 
   return (
     <SpaceBackground>
@@ -326,6 +355,19 @@ export default function ObservationDetail() {
           </View>
         ) : null}
 
+        {hasPlace ? (
+          <View style={styles.geoCard}>
+            <View style={styles.geoHead}>
+              <Text style={styles.geoHeadTitle}>Go There™ · Privacy posizione</Text>
+              {savingGeo ? <ActivityIndicator size="small" color={colors.brand} /> : (
+                <Text style={styles.geoCurrent}>{geoLevel(geoPrec).emoji} {geoLevel(geoPrec).label}</Text>
+              )}
+            </View>
+            <GeoPrivacyPicker value={geoPrec} onChange={changeGeo} />
+            <Text style={styles.geoFoot}>OverView™ condivide un punto di vista, non la tua vita privata. Puoi cambiare questo livello quando vuoi.</Text>
+          </View>
+        ) : null}
+
         <View style={styles.body}>
           {obs.caption ? <Text style={styles.caption}>{obs.caption}</Text> : null}
           <View style={{ marginBottom: spacing.md }}>
@@ -408,6 +450,13 @@ export default function ObservationDetail() {
             </View>
           ) : null}
 
+          {isAuthor ? (
+            <Pressable testID="obs-delete" style={styles.deleteBtn} onPress={() => { Haptics.selectionAsync(); setDeleteOpen(true); }}>
+              <Ionicons name="trash-outline" size={17} color={colors.error} />
+              <Text style={styles.deleteText}>Elimina {obs.is_pulse ? "questo Pulse™" : "questo Senshot"}</Text>
+            </Pressable>
+          ) : null}
+
           <Text style={styles.commentsTitle}>Commenti ({comments.length})</Text>
           {comments.map((c) => (
             <View key={c.id} style={styles.comment}>
@@ -434,6 +483,18 @@ export default function ObservationDetail() {
           <Ionicons name="send" size={18} color={colors.onBrand} />
         </Pressable>
       </View>
+
+      <ConfirmSheet
+        visible={deleteOpen}
+        destructive
+        icon="trash"
+        title="Eliminare definitivamente?"
+        message={`${obs.is_pulse ? "Questo Pulse™" : "Questo Senshot"} verrà rimosso da OverView™ insieme a commenti e interazioni. L'azione non è reversibile.`}
+        confirmLabel="Elimina"
+        loading={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteOpen(false)}
+      />
     </SpaceBackground>
   );
 }
@@ -495,6 +556,13 @@ const styles = StyleSheet.create({
   legendChip: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.tertiary, borderRadius: 999, paddingHorizontal: spacing.sm, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   legendChipOn: { borderColor: colors.brand },
   legendChipText: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm - 1 },
+  geoCard: { marginHorizontal: spacing.lg, marginTop: spacing.sm, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, gap: spacing.md },
+  geoHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  geoHeadTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
+  geoCurrent: { color: colors.brand, fontFamily: fonts.medium, fontSize: type.sm - 1 },
+  geoFoot: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 2, fontStyle: "italic", lineHeight: 15 },
+  deleteBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, paddingVertical: spacing.md, borderRadius: radius.md, backgroundColor: "rgba(255,69,58,0.10)", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.error },
+  deleteText: { color: colors.error, fontFamily: fonts.semibold, fontSize: type.base },
   goThereWrap: { marginHorizontal: spacing.lg, marginTop: spacing.sm, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand, gap: spacing.sm },
   goThereLabel: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base, lineHeight: 20 },
   goThereRow: { flexDirection: "row", gap: spacing.md },

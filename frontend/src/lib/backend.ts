@@ -24,6 +24,8 @@ export interface AuthResponse {
   user: AuthUser;
 }
 
+export type GeoPrecision = "none" | "area" | "approx" | "exact";
+
 export interface FeedObservation {
   id: string;
   user_id: string;
@@ -40,6 +42,7 @@ export interface FeedObservation {
   lat?: number | null;
   lon?: number | null;
   data?: ObsData;
+  geo_precision?: GeoPrecision;
   views: number;
   observed: number;
   discovery: number;
@@ -177,8 +180,10 @@ export const socialApi = {
   save: (id: string) => apiFetch<{ saved: boolean }>(`/observations/${id}/save`, { method: "POST" }),
   repost: (id: string) => apiFetch<{ reposted: boolean }>(`/observations/${id}/repost`, { method: "POST" }),
   collection: (id: string) => apiFetch<{ items: FeedObservation[] }>(`/users/${id}/collection`),
-  updateObservation: (id: string, payload: { caption?: string; legend_hidden?: string[]; legend_on?: boolean }) =>
+  updateObservation: (id: string, payload: { caption?: string; legend_hidden?: string[]; legend_on?: boolean; geo_precision?: GeoPrecision }) =>
     apiFetch<FeedObservation>(`/observations/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteObservation: (id: string) =>
+    apiFetch<{ ok: boolean }>(`/observations/${id}`, { method: "DELETE" }),
 };
 
 // ---- Pulse™ ----

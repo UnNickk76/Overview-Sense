@@ -30,6 +30,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as FileSystem from "expo-file-system/legacy";
 import { SenseMark } from "@/src/components/SenseMark";
 import { DiscoveryCard, CardFormat } from "@/src/components/DiscoveryCard";
+import { GeoPrivacyPicker } from "@/src/components/GeoPrivacyPicker";
+import type { GeoPrecision } from "@/src/lib/backend";
+import { assessPrivacy, recordPlace } from "@/src/lib/placeHistory";
 
 export default function ObservationView() {
   const insets = useSafeAreaInsets();
@@ -55,6 +58,9 @@ export default function ObservationView() {
   const [hiddenObj, setHiddenObj] = useState<Set<string>>(new Set());
   const [legendOn, setLegendOn] = useState(true);
   const [pubOpen, setPubOpen] = useState(false);
+  const [geoPrec, setGeoPrec] = useState<GeoPrecision>("exact");
+  const [geoSuggest, setGeoSuggest] = useState<GeoPrecision | null>(null);
+  const [geoReason, setGeoReason] = useState<string | null>(null);
   const shotRef = useRef<ViewShot>(null);
   const cardRef = useRef<ViewShot>(null);
 
@@ -64,6 +70,14 @@ export default function ObservationView() {
       setVisualLayer(layerToVisual(obs.data.senseLayer));
       setHiddenObj(new Set(obs.data.legendHidden ?? []));
       setLegendOn(obs.data.legendOn !== false);
+    }
+    // Go There™ auto-protection: assess whether this is a frequently-visited place.
+    const lat = obs?.data?.lat, lon = obs?.data?.lon;
+    if (lat != null && lon != null) {
+      assessPrivacy(lat, lon).then((a) => {
+        if (a.suggested) { setGeoSuggest(a.suggested); setGeoReason(a.reason); setGeoPrec(a.suggested); }
+        recordPlace(lat, lon);
+      }).catch(() => {});
     }
   }, [obs]);
 
@@ -172,7 +186,7 @@ export default function ObservationView() {
         const t = pulseForNow();
         pulseTask = { id: t.id, title: t.title, theme: t.theme, prompt: t.prompt };
       }
-      const data = { ...obs.data, legendHidden: Array.from(hiddenObj), legendOn };
+      const data = { ...obs.data, legendHidden: Array.from(hiddenObj), legendOn, geoPrecision: geoPrec };
       const created = await socialApi.createObservation({
         media_type: "image", source: "reality",
         caption: "", image_base64: manipulated.base64 ?? undefined, data,
@@ -508,6 +522,12 @@ export default function ObservationView() {
             <Text style={styles.pubTitle}>Pubblica questo SenseShot</Text>
             <Text style={styles.pubHint}>Lo stesso scatto, condiviso come preferisci.</Text>
 
+            {obs?.data?.lat != null ? (
+              <ScrollView style={styles.pubGeoScroll} showsVerticalScrollIndicator={false}>
+                <GeoPrivacyPicker value={geoPrec} onChange={setGeoPrec} suggested={geoSuggest} reason={geoReason} />
+              </ScrollView>
+            ) : null}
+
             <View style={styles.pubItem}>
               <View style={styles.pubIcon}><Ionicons name="images" size={20} color={colors.brand} /></View>
               <View style={{ flex: 1 }}>
@@ -614,6 +634,7 @@ const styles = StyleSheet.create({
   legendChipText: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm - 1 },
   pubScrim: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
   pubSheet: { backgroundColor: colors.surfaceSecondary, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, borderWidth: 1, borderColor: colors.border },
+  pubGeoScroll: { maxHeight: 320, marginVertical: spacing.sm },
   menuHandle: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: colors.borderStrong, marginBottom: spacing.md },
   pubTitle: { color: colors.onSurface, fontFamily: fonts.bold, fontSize: type.lg },
   pubHint: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm, marginTop: 2, marginBottom: spacing.sm },

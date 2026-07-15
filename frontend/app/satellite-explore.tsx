@@ -13,14 +13,15 @@ import { GestureDetector, Gesture } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SnapshotStudio, SnapshotInput } from "@/src/components/SnapshotStudio";
-import { GIBS_LAYERS, gibsSnapshotUrl } from "@/src/lib/satelliteImagery";
+import { GIBS_LAYERS, layerImageUrl } from "@/src/lib/satelliteImagery";
 import { useObserver } from "@/src/hooks/useObserver";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const wrapLon = (l: number) => ((l + 540) % 360) - 180;
-// Zoom levels = half-width of the viewport in degrees (smaller = closer).
-const DELTAS = [60, 30, 15, 8, 4, 2, 1, 0.5];
+// Zoom levels = half-width of the viewport in degrees (smaller = closer). The
+// deepest levels (< 0.5°) reach a "near" view with the Sentinel-2 / OSM layers.
+const DELTAS = [60, 30, 15, 8, 4, 2, 1, 0.5, 0.2, 0.08, 0.03, 0.012];
 
 // Iconic real destinations for Satellite Journey™ (real coordinates).
 const DESTINATIONS: { name: string; lat: number; lon: number; emoji: string }[] = [
@@ -42,6 +43,8 @@ function satelliteName(layerId: string): string {
   if (layerId.startsWith("MODIS_Aqua")) return "MODIS · Aqua";
   if (layerId.startsWith("MODIS")) return "MODIS · Terra/Aqua";
   if (layerId.startsWith("GHRSST")) return "GHRSST · multi-satellite";
+  if (layerId.startsWith("s2cloudless")) return "Sentinel-2 · ESA (EOX cloudless)";
+  if (layerId === "OSM-WMS") return "OpenStreetMap";
   return "NASA GIBS";
 }
 
@@ -98,15 +101,29 @@ export default function SatelliteExplore() {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
     goDone.current = true;
     setCenter({ lat, lon });
-    if (goParams.zoom != null) { const z = Number(goParams.zoom); if (Number.isFinite(z)) setZoom(clamp(Math.round(z), 0, DELTAS.length - 1)); }
-    if (goParams.layer) { const i = GIBS_LAYERS.findIndex((l) => l.id === goParams.layer); if (i >= 0) setLayerIdx(i); }
+    if (goParams.zoom != null) {
+      const z = Number(goParams.zoom);
+      if (Number.isFinite(z)) setZoom(clamp(Math.round(z), 0, DELTAS.length - 1));
+    } else {
+      // Arriving from a shared Senshot without an explicit zoom → land "near"
+      // (like a map app) instead of a far regional view.
+      setZoom(9);
+    }
+    if (goParams.layer) {
+      const i = GIBS_LAYERS.findIndex((l) => l.id === goParams.layer);
+      if (i >= 0) setLayerIdx(i);
+    } else {
+      // Default to the high-detail Sentinel-2 layer for a close, real view.
+      const s2 = GIBS_LAYERS.findIndex((l) => l.kind === "sentinel2");
+      if (s2 >= 0) setLayerIdx(s2);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [goParams.lat, goParams.lon]);
 
-  const nowUrl = useMemo(() => gibsSnapshotUrl(center.lat, center.lon, date, layer.id, delta, 720),
-    [center.lat, center.lon, date, layer.id, delta]);
-  const cmpUrl = useMemo(() => gibsSnapshotUrl(center.lat, center.lon, date, cmpLayer.id, delta, 720),
-    [center.lat, center.lon, date, cmpLayer.id, delta]);
+  const nowUrl = useMemo(() => layerImageUrl(layer, center.lat, center.lon, date, delta, 720),
+    [center.lat, center.lon, date, layer, delta]);
+  const cmpUrl = useMemo(() => layerImageUrl(cmpLayer, center.lat, center.lon, date, delta, 720),
+    [center.lat, center.lon, date, cmpLayer, delta]);
 
   // Double-buffer: the last fully-loaded image stays on screen while the next one
   // loads underneath/over it → never a black frame during pan/zoom (continuous feel).
