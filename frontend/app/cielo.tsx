@@ -37,6 +37,7 @@ export default function Cielo() {
   const cameraRef = useRef<CameraView>(null);
   const [showConst, setShowConst] = useState(true);
   const [showSats, setShowSats] = useState(true);
+  const [showNames, setShowNames] = useState(true);
   const [busy, setBusy] = useState(false);
   const [weather, setWeather] = useState<Weather | null>(null);
   const [space, setSpace] = useState<SpaceWeather | null>(null);
@@ -147,11 +148,19 @@ export default function Cielo() {
       {objects.map((o) => {
         const p = project(o.az, o.alt, heading, cameraAlt, width, height, FOV_H);
         if (!p) return null;
-        const size = o.kind === "star" ? Math.max(4, 10 - o.magnitude) : 14;
         return (
-          <Pressable key={o.id} testID={`sky-marker-${o.id}`} onPress={() => open(o)} style={[styles.marker, { left: p.x - 22, top: p.y - 22 }]} hitSlop={8}>
-            <View style={[styles.dot, { width: size, height: size, borderRadius: size / 2, backgroundColor: o.color }]} />
-            <Text style={styles.markerLabel} numberOfLines={1}>{o.name}</Text>
+          <Pressable key={o.id} testID={`sky-marker-${o.id}`} onPress={() => open(o)} style={[styles.anchor, { left: p.x, top: p.y }]} hitSlop={14}>
+            <View style={[styles.glow, { backgroundColor: o.color }]} />
+            <View style={[styles.ring, { borderColor: o.color }]} />
+            <View style={[styles.core, { backgroundColor: o.color }]} />
+            {showNames ? (
+              <>
+                <View style={styles.leader} />
+                <View style={styles.tagWrap}>
+                  <Text style={styles.tag} numberOfLines={1}>{o.name}</Text>
+                </View>
+              </>
+            ) : null}
           </Pressable>
         );
       })}
@@ -160,9 +169,18 @@ export default function Cielo() {
         const p = project(s.az, s.alt, heading, cameraAlt, width, height, FOV_H);
         if (!p) return null;
         return (
-          <Pressable key={s.id} testID={`sat-marker-${s.id}`} onPress={() => openSat(s)} style={[styles.marker, { left: p.x - 22, top: p.y - 22 }]} hitSlop={8}>
-            <View style={styles.satDot} />
-            <Text style={styles.satLabel} numberOfLines={1}>{s.name}</Text>
+          <Pressable key={s.id} testID={`sat-marker-${s.id}`} onPress={() => openSat(s)} style={[styles.anchor, { left: p.x, top: p.y }]} hitSlop={14}>
+            <View style={[styles.glow, styles.glowSat]} />
+            <View style={[styles.ring, { borderColor: colors.blue }]} />
+            <View style={[styles.core, styles.coreSat]} />
+            {showNames ? (
+              <>
+                <View style={[styles.leader, styles.leaderSat]} />
+                <View style={styles.tagWrap}>
+                  <Text style={[styles.tag, styles.tagSat]} numberOfLines={1}>{s.name}</Text>
+                </View>
+              </>
+            ) : null}
           </Pressable>
         );
       }) : null}
@@ -181,6 +199,7 @@ export default function Cielo() {
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 10 }]}>
         <View style={styles.toggles}>
           <Toggle label="Costellazioni" active={showConst} onPress={() => setShowConst((v) => !v)} testID="toggle-const" />
+          <Toggle label="Nomi" active={showNames} onPress={() => setShowNames((v) => !v)} testID="toggle-names" />
           <Toggle label="Satelliti" active={showSats} onPress={() => setShowSats((v) => !v)} testID="toggle-sats" />
         </View>
         <View style={styles.captureRow}>
@@ -242,6 +261,18 @@ const styles = StyleSheet.create({
   markerLabel: { color: "#fff", fontFamily: fonts.medium, fontSize: type.sm - 1, marginTop: 3, textShadowColor: "#000", textShadowRadius: 4 },
   satDot: { width: 8, height: 8, backgroundColor: colors.blue, borderWidth: 1, borderColor: "#fff" },
   satLabel: { color: "#8FD0FF", fontFamily: fonts.medium, fontSize: type.sm - 2, marginTop: 3, textShadowColor: "#000", textShadowRadius: 4 },
+  // Elegant "augmented photo" object tagging: soft glow + core + leader line + name.
+  anchor: { position: "absolute", alignItems: "center", justifyContent: "center" },
+  glow: { position: "absolute", left: -17, top: -17, width: 34, height: 34, borderRadius: 17, opacity: 0.16 },
+  glowSat: { backgroundColor: colors.blue },
+  ring: { position: "absolute", left: -9, top: -9, width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, opacity: 0.75, backgroundColor: "transparent" },
+  core: { position: "absolute", left: -2.5, top: -2.5, width: 5, height: 5, borderRadius: 2.5 },
+  coreSat: { backgroundColor: colors.blue },
+  leader: { position: "absolute", left: -0.5, top: -33, width: 1, height: 17, backgroundColor: "rgba(255,255,255,0.55)" },
+  leaderSat: { backgroundColor: "rgba(143,208,255,0.6)" },
+  tagWrap: { position: "absolute", top: -52, left: -60, width: 120, alignItems: "center" },
+  tag: { color: "#fff", fontFamily: fonts.medium, fontSize: type.sm - 1, letterSpacing: 0.3, textShadowColor: "#000", textShadowRadius: 5 },
+  tagSat: { color: "#8FD0FF" },
   floatHeader: { position: "absolute", top: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg },
   glassBtn: { width: 40, height: 40, borderRadius: 20, overflow: "hidden", alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   compassPill: { flexDirection: "row", alignItems: "center", borderRadius: 999, overflow: "hidden", paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },

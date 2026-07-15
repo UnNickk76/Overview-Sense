@@ -730,3 +730,9 @@ RIMANE: reverse-geocode `data.country` alla cattura (per conteggio paesi Pulse g
   - EXPLORE: /cielo, /universo, /earth-explorer(Satelliti)
   - DISCOVER: /overview-guide(Guidami), /assistant(Assistente)
 - `app/home.tsx`: sostituito `LAYERS` con `GROUPS` + item-list; stato `menu`; Modal bottom-sheet (handle, header con icona/X, item con MiniViz/icona + teaser + chevron). MiniSun/MiniOrrery/MiniField riusati nel menu. Verificato via screenshot (Home 5 card, menu Earth/Explore aperti). Solo frontend.
+
+### SESSIONE (fork) — Rinomina Pulse™ + Sky Fase A (2026-06)
+- RINOMINA: sezione "Challenges" → **Pulse™** (titolo hub in `challenges.tsx`, route /challenges invariata). "Pulse Challenge™" → "Confronto Pulse™". Aggiunta card **Pulse™** in Home grid (⚡ flash) → /challenges. Home ora 6 card: Earth·Explore·Discover·Pulse·Observe·Galleria.
+- SKY FASE A (`cielo.tsx`): marker AR ridisegnati stile "fotografia aumentata" — alone morbido (glow) + anello sottile + core preciso + **linea di collegamento (leader)** al nome. Nuovo toggle **"Nomi"** (default ON) per mostrare/nascondere le etichette (legenda minimale sovrapposta). Vale per stelle/pianeti e satelliti (variante blu). Vecchi stili dot/label lasciati inutilizzati.
+- ⚠️ Sky è fotocamera+sensori: validabile solo su BUILD nativa.
+- PROSSIME FASI Sky: B) legenda oggetti editabile pre/post pubblicazione; C) pubblicazione come SenseShot/Observe/Pulse; D) zoom con miglioramento computazionale. + INVISIBLE REALITY 3D esplicativo.
