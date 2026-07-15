@@ -172,6 +172,14 @@ export default function Profile() {
 
             {profile.is_me ? (
               <View style={styles.actionRow}>
+                <Pressable testID="profile-discover" style={styles.actionBtn} onPress={() => router.push("/discover-people" as never)}>
+                  <Ionicons name="people-outline" size={15} color={colors.brand} />
+                  <Text style={styles.actionText}>Discover</Text>
+                </Pressable>
+                <Pressable testID="profile-privacy" style={styles.actionBtn} onPress={() => router.push("/privacy-consent" as never)}>
+                  <Ionicons name="shield-checkmark-outline" size={15} color={colors.brand} />
+                  <Text style={styles.actionText}>Privacy</Text>
+                </Pressable>
                 <Pressable testID="profile-feedback" style={styles.actionBtn} onPress={() => router.push("/feedback" as never)}>
                   <Ionicons name="chatbox-ellipses-outline" size={15} color={colors.brand} />
                   <Text style={styles.actionText}>Feedback</Text>

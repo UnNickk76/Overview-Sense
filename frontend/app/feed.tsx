@@ -77,10 +77,16 @@ export default function Feed() {
             <Text style={styles.headerSubtitle}>Cosa sta osservando il mondo, ora.</Text>
           </View>
         </View>
-        <Pressable testID="feed-activity" hitSlop={10} style={styles.topActivity}
-          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(user ? "/activity" as never : "/login" as never); }}>
-          <Ionicons name="notifications-outline" size={24} color={colors.onSurface} />
-        </Pressable>
+        <View style={styles.topActions}>
+          <Pressable testID="feed-discover" hitSlop={10} style={styles.topActivity}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(user ? "/discover-people" as never : "/login" as never); }}>
+            <Ionicons name="people-outline" size={24} color={colors.onSurface} />
+          </Pressable>
+          <Pressable testID="feed-activity" hitSlop={10} style={styles.topActivity}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(user ? "/activity" as never : "/login" as never); }}>
+            <Ionicons name="notifications-outline" size={24} color={colors.onSurface} />
+          </Pressable>
+        </View>
       </View>
 
       {/* Pinned, always-alive Live Earth — the pulsing heart of OverView */}
@@ -155,7 +161,7 @@ const styles = StyleSheet.create({
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
   brandRow: { flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.sm },
   topActivity: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  topActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  topActions: { flexDirection: "row", alignItems: "center" },
   pinnedEarth: { alignItems: "center", paddingBottom: spacing.sm },
   fab: { position: "absolute", right: spacing.lg, width: 60, height: 60, borderRadius: 30, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 8 },
   iconBtn: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: colors.tertiary, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },

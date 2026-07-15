@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { StyleSheet, Text, View, Pressable, ScrollView, Switch } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
@@ -20,6 +21,7 @@ const PRESETS: { key: LivePreset; label: string; sub: string; icon: keyof typeof
 
 export default function LiveSenseControl() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const s = useLiveSense();
   useEffect(() => { hydrateLiveSense(); }, []);
   const active = new Set(activeCategories(s));
@@ -78,6 +80,12 @@ export default function LiveSenseControl() {
           </View>
 
           <Text style={styles.note}>🌌 Astronomia usa solo dati reali (bussola, sensori, GPS, calcoli): zero AI, nessun dato inventato. Le altre categorie vengono riconosciute in tempo reale e mostrate solo con buona affidabilità (✔ Riconosciuto o ≈ Probabile). Meglio nessuna informazione che una sbagliata.</Text>
+
+          <Pressable testID="open-privacy-consent" style={styles.linkRow} onPress={() => router.push("/privacy-consent" as never)}>
+            <Ionicons name="shield-checkmark-outline" size={18} color={colors.brand} />
+            <Text style={styles.linkText}>Privacy & Consensi™ · Presence Match™</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} style={{ marginLeft: "auto" }} />
+          </Pressable>
         </View>
       </ScrollView>
     </SpaceBackground>
@@ -102,4 +110,6 @@ const styles = StyleSheet.create({
   catEmoji: { fontSize: 15 },
   catLabel: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm },
   note: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, lineHeight: 17, marginTop: spacing.xl, fontStyle: "italic" },
+  linkRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, marginTop: spacing.lg },
+  linkText: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
 });
