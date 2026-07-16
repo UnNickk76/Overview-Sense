@@ -823,3 +823,12 @@ Richiesta utente (6 punti). Contesto cielo scelto: SOLO SENSORI (opzione A).
 - Overlay foto aggiornato: NON disegna oggetti sotto l'orizzonte (coerenza con Riconosciuti). Default: solo in-frame sulla foto, sezione direzione chiusa, nessuna freccia fuori campo.
 - Verificato via screenshot: Riconosciuti 3/3 (ISS, NOAA 19, Luna), Nella tua direzione 3/3 (Venere sotto orizzonte, Marte, Giove) + scheda tecnica Giove corretta. Lint pulito.
 - Coerenza (#7): detail + local viewer coperti; feed/profilo/Pulse/SnapSense/Go There aprono il detail → coerenti. Discovery Card (immagine esportata) non toccata.
+
+### SESSIONE (fork) — Qualità fotocamera "Originale" = Apple (CameraPro.native.tsx)
+Problema: preview morbida/rumorosa + foto inferiori alla Camera Apple (soprattutto front).
+Cause individuate e corrette:
+1. `useCameraFormat` massimizzava solo `photoResolution:"max"` → la preview usava un formato VIDEO a bassa risoluzione, scalato (morbido). FIX: `[{photoResolution:"max"},{videoResolution:"max"}]` → preview alla massima risoluzione.
+2. `enhanceImage` girava su OGNI scatto (default enhance=true) e RIDIMENSIONAVA a MAX_EDGE=2600 + sharpen + JPEG 94 → degradava la foto Apple. VIOLAVA "Originale=Apple". FIX: capture ora salva il RAW Apple UNTOUCHED a piena risoluzione ("Originale" indistinguibile da Apple). L'unico pass in cattura è lo **Sky Boost** (denoise+sharpen su segnale reale debole) SOLO a zoom≥5 e SENZA downscale (piena risoluzione, JPEG 98). Rimosso `MAX_EDGE`.
+- Ordine corretto rispettato: Hardware → pipeline Apple (Smart HDR/Deep Fusion/denoise/sharpen, mantenuti: photoHdr, lowLightBoost, photoQualityBalance="quality") → immagine full-quality → Sense Vision (layer nel viewer, non distruttivi) → overlay.
+- "Osserva meglio" (enhance) ora influenza SOLO lo Sky Boost a zoom≥5; gli scatti normali sono sempre pristini. L'enhancement di dettaglio reale resta il layer "Dettaglio" (SenseCanvas, viewer, non distruttivo).
+- ⚠️ NATIVO: preview/format/takePhoto validabili SOLO su build (non Expo Go/Web). Lint pulito, bundle OK. Benchmark (#13) da fare su device confrontando con Camera Apple.

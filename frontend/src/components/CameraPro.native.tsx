@@ -52,7 +52,6 @@ function ZoomCrescent({ label }: { label: string }) {
 const ReanimatedCamera = Reanimated.createAnimatedComponent(Camera);
 Reanimated.addWhitelistedNativeProps({ zoom: true, exposure: true });
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
-const MAX_EDGE = 2600; // supersample from full-res capture → real detail, manageable size
 
 export interface CameraProHandle {
   capture: () => Promise<{ uri: string; base64?: string } | null>;
@@ -107,8 +106,8 @@ async function enhanceImage(path: string, zoomFactor = 1): Promise<string> {
     const img = Skia.Image.MakeImageFromEncoded(data);
     if (!img) return "file://" + path;
     const iw = img.width(), ih = img.height();
-    const scale = Math.min(1, MAX_EDGE / Math.max(iw, ih));
-    const W = Math.max(1, Math.round(iw * scale)), H = Math.max(1, Math.round(ih * scale));
+    // FULL resolution — never downscale Apple's output (Beyond View: keep every real pixel).
+    const W = iw, H = ih;
     const surface = Skia.Surface.MakeOffscreen(W, H);
     if (!surface) return "file://" + path;
     const canvas = surface.getCanvas();
@@ -128,7 +127,7 @@ async function enhanceImage(path: string, zoomFactor = 1): Promise<string> {
     ]);
     paint.setColorFilter(cf);
     if (effect) {
-      const imgShader = img.makeShaderOptions(0, 0, 1, 1, Skia.Matrix().scale(scale, scale));
+      const imgShader = img.makeShaderOptions(0, 0, 1, 1, Skia.Matrix());
       // Sharper unsharp + real denoise blend when zoomed into the sky.
       const uniforms = sky ? [1 / iw, 1 / ih, 0.95, 0.5] : [1 / iw, 1 / ih, 0.6];
       const shader = effect.makeShaderWithChildren(uniforms, [imgShader]);
@@ -138,7 +137,7 @@ async function enhanceImage(path: string, zoomFactor = 1): Promise<string> {
       canvas.drawImageRect(img, Skia.XYWHRect(0, 0, iw, ih), Skia.XYWHRect(0, 0, W, H), paint);
     }
     const snap = surface.makeImageSnapshot();
-    const out = snap.encodeToBase64(ImageFormat.JPEG, 94);
+    const out = snap.encodeToBase64(ImageFormat.JPEG, 98);
     const outPath = FileSystem.cacheDirectory + "sense_" + Date.now() + ".jpg";
     await FileSystem.writeAsStringAsync(outPath, out, { encoding: FileSystem.EncodingType.Base64 });
     return outPath;
@@ -180,7 +179,13 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
   const frontDevice = useCameraDevice("front");
   const [facing, setFacing] = useState<"back" | "front">("back");
   const device = facing === "front" ? frontDevice : (multiDevice ?? singleDevice);
-  const format = useCameraFormat(device, [{ photoResolution: "max" }]);
+  // Pick the format with the MAXIMUM photo resolution AND the highest preview/video
+  // resolution — otherwise the native preview streams a low-res video format that is
+  // then upscaled (soft/blurry). This keeps the preview as sharp as Apple's Camera.
+  const format = useCameraFormat(device, [
+    { photoResolution: "max" },
+    { videoResolution: "max" },
+  ]);
   const supportsHdr = !!format?.supportsPhotoHdr;
   const supportsLowLight = !!device?.supportsLowLightBoost;
   const cam = useRef<Camera>(null);
@@ -256,7 +261,7 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
     hydrateLiveSense();
     wake();
     return () => clearDim();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset zoom when flipping camera (front/back have different optical ranges).
   useEffect(() => {
@@ -338,10 +343,16 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
     capture: async () => {
       if (!cam.current) return null;
       try {
+        // Full native Apple pipeline (Smart HDR / Deep Fusion / denoise / sharpening).
         const photo: PhotoFile = await cam.current.takePhoto({ flash: "off", enableShutterSound: false });
         const raw = photo.path;
         const zf = zoom.value / neutral;
-        const finalUri = enhance ? await enhanceImage(raw, zf) : "file://" + raw;
+        // "Originale" = Apple's photo, UNTOUCHED and at full resolution. Sense Vision layers
+        // are applied later (in the viewer), never degrading the base image. The only
+        // capture-time pass is Sky Boost at extreme zoom on faint/noisy real sky signal,
+        // and even that keeps full resolution (no downscale).
+        const useSkyBoost = enhance && zf >= 5;
+        const finalUri = useSkyBoost ? await enhanceImage(raw, zf) : "file://" + raw;
         let base64: string | undefined;
         try { base64 = await FileSystem.readAsStringAsync(finalUri.replace("file://", ""), { encoding: FileSystem.EncodingType.Base64 }); } catch { /* ignore */ }
         return { uri: finalUri, base64 };
