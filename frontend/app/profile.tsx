@@ -167,11 +167,19 @@ export default function Profile() {
                   <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.brand} />
                   <Text style={styles.msgBtnText}>Messaggio</Text>
                 </Pressable>
+                <Pressable testID="profile-view-collections" style={styles.msgBtn} onPress={() => router.push(`/collections?userId=${profile.id}&nickname=${encodeURIComponent(profile.nickname)}` as never)}>
+                  <Ionicons name="albums-outline" size={16} color={colors.brand} />
+                  <Text style={styles.msgBtnText}>Collezioni</Text>
+                </Pressable>
               </View>
             )}
 
             {profile.is_me ? (
               <View style={styles.actionRow}>
+                <Pressable testID="profile-collections" style={styles.actionBtn} onPress={() => router.push("/collections" as never)}>
+                  <Ionicons name="albums-outline" size={15} color={colors.brand} />
+                  <Text style={styles.actionText}>Collezioni</Text>
+                </Pressable>
                 <Pressable testID="profile-discover" style={styles.actionBtn} onPress={() => router.push("/discover-people" as never)}>
                   <Ionicons name="people-outline" size={15} color={colors.brand} />
                   <Text style={styles.actionText}>Discover</Text>

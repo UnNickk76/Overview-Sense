@@ -13,6 +13,7 @@ import * as Haptics from "expo-haptics";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { InteractionBar } from "@/src/components/InteractionBar";
+import { AddToCollection } from "@/src/components/AddToCollection";
 import { ActionBar } from "@/src/components/ActionBar";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { socialApi, FeedObservation, Comment, mediaUrl, eventsApi, ObservationChain, snapSenseApi } from "@/src/lib/backend";
@@ -88,6 +89,7 @@ export default function ObservationDetail() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [collectionOpen, setCollectionOpen] = useState(false);
   const [sharing, setSharing] = useState<null | "snapsense" | "pulse">(null);
   const [shareMsg, setShareMsg] = useState<string | null>(null);
 
@@ -474,6 +476,13 @@ export default function ObservationDetail() {
             </View>
           ) : null}
 
+          {user ? (
+            <Pressable testID="obs-add-collection" style={styles.shareBtn} onPress={() => { Haptics.selectionAsync(); setCollectionOpen(true); }}>
+              <Ionicons name="albums-outline" size={17} color={colors.brand} />
+              <Text style={styles.shareText}>Aggiungi a una collezione</Text>
+            </Pressable>
+          ) : null}
+
           {isAuthor ? (
             <Pressable testID="obs-share" style={styles.shareBtn} onPress={() => { Haptics.selectionAsync(); setShareOpen(true); }}>
               <Ionicons name="share-social-outline" size={17} color={colors.brand} />
@@ -553,6 +562,7 @@ export default function ObservationDetail() {
           </Pressable>
         </Pressable>
       </Modal>
+      {collectionOpen ? <AddToCollection obsId={obs.id} onClose={() => setCollectionOpen(false)} /> : null}
     </SpaceBackground>
   );
 }

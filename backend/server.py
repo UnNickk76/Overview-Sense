@@ -26,6 +26,7 @@ from dm import dm_router, ensure_dm_indexes
 from community import community_router, ensure_community_indexes
 from push import push_router
 from music import music_router
+from sense_world import world_router, ensure_world_indexes
 
 ROOT_DIR = Path(__file__).parent
 
@@ -390,6 +391,7 @@ app.include_router(dm_router)
 app.include_router(community_router)
 app.include_router(push_router)
 app.include_router(music_router)
+app.include_router(world_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -408,6 +410,7 @@ async def _startup_indexes():
         await ensure_snapsense_indexes()
         await ensure_dm_indexes()
         await ensure_community_indexes()
+        await ensure_world_indexes()
         await ensure_developer_account()
     except Exception as e:
         logger.warning(f"index creation failed: {e}")

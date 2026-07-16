@@ -15,6 +15,7 @@ import { colors, fonts, radius, spacing, type } from "@/src/theme";
 // BEFORE publishing; the composited image is captured and used as the SenseShot.
 
 export interface TextOverlay { id: string; text: string; color: string; font: string; init: { x: number; y: number } }
+export interface StickerOverlay { id: string; emoji: string; init: { x: number; y: number } }
 
 const FONTS = [fonts.bold, fonts.regular, fonts.mono, fonts.semibold];
 const FONT_LABELS = ["Bold", "Regular", "Mono", "Medium"];
@@ -59,6 +60,43 @@ function DraggableText({ item, selected, onSelect, onEdit }: {
   );
 }
 
+function DraggableSticker({ item, selected, onSelect }: {
+  item: StickerOverlay; selected: boolean; onSelect: () => void;
+}) {
+  const tx = useSharedValue(item.init.x);
+  const ty = useSharedValue(item.init.y);
+  const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const rot = useSharedValue(0);
+  const savedRot = useSharedValue(0);
+  const ox = useSharedValue(0);
+  const oy = useSharedValue(0);
+
+  const pan = Gesture.Pan()
+    .onBegin(() => { ox.value = tx.value; oy.value = ty.value; })
+    .onUpdate((e) => { tx.value = ox.value + e.translationX; ty.value = oy.value + e.translationY; });
+  const pinch = Gesture.Pinch()
+    .onBegin(() => { savedScale.value = scale.value; })
+    .onUpdate((e) => { scale.value = Math.max(0.4, Math.min(6, savedScale.value * e.scale)); });
+  const rotate = Gesture.Rotation()
+    .onBegin(() => { savedRot.value = rot.value; })
+    .onUpdate((e) => { rot.value = savedRot.value + e.rotation; });
+  const tap = Gesture.Tap().onEnd(() => onSelect());
+  const g = Gesture.Simultaneous(pan, pinch, rotate, tap);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateX: tx.value }, { translateY: ty.value }, { scale: scale.value }, { rotateZ: `${rot.value}rad` }],
+  }));
+
+  return (
+    <GestureDetector gesture={g}>
+      <Animated.View style={[styles.stickerWrap, style, selected && styles.textWrapSel]}>
+        <Text style={styles.stickerText}>{item.emoji}</Text>
+      </Animated.View>
+    </GestureDetector>
+  );
+}
+
 export function SenseEditor({ uri, place, onCancel, onDone }: {
   uri: string; place?: string | null; onCancel: () => void; onDone: (newUri: string) => void;
 }) {
@@ -66,6 +104,7 @@ export function SenseEditor({ uri, place, onCancel, onDone }: {
   const { width } = useWindowDimensions();
   const shotRef = useRef<View>(null);
   const [overlays, setOverlays] = useState<TextOverlay[]>([]);
+  const [stickers, setStickers] = useState<StickerOverlay[]>([]);
   const [selId, setSelId] = useState<string | null>(null);
   const [color, setColor] = useState("#FFFFFF");
   const [fontIdx, setFontIdx] = useState(0);
@@ -101,7 +140,15 @@ export function SenseEditor({ uri, place, onCancel, onDone }: {
 
   const applyColor = (c: string) => { setColor(c); if (selId) setOverlays((o) => o.map((x) => (x.id === selId ? { ...x, color: c } : x))); };
   const cycleFont = () => { const n = (fontIdx + 1) % FONTS.length; setFontIdx(n); if (selId) setOverlays((o) => o.map((x) => (x.id === selId ? { ...x, font: FONTS[n] } : x))); };
-  const delSel = () => { if (selId) { setOverlays((o) => o.filter((x) => x.id !== selId)); setSelId(null); } };
+  const delSel = () => { if (selId) { setOverlays((o) => o.filter((x) => x.id !== selId)); setStickers((s) => s.filter((x) => x.id !== selId)); setSelId(null); } };
+
+  const addSticker = (emoji: string) => {
+    Haptics.selectionAsync();
+    const s: StickerOverlay = { id: `s${Date.now()}`, emoji, init: { x: 0, y: 0 } };
+    setStickers((arr) => [...arr, s]);
+    setSelId(s.id);
+    setEmojiTray(false);
+  };
 
   const drawPan = Gesture.Pan().runOnJS(true)
     .onBegin((e) => { cur.current = `M ${e.x.toFixed(1)} ${e.y.toFixed(1)}`; setCurD(cur.current); })
@@ -141,6 +188,9 @@ export function SenseEditor({ uri, place, onCancel, onDone }: {
           {overlays.map((o) => (
             <DraggableText key={o.id} item={o} selected={selId === o.id}
               onSelect={() => setSelId(o.id)} onEdit={() => { setEditing(o); setDraft(o.text); }} />
+          ))}
+          {stickers.map((s) => (
+            <DraggableSticker key={s.id} item={s} selected={selId === s.id} onSelect={() => setSelId(s.id)} />
           ))}
           {drawMode ? (
             <GestureDetector gesture={drawPan}>
@@ -193,6 +243,19 @@ export function SenseEditor({ uri, place, onCancel, onDone }: {
         </Pressable>
       </View>
 
+      {/* Emoji tray */}
+      {emojiTray ? (
+        <View style={[styles.emojiTray, { bottom: insets.bottom + 132 }]}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.emojiGrid}>
+            {EMOJIS.map((e) => (
+              <Pressable key={e} testID={`editor-emoji-${e}`} style={styles.emojiCell} onPress={() => addSticker(e)}>
+                <Text style={styles.emojiCellText}>{e}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+
       {/* Text input overlay */}
       {editing ? (
         <View style={styles.editScrim}>
@@ -212,6 +275,12 @@ const styles = StyleSheet.create({
   canvas: { overflow: "hidden", backgroundColor: "#111" },
   textWrap: { position: "absolute", alignSelf: "center", top: "44%", padding: 6 },
   textWrapSel: { borderWidth: 1, borderColor: "rgba(255,255,255,0.6)", borderStyle: "dashed", borderRadius: 6 },
+  stickerWrap: { position: "absolute", alignSelf: "center", top: "42%", padding: 4 },
+  stickerText: { fontSize: 64 },
+  emojiTray: { position: "absolute", left: spacing.lg, right: spacing.lg, maxHeight: 220, backgroundColor: "rgba(20,20,22,0.94)", borderRadius: radius.lg, padding: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.15)" },
+  emojiGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, justifyContent: "center" },
+  emojiCell: { width: 46, height: 46, alignItems: "center", justifyContent: "center" },
+  emojiCellText: { fontSize: 30 },
   overlayText: { fontSize: 30, textShadowColor: "rgba(0,0,0,0.5)", textShadowRadius: 6, textAlign: "center" },
   topBar: { position: "absolute", left: spacing.lg, right: spacing.lg, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   topActions: { flexDirection: "row", alignItems: "center", gap: spacing.md },

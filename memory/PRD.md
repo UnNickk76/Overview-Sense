@@ -854,3 +854,16 @@ Cause individuate e corrette:
 - Integrato in `publish-composer`: pulsante "Aggiungi testo/Modifica creatività" sulla foto; l'immagine composta (`editedUri`) sostituisce la base per la pubblicazione. `RECORD_AUDIO` già aggiunto.
 - ⚠️ Editor (gesture + captureRef) e cattura = validare su BUILD. Lint pulito, bundle OK.
 - RESTA di #3: Fase B (disegno a mano + sticker/emoji), Fase C (GIF + countdown + audio/musica nell'editor). Poi: The Sense Collection™, Observe World™ (vedi roadmap sopra).
+
+### SESSIONE (fork) — Fase 3B editor + The Sense Collection™ + Observe World™ (FATTO)
+- **SenseEditor Fase 3B** (`src/components/SenseEditor.tsx`): completati **adesivi/emoji** (pannello 22 emoji, sticker draggabili/scalabili/ruotabili come i testi, inclusi nel `captureRef`) oltre al **disegno a mano libera** (SVG `Path` + undo, già presente). Lint pulito. ⚠️ Editor completo da validare su BUILD nativa.
+- **The Sense Collection™** (backend `sense_world.py` + `app/collections.tsx` + `app/collection.tsx` + `src/components/AddToCollection.tsx`):
+  - Cartelle di Senshot **manuali** o **dinamiche** (auto_rule per categoria → raccoglie in automatico i propri Senshot). Visibilità: private/friends(mutual-follow)/public/collaborative.
+  - Endpoint: POST `/collections`, GET `/collections/mine`, GET `/users/{id}/collections`, GET `/collections/{id}`, PATCH, DELETE, POST/DELETE `/collections/{id}/items`.
+  - UI: lista con cover+badge (Auto/visibilità), modale creazione (visibilità + toggle dinamico + chip categoria), dettaglio con griglia + rimozione item + elimina collezione.
+  - Ingressi: profilo "Collezioni" (mio) + "Collezioni" (altri utenti), observation-detail "Aggiungi a una collezione".
+- **Observe World™** (backend `sense_world.py` + `app/observe-world.tsx`):
+  - Museo curato dal sistema. **NIENTE like/popolarità**: ranking `reality_score` = 0.48·scientific + 0.34·rarity + 0.12·verified + 0.06·ai. Badge onesti: Reality Score, Valore Scientifico, Verificata, Rara.
+  - Endpoint: GET `/observe-world` (hero + sezioni orizzontali per categoria), GET `/observe-world/section/{key}` (griglia completa). Soglia ammissione `reality_score>=25`.
+  - UI: hero "Opera in evidenza", sezioni orizzontali (In evidenza/Aurore/ISS/Via Lattea/Pianeti/Cielo Profondo/Osservazione Terra), banner d'ingresso in cima al feed.
+- Verifica: backend curl (CRUD collezioni + add item + observe-world sezioni OK); screenshot web (Observe World hero+badge+sezioni, Collezioni lista+modale creazione). Lint pulito su tutti i file. NO test agent (per volere utente).

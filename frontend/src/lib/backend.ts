@@ -277,6 +277,61 @@ export const eventsApi = {
   chain: (id: string) => apiFetch<ObservationChain>(`/observations/${id}/chain`),
 };
 
+// ---- The Sense Collection™ ----
+export type CollectionVisibility = "private" | "friends" | "public" | "collaborative";
+export interface AutoRule { type: "category" | "source" | "hashtag"; value: string }
+export interface SenseCollection {
+  id: string;
+  user_id: string;
+  nickname?: string;
+  title: string;
+  description: string;
+  visibility: CollectionVisibility;
+  auto_rule?: AutoRule | null;
+  dynamic: boolean;
+  count: number;
+  cover_url?: string | null;
+  collaborators: string[];
+  is_owner: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const collectionsApi = {
+  create: (payload: {
+    title: string; description?: string; visibility?: CollectionVisibility;
+    auto_rule?: AutoRule | null; obs_ids?: string[]; cover_obs_id?: string;
+  }) => apiFetch<SenseCollection>("/collections", { method: "POST", body: JSON.stringify(payload) }),
+  mine: () => apiFetch<{ items: SenseCollection[] }>("/collections/mine"),
+  ofUser: (userId: string) => apiFetch<{ items: SenseCollection[] }>(`/users/${userId}/collections`),
+  detail: (id: string) => apiFetch<{ collection: SenseCollection; items: FeedObservation[] }>(`/collections/${id}`),
+  update: (id: string, payload: Partial<{ title: string; description: string; visibility: CollectionVisibility; auto_rule: AutoRule | null; cover_obs_id: string; collaborators: string[] }>) =>
+    apiFetch<SenseCollection>(`/collections/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  remove: (id: string) => apiFetch<{ ok: boolean }>(`/collections/${id}`, { method: "DELETE" }),
+  addItem: (id: string, obs_id: string) =>
+    apiFetch<{ ok: boolean }>(`/collections/${id}/items`, { method: "POST", body: JSON.stringify({ obs_id }) }),
+  removeItem: (id: string, obs_id: string) =>
+    apiFetch<{ ok: boolean }>(`/collections/${id}/items/${obs_id}`, { method: "DELETE" }),
+};
+
+// ---- Observe World™ (curated museum of reality — no likes) ----
+export interface WorldBadge { key: string; label: string; value: number | null }
+export interface WorldObservation extends FeedObservation {
+  reality_score: number;
+  world_badges: WorldBadge[];
+}
+export interface WorldSection {
+  key: string;
+  title: string;
+  subtitle: string;
+  items: WorldObservation[];
+}
+export const observeWorldApi = {
+  home: () => apiFetch<{ hero: WorldObservation | null; sections: WorldSection[] }>("/observe-world"),
+  section: (key: string) =>
+    apiFetch<{ key: string; title: string; items: WorldObservation[] }>(`/observe-world/section/${encodeURIComponent(key)}`),
+};
+
 // ---- SnapSense™ (24h ephemeral stories) ----
 export interface SnapItem {
   id: string; kind: string; media_type: string;

@@ -102,6 +102,16 @@ export default function Feed() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.brand} />}
       >
+        {scope === "smart" && !category ? (
+          <Pressable testID="observe-world-entry" style={styles.worldBanner} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/observe-world" as never); }}>
+            <View style={styles.worldIcon}><Ionicons name="earth" size={22} color={colors.brand} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.worldTitle}>Observe World™</Text>
+              <Text style={styles.worldSub}>Il museo vivente della realtà — niente like, solo valore</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceSecondary} />
+          </Pressable>
+        ) : null}
         {scope === "smart" && !category ? <VerifiedEvents /> : null}
         {loading && items.length === 0 ? (
           <ActivityIndicator color={colors.brand} style={{ marginTop: spacing["2xl"] }} />
@@ -175,4 +185,8 @@ const styles = StyleSheet.create({
   chipTextActive: { color: colors.onBrand },
   emptyWrap: { alignItems: "center", gap: spacing.md, marginTop: spacing["3xl"], paddingHorizontal: spacing.xl },
   empty: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.base, textAlign: "center", lineHeight: 21 },
+  worldBanner: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceTertiary, borderRadius: radius.lg, padding: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
+  worldIcon: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(212,175,55,0.1)" },
+  worldTitle: { color: colors.onSurface, fontFamily: fonts.bold, fontSize: type.lg },
+  worldSub: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, marginTop: 1 },
 });
