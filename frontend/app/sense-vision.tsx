@@ -34,7 +34,7 @@ const SENSE_LAYERS: Layer[] = [
   { key: "light", label: "Luce", tint: "rgba(255,255,255,0.14)", color: "#FFFFFF" },
   { key: "color", label: "Colore", tint: "rgba(90,176,255,0.14)", color: colors.blue },
   { key: "contrast", label: "Contrasto", tint: "rgba(0,0,0,0.28)", color: "#8FD0FF" },
-  { key: "detail", label: "Micro-dettaglio", tint: "rgba(0,0,0,0.15)", color: "#8FD0FF" },
+  { key: "detail", label: "Silhouette", tint: "rgba(0,0,0,0.15)", color: "#8FD0FF" },
   { key: "magnetic", label: "Campo magnetico", tint: "rgba(212,175,55,0.16)", color: colors.brand },
   { key: "solar", label: "Sole & UV", tint: "rgba(255,159,10,0.16)", color: "#FF9F0A" },
 ];

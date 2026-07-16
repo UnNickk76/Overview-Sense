@@ -17,9 +17,10 @@ export const SENSE_LAYER_META: SenseLayerMeta[] = [
   { key: "Originale", emoji: "⭕", label: "Originale", reveals: "L'immagine reale, senza elaborazione." },
   { key: "Luce", emoji: "☀️", label: "Luce", reveals: "Evidenzia come la luce reale costruisce la scena: zone di luminosità e ombra." },
   { key: "Colore", emoji: "🎨", label: "Colore", reveals: "Amplifica differenze cromatiche realmente presenti ma poco percepibili a occhio." },
-  { key: "Micro-dettaglio", emoji: "✨", label: "Dettaglio", reveals: "Esalta micro-texture e dettagli fini realmente contenuti nell'immagine." },
   { key: "Contrasto", emoji: "🌓", label: "Contrasto", reveals: "Aumenta il contrasto per rivelare strutture nascoste tra i toni." },
   { key: "Luminanza", emoji: "🔆", label: "Luminanza", reveals: "Isola la sola luminosità reale, separandola dal colore." },
+  { key: "Silhouette", emoji: "⬛", label: "Silhouette", reveals: "Bianco e nero ad alto contrasto: isola le forme e i profili controluce realmente presenti." },
+  { key: "Dettaglio", emoji: "🔬", label: "Dettaglio", reveals: "Accentua micro-texture, venature e superfici fini realmente contenute nella scena (nitidezza reale, nessun dettaglio inventato)." },
 ];
 
 export function layerMeta(key: SenseVisualLayer): SenseLayerMeta {

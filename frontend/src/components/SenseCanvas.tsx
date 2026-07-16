@@ -1,26 +1,34 @@
 import React from "react";
 import { Platform } from "react-native";
 import { Image as RNImage } from "expo-image";
-import { Canvas, Image as SkiaImage, useImage, ColorMatrix } from "@shopify/react-native-skia";
+import {
+  Canvas, Image as SkiaImage, useImage, ColorMatrix,
+  Fill, Shader, ImageShader, Skia,
+} from "@shopify/react-native-skia";
 
-// Real pixel-processing of a captured Sense. Each matrix is an honest linear
-// remap of the ACTUAL photo pixels — no invented data, only light made visible.
+// Real pixel-processing of a captured Sense. Each transform is an honest remap of
+// the ACTUAL photo pixels — no invented data, only light/detail made visible.
 const LR = 0.2126, LG = 0.7152, LB = 0.0722;
 
 export type SenseVisualLayer =
-  | "Originale" | "Luce" | "Colore" | "Contrasto" | "Luminanza" | "Micro-dettaglio";
+  | "Originale" | "Luce" | "Colore" | "Contrasto" | "Luminanza"
+  | "Silhouette" | "Dettaglio"
+  | "Micro-dettaglio"; // legacy alias for older captures → Silhouette
 
 export const VISUAL_LAYERS: SenseVisualLayer[] = [
-  "Originale", "Luce", "Colore", "Contrasto", "Luminanza", "Micro-dettaglio",
+  "Originale", "Luce", "Colore", "Contrasto", "Luminanza", "Silhouette", "Dettaglio",
 ];
 
-// Map a capture-time Sense layer to the closest visual transform.
+// Map a capture-time Sense layer label to the closest visual transform.
 export function layerToVisual(label?: string): SenseVisualLayer {
   switch (label) {
     case "Luce": return "Luce";
     case "Colore": return "Colore";
     case "Contrasto": return "Contrasto";
-    case "Micro-dettaglio": return "Micro-dettaglio";
+    case "Luminanza": return "Luminanza";
+    case "Silhouette": return "Silhouette";
+    case "Dettaglio": return "Dettaglio";
+    case "Micro-dettaglio": return "Silhouette"; // legacy
     default: return "Originale";
   }
 }
@@ -44,7 +52,8 @@ function matrixFor(layer: SenseVisualLayer): number[] {
     }
     case "Luminanza": // grayscale luminance map
       return [LR, LG, LB, 0, 0, LR, LG, LB, 0, 0, LR, LG, LB, 0, 0, 0, 0, 0, 1, 0];
-    case "Micro-dettaglio": { // grayscale + strong contrast to reveal micro-texture
+    case "Silhouette":
+    case "Micro-dettaglio": { // high-contrast B/W — isolates shapes/backlit profiles
       const c = 1.9;
       return [LR * c, LG * c, LB * c, 0, -0.45, LR * c, LG * c, LB * c, 0, -0.45, LR * c, LG * c, LB * c, 0, -0.45, 0, 0, 0, 1, 0];
     }
@@ -52,6 +61,20 @@ function matrixFor(layer: SenseVisualLayer): number[] {
       return [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0];
   }
 }
+
+// Real detail enhancement: unsharp mask + local micro-contrast. Reweights ONLY the
+// pixels actually captured — reveals real micro-texture, no super-resolution/invention.
+const SHARPEN = Skia.RuntimeEffect?.Make(`
+uniform shader image;
+uniform float2 texel;
+uniform float amount;
+half4 main(float2 xy) {
+  half4 c = image.eval(xy);
+  half3 n = image.eval(xy + float2(0.0, -texel.y)).rgb + image.eval(xy + float2(0.0, texel.y)).rgb
+          + image.eval(xy + float2(-texel.x, 0.0)).rgb + image.eval(xy + float2(texel.x, 0.0)).rgb;
+  half3 sharp = c.rgb * (1.0 + 4.0 * amount) - n * amount;
+  return half4(clamp(sharp, 0.0, 1.0), c.a);
+}`);
 
 interface Props {
   uri: string;
@@ -63,6 +86,21 @@ interface Props {
 function SkiaSense({ uri, width, height, layer }: Props) {
   const image = useImage(uri);
   if (!image) return <RNImage source={{ uri }} style={{ width, height }} contentFit="cover" />;
+
+  // Real "Dettaglio" — spatial sharpening via RuntimeEffect (not a color matrix).
+  if (layer === "Dettaglio" && SHARPEN) {
+    const iw = image.width() || width, ih = image.height() || height;
+    return (
+      <Canvas style={{ width, height }}>
+        <Fill>
+          <Shader source={SHARPEN} uniforms={{ texel: [1 / iw, 1 / ih], amount: 0.85 }}>
+            <ImageShader image={image} fit="cover" rect={{ x: 0, y: 0, width, height }} />
+          </Shader>
+        </Fill>
+      </Canvas>
+    );
+  }
+
   return (
     <Canvas style={{ width, height }}>
       <SkiaImage image={image} x={0} y={0} width={width} height={height} fit="cover">
