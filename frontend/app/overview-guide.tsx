@@ -5,7 +5,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import * as FileSystem from "expo-file-system/legacy";
 import { useAudioRecorder, RecordingPresets, AudioModule, setAudioModeAsync } from "expo-audio";
@@ -37,6 +37,7 @@ function norm(s: string): string {
 export default function OverviewGuide() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { q: initialQ } = useLocalSearchParams<{ q?: string }>();
   const [perm, requestPerm] = useCameraPermissions();
   const obs = useObserver();
   const now = useNow(700);
@@ -117,6 +118,16 @@ export default function OverviewGuide() {
       else setDescriptor(d);
     } catch { setError("OverView Guide non è disponibile ora. Riprova."); } finally { setResolving(false); }
   }, [obs, resolving]);
+
+  // Deep-link target from a technical card ("Guidami"): auto-resolve once ready.
+  const didAutoResolve = useRef(false);
+  useEffect(() => {
+    if (initialQ && !didAutoResolve.current && obs.status === "granted") {
+      didAutoResolve.current = true;
+      setQuery(String(initialQ));
+      resolve(String(initialQ));
+    }
+  }, [initialQ, obs.status, resolve]);
 
   const startRec = async () => {
     const p = await AudioModule.requestRecordingPermissionsAsync();

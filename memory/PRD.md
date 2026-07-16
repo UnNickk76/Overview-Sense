@@ -812,3 +812,14 @@ Richiesta utente (6 punti). Contesto cielo scelto: SOLO SENSORI (opzione A).
 - **Filtri #3** (`SenseCanvas.tsx` + `senseLayers.ts`): l'ex "Dettaglio" (B/N alto contrasto) rinominato **"Silhouette"** (identico); nuovo vero **"Dettaglio"** = sharpening reale (unsharp mask RuntimeEffect Skia, lazy+native-only per non crashare il web). Legacy "Micro-dettaglio" → mappa a Silhouette.
 - Verifica: lint pulito, backend testato via python (create con tutti i campi + Jamendo search OK), app carica senza crash su web (fix guardia Skia web). Composer/musica/filtri Skia = validazione piena su BUILD (expo-audio background/native).
 - TODO next: audio originale registrato dall'utente (architettura `audio_id` già pronta); upload audio endpoint.
+
+### SESSIONE (fork) — "Riconosciuti" vs "Nella tua direzione" (framing reale del cielo)
+- Bug: la legenda "Oggetti riconosciuti" elencava TUTTI gli oggetti calcolati (7/7) anche se solo quelli in campo (es. NOAA 19) erano proiettati sulla foto.
+- Modulo condiviso `src/lib/skyFraming.ts`: `frameObjects()` classifica ogni oggetto (pianeti/ISS/satelliti/Luna/Sole/CentroGalattico) in **in-frame** (`project()` non-null E alt≥0 sopra l'orizzonte) vs **nearby** (fuori campo o sotto orizzonte). Helper `directionPhrase/statusPhrase/guidanceLine/arrowRotation`.
+- Componente condiviso `src/components/SenseRecognized.tsx` usato in `observation-detail.tsx` (visibile a TUTTI, edit solo autore) e `observation.tsx`:
+  - **"Riconosciuti · V/T"** (V=visibili in legenda, T=realmente in campo). Rinominato da "Oggetti riconosciuti".
+  - **"Nella tua direzione · N/N"** collassabile, CHIUSA di default: oggetti reali vicini al punto di vista ma fuori dalla foto, con freccia OverView™ (rotazione da az/alt), frase direzionale ("40° a destra e 15° più in alto", "dietro il tuo punto di vista", "sotto l'orizzonte") + distanza angolare.
+  - **Scheda tecnica** (tap su qualsiasi elemento): miniatura (celestialThumb), categoria, stato (dentro/fuori inquadratura), freccia+direzione+stato, griglia dati (azimut/elevazione/dist. angolare), fonte dati, nota Beyond View (nessuna distanza inventata — ObsPoint non contiene distanze reali → omesse), pulsanti **Guidami** (→ `/overview-guide?q=` con auto-resolve aggiunto) e **Cielo/Satellite** (universe-explorer/satellite-explore).
+- Overlay foto aggiornato: NON disegna oggetti sotto l'orizzonte (coerenza con Riconosciuti). Default: solo in-frame sulla foto, sezione direzione chiusa, nessuna freccia fuori campo.
+- Verificato via screenshot: Riconosciuti 3/3 (ISS, NOAA 19, Luna), Nella tua direzione 3/3 (Venere sotto orizzonte, Marte, Giove) + scheda tecnica Giove corretta. Lint pulito.
+- Coerenza (#7): detail + local viewer coperti; feed/profilo/Pulse/SnapSense/Go There aprono il detail → coerenti. Discovery Card (immagine esportata) non toccata.

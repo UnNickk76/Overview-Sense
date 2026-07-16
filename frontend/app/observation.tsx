@@ -31,6 +31,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { SenseMark } from "@/src/components/SenseMark";
 import { DiscoveryCard, CardFormat } from "@/src/components/DiscoveryCard";
 import { GeoPrivacyPicker } from "@/src/components/GeoPrivacyPicker";
+import { SenseRecognized } from "@/src/components/SenseRecognized";
 import type { GeoPrecision } from "@/src/lib/backend";
 import { assessPrivacy, recordPlace } from "@/src/lib/placeHistory";
 
@@ -96,29 +97,18 @@ export default function ObservationView() {
       .map(([a, b]) => ({ a: starPts.get(a), b: starPts.get(b) }))
       .filter((l) => l.a && l.b) as { a: { x: number; y: number }; b: { x: number; y: number } }[];
     const mk = (arr: ObsPoint[] | undefined) =>
-      (arr ?? []).map((o) => ({ ...o, pt: p(o.az, o.alt) })).filter((o) => o.pt) as (ObsPoint & { pt: { x: number; y: number } })[];
+      (arr ?? []).map((o) => ({ ...o, pt: o.alt >= 0 ? p(o.az, o.alt) : null })).filter((o) => o.pt) as (ObsPoint & { pt: { x: number; y: number } })[];
     return {
       stars: Array.from(starPts.values()),
       lines,
       planets: mk(d.planets),
       satellites: mk(d.satellites),
-      iss: d.iss ? { ...d.iss, pt: p(d.iss.az, d.iss.alt) } : null,
+      iss: d.iss && d.iss.alt >= 0 ? { ...d.iss, pt: p(d.iss.az, d.iss.alt) } : null,
       sun: d.sun ? p(d.sun.az, d.sun.alt) : null,
-      moon: d.moon ? p(d.moon.az, d.moon.alt) : null,
+      moon: d.moon && d.moon.alt >= 0 ? p(d.moon.az, d.moon.alt) : null,
       gc: d.galacticCenter ? p(d.galacticCenter.az, d.galacticCenter.alt) : null,
     };
   }, [d, camAz, camAlt, cardW, cardH]);
-
-  // Recognized sky objects that can appear in the legend (editable by the user).
-  const recognized = useMemo(() => {
-    if (!d) return [] as { name: string; kind: string }[];
-    const out: { name: string; kind: string }[] = [];
-    (d.planets ?? []).forEach((p) => out.push({ name: p.name, kind: "Pianeta" }));
-    if (d.iss) out.push({ name: "ISS", kind: "Satellite" });
-    (d.satellites ?? []).forEach((s) => out.push({ name: s.name, kind: "Satellite" }));
-    if (d.moon) out.push({ name: "Luna", kind: "Luna" });
-    return out;
-  }, [d]);
 
   const toggleObj = (name: string) => {
     Haptics.selectionAsync();
@@ -370,30 +360,10 @@ export default function ObservationView() {
         </View>
 
         {/* Sky legend — editable: choose which objects are highlighted, toggle names */}
-        {recognized.length ? (
-          <View style={styles.legendCard}>
-            <View style={styles.legendHead}>
-              <Text style={styles.legendCardTitle}>Oggetti riconosciuti · {recognized.length - hiddenObj.size}/{recognized.length}</Text>
-              <Pressable testID="legend-names-toggle" style={[styles.namesToggle, legendOn && styles.namesToggleOn]}
-                onPress={() => { Haptics.selectionAsync(); setLegendOn((v) => !v); }}>
-                <Ionicons name={legendOn ? "pricetag" : "pricetag-outline"} size={13} color={legendOn ? colors.onBrand : colors.brand} />
-                <Text style={[styles.namesToggleText, legendOn && { color: colors.onBrand }]}>Nomi</Text>
-              </Pressable>
-            </View>
-            <Text style={styles.legendCardHint}>Tocca un oggetto per mostrarlo o nasconderlo nel SenseShot.</Text>
-            <View style={styles.legendChips}>
-              {recognized.map((r) => {
-                const shown = !hiddenObj.has(r.name);
-                return (
-                  <Pressable key={r.name} testID={`legend-${r.name}`} onPress={() => toggleObj(r.name)}
-                    style={[styles.legendChip, shown && styles.legendChipOn]}>
-                    <Ionicons name={shown ? "eye" : "eye-off"} size={12} color={shown ? colors.brand : colors.onSurfaceSecondary} />
-                    <Text style={[styles.legendChipText, shown && { color: colors.onSurface }]}>{r.name}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
+        {d ? (
+          <SenseRecognized dd={d} camAz={camAz} camAlt={camAlt} cardW={cardW} cardH={cardH}
+            hiddenObj={hiddenObj} canEdit legendOn={legendOn}
+            onToggleObj={toggleObj} onToggleNames={() => { Haptics.selectionAsync(); setLegendOn((v) => !v); }} />
         ) : null}
 
         {dataLayers.length ? (

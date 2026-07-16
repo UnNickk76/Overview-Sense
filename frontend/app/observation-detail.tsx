@@ -23,6 +23,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { nf, compassPoint } from "@/src/lib/format";
 import { SenseSurface } from "@/src/components/SenseSurface";
 import { PublishedMusic } from "@/src/components/PublishedMusic";
+import { SenseRecognized } from "@/src/components/SenseRecognized";
 import { orderedDataLayers } from "@/src/lib/senseLayers";
 import { GeoPrivacyPicker } from "@/src/components/GeoPrivacyPicker";
 import { ConfirmSheet } from "@/src/components/ConfirmSheet";
@@ -131,14 +132,14 @@ export default function ObservationDetail() {
       .map(([a, b]) => ({ a: starPts.get(a), b: starPts.get(b) }))
       .filter((l) => l.a && l.b) as { a: { x: number; y: number }; b: { x: number; y: number } }[];
     const mk = (arr: ObsPoint[] | undefined) =>
-      (arr ?? []).map((o) => ({ ...o, pt: p(o.az, o.alt) })).filter((o) => o.pt) as (ObsPoint & { pt: { x: number; y: number } })[];
+      (arr ?? []).map((o) => ({ ...o, pt: o.alt >= 0 ? p(o.az, o.alt) : null })).filter((o) => o.pt) as (ObsPoint & { pt: { x: number; y: number } })[];
     return {
       stars: Array.from(starPts.values()),
       lines,
       planets: mk(dd.planets),
       satellites: mk(dd.satellites),
-      iss: dd.iss ? { ...dd.iss, pt: p(dd.iss.az, dd.iss.alt) } : null,
-      moon: dd.moon ? p(dd.moon.az, dd.moon.alt) : null,
+      iss: dd.iss && dd.iss.alt >= 0 ? { ...dd.iss, pt: p(dd.iss.az, dd.iss.alt) } : null,
+      moon: dd.moon && dd.moon.alt >= 0 ? p(dd.moon.az, dd.moon.alt) : null,
       gc: dd.galacticCenter ? p(dd.galacticCenter.az, dd.galacticCenter.alt) : null,
     };
   }, [dd, camAz, camAlt, width]);
@@ -342,32 +343,10 @@ export default function ObservationDetail() {
           <Text style={styles.gestureHint}>👆 Tap: Reality Sense™ · 👆👆 Doppio tap: Pure Sense™</Text>
         ) : null}
 
-        {isAuthor && recognized.length ? (
-          <View style={styles.legendCard}>
-            <View style={styles.legendHead}>
-              <Text style={styles.legendCardTitle}>Oggetti riconosciuti · {recognized.length - hiddenObj.size}/{recognized.length}</Text>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
-                {saving ? <ActivityIndicator size="small" color={colors.brand} /> : null}
-                <Pressable testID="legend-names-toggle" style={[styles.namesToggle, legendOn && styles.namesToggleOn]} onPress={toggleNames}>
-                  <Ionicons name={legendOn ? "pricetag" : "pricetag-outline"} size={13} color={legendOn ? colors.onBrand : colors.brand} />
-                  <Text style={[styles.namesToggleText, legendOn && { color: colors.onBrand }]}>Nomi</Text>
-                </Pressable>
-              </View>
-            </View>
-            <Text style={styles.legendCardHint}>Modifica la legenda anche dopo la pubblicazione: tocca un oggetto per mostrarlo o nasconderlo. Le modifiche si salvano subito.</Text>
-            <View style={styles.legendChips}>
-              {recognized.map((r) => {
-                const shown = !hiddenObj.has(r.name);
-                return (
-                  <Pressable key={r.name} testID={`legend-${r.name}`} onPress={() => toggleObj(r.name)}
-                    style={[styles.legendChip, shown && styles.legendChipOn]}>
-                    <Ionicons name={shown ? "eye" : "eye-off"} size={12} color={shown ? colors.brand : colors.onSurfaceSecondary} />
-                    <Text style={[styles.legendChipText, shown && { color: colors.onSurface }]}>{r.name}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
+        {dd ? (
+          <SenseRecognized dd={dd} camAz={camAz} camAlt={camAlt} cardW={width} cardH={width}
+            hiddenObj={hiddenObj} canEdit={isAuthor} legendOn={legendOn} saving={saving}
+            onToggleObj={toggleObj} onToggleNames={toggleNames} />
         ) : null}
 
         {goThere ? (
