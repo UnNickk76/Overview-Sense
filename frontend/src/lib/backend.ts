@@ -1,5 +1,6 @@
 import { apiFetch, mediaUrl } from "./client";
 import { ObsData } from "./gallery";
+import type { MusicRef } from "./music";
 
 export { mediaUrl };
 
@@ -36,6 +37,10 @@ export interface FeedObservation {
   category: string;
   categories: string[];
   caption: string;
+  title?: string | null;
+  hashtags?: string[];
+  music?: MusicRef | null;
+  tagged_users?: { id: string; nickname?: string }[];
   scientific_value: number;
   ai_confidence?: number | null;
   image_url: string | null;
@@ -151,6 +156,8 @@ export interface FeedFilters {
 export const socialApi = {
   createObservation: (payload: {
     media_type?: string; source?: string; caption?: string;
+    title?: string; description?: string; hashtags?: string[];
+    music?: Record<string, unknown>; tagged_users?: { id: string; nickname?: string }[];
     image_base64?: string; data?: ObsData; ai_confidence?: number;
     is_pulse?: boolean; pulse_task?: { id: string; title: string; theme: string; prompt?: string };
   }) => apiFetch<FeedObservation>("/observations", {

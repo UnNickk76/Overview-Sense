@@ -461,7 +461,7 @@ export default function ObservationView() {
             <Text style={styles.publishedText}>Pubblicato · Apri</Text>
           </Pressable>
         ) : (
-          <Pressable testID="publish-observation" style={[styles.publishBtn, publishing && { opacity: 0.6 }]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setPubOpen(true); }} disabled={publishing}>
+          <Pressable testID="publish-observation" style={[styles.publishBtn, publishing && { opacity: 0.6 }]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); router.push(`/publish-composer?id=${obs?.id}` as never); }} disabled={publishing}>
             {publishing ? <ActivityIndicator color={colors.onBrand} /> : (
               <>
                 <Ionicons name="cloud-upload-outline" size={18} color={colors.onBrand} />

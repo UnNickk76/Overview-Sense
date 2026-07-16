@@ -304,6 +304,10 @@ def obs_public(o: dict, viewer_interactions: Optional[set] = None,
         "category": o.get("category"),
         "categories": o.get("categories", []),
         "caption": o.get("caption", ""),
+        "title": o.get("title"),
+        "hashtags": o.get("hashtags", []),
+        "music": o.get("music"),
+        "tagged_users": o.get("tagged_users", []),
         "scientific_value": o.get("scientific_value", 0),
         "ai_confidence": o.get("ai_confidence"),
         "is_pulse": o.get("is_pulse", False),
@@ -335,6 +339,11 @@ class CreateObs(BaseModel):
     media_type: str = "image"
     source: str = "reality"
     caption: str = ""
+    title: Optional[str] = None
+    description: Optional[str] = None
+    hashtags: Optional[List[str]] = None
+    music: Optional[dict] = None
+    tagged_users: Optional[List[dict]] = None
     image_base64: Optional[str] = None
     data: Optional[dict] = None
     ai_confidence: Optional[int] = None
@@ -369,6 +378,24 @@ async def create_observation(req: CreateObs, user: dict = Depends(get_current_us
         has_image = True
 
     primary, cats = derive_categories(data, req.source)
+    caption = (req.description if req.description is not None else req.caption) or ""
+    hashtags = [h.strip().lstrip("#") for h in (req.hashtags or []) if h and h.strip()][:15]
+    tagged = [{"id": t.get("id"), "nickname": t.get("nickname")} for t in (req.tagged_users or []) if t.get("id")][:20]
+    music = None
+    if req.music and (req.music.get("provider_track_id") or req.music.get("audio_id")):
+        m = req.music
+        music = {
+            "provider": m.get("provider", "jamendo"),
+            "provider_track_id": m.get("provider_track_id"),
+            "audio_id": m.get("audio_id"),           # user-recorded audio → media id
+            "title": (m.get("title") or "")[:120],
+            "artist": (m.get("artist") or "")[:120],
+            "cover_url": m.get("cover_url"),
+            "audio_url": m.get("audio_url"),
+            "license_url": m.get("license_url"),
+            "start": float(m.get("start") or 0),
+            "duration": float(m.get("duration") or 0),
+        }
     doc = {
         "id": oid,
         "user_id": user["id"],
@@ -376,7 +403,11 @@ async def create_observation(req: CreateObs, user: dict = Depends(get_current_us
         "avatar": user.get("avatar"),
         "media_type": req.media_type,
         "source": req.source,
-        "caption": req.caption.strip()[:500],
+        "caption": caption.strip()[:500],
+        "title": (req.title or "").strip()[:120] or None,
+        "hashtags": hashtags,
+        "music": music,
+        "tagged_users": tagged,
         "data": data,
         "has_image": has_image,
         "lat": data.get("lat"),

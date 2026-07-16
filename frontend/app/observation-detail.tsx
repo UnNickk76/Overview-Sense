@@ -22,7 +22,7 @@ import * as ImageManipulator from "expo-image-manipulator";
 import { useAuth } from "@/src/context/AuthContext";
 import { nf, compassPoint } from "@/src/lib/format";
 import { SenseSurface } from "@/src/components/SenseSurface";
-import { SenseMatchBar } from "@/src/components/SenseMatchBar";
+import { PublishedMusic } from "@/src/components/PublishedMusic";
 import { orderedDataLayers } from "@/src/lib/senseLayers";
 import { GeoPrivacyPicker } from "@/src/components/GeoPrivacyPicker";
 import { ConfirmSheet } from "@/src/components/ConfirmSheet";
@@ -401,13 +401,22 @@ export default function ObservationDetail() {
         ) : null}
 
         <View style={styles.body}>
+          {obs.title ? <Text style={styles.postTitle}>{obs.title}</Text> : null}
           {obs.caption ? <Text style={styles.caption}>{obs.caption}</Text> : null}
-          <View style={{ marginBottom: spacing.md }}>
-            <SenseMatchBar
-              hint={[obs.category, d?.senseLayer, (d as Record<string, unknown> | undefined)?.from, (d as Record<string, unknown> | undefined)?.layer].filter(Boolean).join(" ")}
-              trackId={(d as Record<string, unknown> | undefined)?.senseTrack as string | undefined}
-            />
-          </View>
+          {obs.hashtags && obs.hashtags.length > 0 ? (
+            <View style={styles.hashRow}>
+              {obs.hashtags.map((h) => <Text key={h} style={styles.hash}>#{h}</Text>)}
+            </View>
+          ) : null}
+          {obs.tagged_users && obs.tagged_users.length > 0 ? (
+            <Text style={styles.taggedLine}>
+              <Ionicons name="pricetag" size={12} color={colors.onSurfaceSecondary} />
+              {"  con "}{obs.tagged_users.map((t) => `@${t.nickname}`).join(", ")}
+            </Text>
+          ) : null}
+          {obs.music ? (
+            <View style={{ marginTop: spacing.md }}><PublishedMusic music={obs.music} /></View>
+          ) : null}
           <InteractionBar obs={obs} />
           <ActionBar obs={obs} />
 
@@ -594,6 +603,10 @@ const styles = StyleSheet.create({
   placeholder: { alignItems: "center", justifyContent: "center" },
   body: { padding: spacing.lg, gap: spacing.lg },
   caption: { color: colors.onSurface, fontFamily: fonts.regular, fontSize: type.lg, lineHeight: 23 },
+  postTitle: { color: colors.onSurface, fontFamily: fonts.bold, fontSize: type.xl, marginBottom: 4 },
+  hashRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
+  hash: { color: colors.brand, fontFamily: fonts.medium, fontSize: type.sm },
+  taggedLine: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm, marginTop: 8 },
   scoreCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.lg, gap: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
   scoreHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: spacing.sm },
   scoreMain: { flexDirection: "row", alignItems: "center", gap: 6 },

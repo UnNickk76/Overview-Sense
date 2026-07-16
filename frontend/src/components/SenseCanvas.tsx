@@ -64,7 +64,9 @@ function matrixFor(layer: SenseVisualLayer): number[] {
 
 // Real detail enhancement: unsharp mask + local micro-contrast. Reweights ONLY the
 // pixels actually captured — reveals real micro-texture, no super-resolution/invention.
-const SHARPEN = Skia.RuntimeEffect?.Make(`
+// Built lazily and ONLY on native (accessing Skia.RuntimeEffect on web throws — CanvasKit
+// isn't loaded there, and SkiaSense never mounts on web anyway).
+const SHARPEN_SRC = `
 uniform shader image;
 uniform float2 texel;
 uniform float amount;
@@ -74,7 +76,14 @@ half4 main(float2 xy) {
           + image.eval(xy + float2(-texel.x, 0.0)).rgb + image.eval(xy + float2(texel.x, 0.0)).rgb;
   half3 sharp = c.rgb * (1.0 + 4.0 * amount) - n * amount;
   return half4(clamp(sharp, 0.0, 1.0), c.a);
-}`);
+}`;
+
+let _sharpen: ReturnType<typeof Skia.RuntimeEffect.Make> | null | undefined;
+function getSharpen() {
+  if (_sharpen !== undefined) return _sharpen;
+  try { _sharpen = Skia.RuntimeEffect.Make(SHARPEN_SRC); } catch { _sharpen = null; }
+  return _sharpen;
+}
 
 interface Props {
   uri: string;
@@ -88,12 +97,13 @@ function SkiaSense({ uri, width, height, layer }: Props) {
   if (!image) return <RNImage source={{ uri }} style={{ width, height }} contentFit="cover" />;
 
   // Real "Dettaglio" — spatial sharpening via RuntimeEffect (not a color matrix).
-  if (layer === "Dettaglio" && SHARPEN) {
+  const sharpen = layer === "Dettaglio" ? getSharpen() : null;
+  if (layer === "Dettaglio" && sharpen) {
     const iw = image.width() || width, ih = image.height() || height;
     return (
       <Canvas style={{ width, height }}>
         <Fill>
-          <Shader source={SHARPEN} uniforms={{ texel: [1 / iw, 1 / ih], amount: 0.85 }}>
+          <Shader source={sharpen} uniforms={{ texel: [1 / iw, 1 / ih], amount: 0.85 }}>
             <ImageShader image={image} fit="cover" rect={{ x: 0, y: 0, width, height }} />
           </Shader>
         </Fill>
