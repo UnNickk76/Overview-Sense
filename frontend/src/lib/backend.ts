@@ -190,6 +190,7 @@ export const socialApi = {
   userObservations: (id: string) => apiFetch<{ items: FeedObservation[] }>(`/users/${id}/observations`),
   follow: (id: string) => apiFetch<{ following: boolean }>(`/users/${id}/follow`, { method: "POST" }),
   unfollow: (id: string) => apiFetch<{ following: boolean }>(`/users/${id}/follow`, { method: "DELETE" }),
+  connections: () => apiFetch<{ items: { id: string; nickname: string; display_name?: string; avatar?: string | null; relation: "mutual" | "oviewer" | "observer" }[] }>("/users/me/connections"),
   save: (id: string) => apiFetch<{ saved: boolean }>(`/observations/${id}/save`, { method: "POST" }),
   repost: (id: string) => apiFetch<{ reposted: boolean }>(`/observations/${id}/repost`, { method: "POST" }),
   collection: (id: string) => apiFetch<{ items: FeedObservation[] }>(`/users/${id}/collection`),

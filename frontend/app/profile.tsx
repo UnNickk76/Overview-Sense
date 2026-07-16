@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
+import { ControlCenterMark } from "@/src/components/ControlCenterMark";
 import { BottomNav } from "@/src/components/BottomNav";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { socialApi, Profile as ProfileT, FeedObservation, mediaUrl, snapSenseApi, SnapGroup, dmApi } from "@/src/lib/backend";
@@ -176,32 +177,14 @@ export default function Profile() {
 
             {profile.is_me ? (
               <View style={styles.actionRow}>
+                <Pressable testID="profile-control-center" style={[styles.actionBtn, styles.ccBtn]} onPress={() => router.push("/control-center" as never)}>
+                  <ControlCenterMark size={16} />
+                  <Text style={styles.actionText}>Control Center</Text>
+                </Pressable>
                 <Pressable testID="profile-collections" style={styles.actionBtn} onPress={() => router.push("/collections" as never)}>
                   <Ionicons name="albums-outline" size={15} color={colors.brand} />
                   <Text style={styles.actionText}>Collezioni</Text>
                 </Pressable>
-                <Pressable testID="profile-discover" style={styles.actionBtn} onPress={() => router.push("/discover-people" as never)}>
-                  <Ionicons name="people-outline" size={15} color={colors.brand} />
-                  <Text style={styles.actionText}>Discover</Text>
-                </Pressable>
-                <Pressable testID="profile-privacy" style={styles.actionBtn} onPress={() => router.push("/privacy-consent" as never)}>
-                  <Ionicons name="shield-checkmark-outline" size={15} color={colors.brand} />
-                  <Text style={styles.actionText}>Privacy</Text>
-                </Pressable>
-                <Pressable testID="profile-notif" style={styles.actionBtn} onPress={() => router.push("/notification-settings" as never)}>
-                  <Ionicons name="notifications-outline" size={15} color={colors.brand} />
-                  <Text style={styles.actionText}>Notifiche</Text>
-                </Pressable>
-                <Pressable testID="profile-feedback" style={styles.actionBtn} onPress={() => router.push("/feedback" as never)}>
-                  <Ionicons name="chatbox-ellipses-outline" size={15} color={colors.brand} />
-                  <Text style={styles.actionText}>Feedback</Text>
-                </Pressable>
-                {user?.role === "developer" ? (
-                  <Pressable testID="profile-creator" style={styles.actionBtn} onPress={() => router.push("/creator" as never)}>
-                    <Ionicons name="options-outline" size={15} color={colors.brand} />
-                    <Text style={styles.actionText}>Console</Text>
-                  </Pressable>
-                ) : null}
               </View>
             ) : null}
           </View>
@@ -304,6 +287,7 @@ const styles = StyleSheet.create({
   linkText: { color: colors.brand, fontFamily: fonts.medium, fontSize: type.sm - 1 },
   actionRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm },
   actionBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.tertiary, borderRadius: radius.pill, paddingVertical: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  ccBtn: { borderColor: colors.brand },
   actionText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.sm },
   msgBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.tertiary, borderRadius: radius.pill, paddingHorizontal: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
   msgBtnText: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.sm },

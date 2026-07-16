@@ -14,6 +14,7 @@ import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { InteractionBar } from "@/src/components/InteractionBar";
 import { AddToCollection } from "@/src/components/AddToCollection";
+import { ShareHub } from "@/src/components/ShareHub";
 import { ActionBar } from "@/src/components/ActionBar";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { socialApi, FeedObservation, Comment, mediaUrl, eventsApi, ObservationChain, snapSenseApi } from "@/src/lib/backend";
@@ -90,8 +91,6 @@ export default function ObservationDetail() {
   const [deleting, setDeleting] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [collectionOpen, setCollectionOpen] = useState(false);
-  const [sharing, setSharing] = useState<null | "snapsense" | "pulse">(null);
-  const [shareMsg, setShareMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -197,33 +196,6 @@ export default function ObservationDetail() {
       setDeleteOpen(false);
       router.back();
     } catch { setDeleting(false); }
-  };
-
-  const shareAs = async (target: "snapsense" | "pulse") => {
-    const shareUri = mediaUrl(obs?.image_url);
-    if (!shareUri) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSharing(target);
-    setShareMsg(null);
-    try {
-      const m = await ImageManipulator.manipulateAsync(shareUri, [{ resize: { width: 1280 } }],
-        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true });
-      if (target === "snapsense") {
-        await snapSenseApi.create({ kind: "photo", image_base64: m.base64 ?? undefined, caption: obs?.caption || undefined, source: obs?.source });
-        setShareMsg("Condiviso come SenseShot™ ✓");
-      } else {
-        const t = pulseForNow();
-        await socialApi.createObservation({
-          media_type: "image", source: "reality", caption: obs?.caption || "",
-          image_base64: m.base64 ?? undefined, data: obs?.data, is_pulse: true,
-          pulse_task: { id: t.id, title: t.title, theme: t.theme, prompt: t.prompt },
-        });
-        setShareMsg("Condiviso come Pulse™ ✓");
-      }
-      setTimeout(() => { setShareOpen(false); setShareMsg(null); }, 1300);
-    } catch {
-      setShareMsg("Condivisione non riuscita");
-    } finally { setSharing(null); }
   };
 
   const send = async () => {
@@ -483,10 +455,10 @@ export default function ObservationDetail() {
             </Pressable>
           ) : null}
 
-          {isAuthor ? (
+          {user ? (
             <Pressable testID="obs-share" style={styles.shareBtn} onPress={() => { Haptics.selectionAsync(); setShareOpen(true); }}>
               <Ionicons name="share-social-outline" size={17} color={colors.brand} />
-              <Text style={styles.shareText}>Condividi anche come SenseShot™ o Pulse™</Text>
+              <Text style={styles.shareText}>Share</Text>
             </Pressable>
           ) : null}
 
@@ -536,32 +508,7 @@ export default function ObservationDetail() {
         onCancel={() => setDeleteOpen(false)}
       />
 
-      <Modal visible={shareOpen} transparent animationType="slide" onRequestClose={() => setShareOpen(false)}>
-        <Pressable style={styles.shareBackdrop} onPress={() => sharing ? undefined : setShareOpen(false)}>
-          <Pressable style={styles.shareSheet} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.shareHandle} />
-            <Text style={styles.shareTitle}>Condividi questo Observe™</Text>
-            <Text style={styles.shareHint}>Lo stesso punto di vista, in un altro formato di OverView™.</Text>
-            <Pressable testID="share-snapsense" style={styles.shareItem} onPress={() => shareAs("snapsense")} disabled={!!sharing}>
-              <View style={styles.shareIcon}><Ionicons name="flash" size={20} color={colors.brand} /></View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.shareItemTitle}>Come SenseShot™</Text>
-                <Text style={styles.shareItemSub}>Appare nella barra SnapSense™ per 24 ore.</Text>
-              </View>
-              {sharing === "snapsense" ? <ActivityIndicator size="small" color={colors.brand} /> : <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />}
-            </Pressable>
-            <Pressable testID="share-pulse" style={styles.shareItem} onPress={() => shareAs("pulse")} disabled={!!sharing}>
-              <View style={styles.shareIcon}><Ionicons name="pulse" size={20} color={colors.brand} /></View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.shareItemTitle}>Come Pulse™</Text>
-                <Text style={styles.shareItemSub}>Come risposta alla sfida osservativa di oggi.</Text>
-              </View>
-              {sharing === "pulse" ? <ActivityIndicator size="small" color={colors.brand} /> : <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />}
-            </Pressable>
-            {shareMsg ? <Text style={styles.shareMsg}>{shareMsg}</Text> : null}
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {shareOpen ? <ShareHub obs={obs} onClose={() => setShareOpen(false)} /> : null}
       {collectionOpen ? <AddToCollection obsId={obs.id} onClose={() => setCollectionOpen(false)} /> : null}
     </SpaceBackground>
   );

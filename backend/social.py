@@ -995,6 +995,34 @@ async def unfollow(user_id: str, user: dict = Depends(get_current_user)):
     return {"following": False}
 
 
+@social_router.get("/users/me/connections")
+async def my_connections(user: dict = Depends(get_current_user)):
+    """OViewers (followers) + Observers (following) — the people you can DM a share to."""
+    follower_ids = [f["follower_id"] async for f in db.follows.find({"following_id": user["id"]}, {"follower_id": 1, "_id": 0}).limit(1000)]
+    following_ids = [f["following_id"] async for f in db.follows.find({"follower_id": user["id"]}, {"following_id": 1, "_id": 0}).limit(1000)]
+    ids = list(dict.fromkeys(follower_ids + following_ids))
+    users = {}
+    if ids:
+        async for u in db.users.find({"id": {"$in": ids}}, {"_id": 0, "id": 1, "nickname": 1, "display_name": 1, "avatar": 1}):
+            users[u["id"]] = u
+    def pub(uid, rel):
+        u = users.get(uid)
+        if not u:
+            return None
+        return {"id": uid, "nickname": u.get("nickname"), "display_name": u.get("display_name", ""),
+                "avatar": u.get("avatar"), "relation": rel}
+    fset, gset = set(follower_ids), set(following_ids)
+    out = []
+    for uid in ids:
+        rel = "mutual" if uid in fset and uid in gset else ("oviewer" if uid in fset else "observer")
+        p = pub(uid, rel)
+        if p:
+            out.append(p)
+    # Mutuals first, then the rest — most likely DM targets.
+    out.sort(key=lambda x: 0 if x["relation"] == "mutual" else 1)
+    return {"items": out}
+
+
 @social_router.get("/users/{user_id}")
 async def get_profile(user_id: str, viewer: Optional[dict] = Depends(get_optional_user)):
     u = await db.users.find_one({"id": user_id})

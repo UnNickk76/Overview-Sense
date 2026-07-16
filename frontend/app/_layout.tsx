@@ -11,6 +11,7 @@ import { useFonts } from "expo-font";
 
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { AuthProvider } from "@/src/context/AuthContext";
+import { LangProvider } from "@/src/context/LangContext";
 import { PushBridge } from "@/src/components/PushBridge";
 
 LogBox.ignoreAllLogs(true);
@@ -41,15 +42,17 @@ export default function RootLayout() {
         <SafeAreaProvider>
           <BottomSheetModalProvider>
             <AuthProvider>
-              <StatusBar style="light" />
-              <PushBridge />
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: "#000000" },
-                  animation: "fade",
-                }}
-              />
+              <LangProvider>
+                <StatusBar style="light" />
+                <PushBridge />
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: "#000000" },
+                    animation: "fade",
+                  }}
+                />
+              </LangProvider>
             </AuthProvider>
           </BottomSheetModalProvider>
         </SafeAreaProvider>

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, View, Pressable, ActivityIndicator, Share } from "react-native";
+import { StyleSheet, Text, View, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
@@ -9,6 +9,7 @@ import Animated, { FadeIn, FadeOut, useSharedValue, useAnimatedStyle, withSequen
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from "expo-audio";
 import { socialApi, mediaUrl, FeedObservation } from "@/src/lib/backend";
 import { VoicePlayer } from "@/src/components/Voice";
+import { ShareHub } from "@/src/components/ShareHub";
 import { useAuth } from "@/src/context/AuthContext";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 
@@ -20,6 +21,7 @@ export default function PulseView() {
 
   const [obs, setObs] = useState<FeedObservation | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(0);
   const [saved, setSaved] = useState(false);
@@ -64,9 +66,10 @@ export default function PulseView() {
     } catch { /* ignore */ }
   }, [obs, audioOn]);
 
-  const doShare = useCallback(async () => {
-    try { await Share.share({ message: `${obs?.title || obs?.caption || "SenseShot"} — OverView™` }); } catch { /* ignore */ }
-  }, [obs]);
+  const doShare = useCallback(() => {
+    setMenuOpen(false);
+    setShareOpen(true);
+  }, []);
 
   const doRepost = useCallback(async () => {
     if (!user) { router.push("/login" as never); return; }
@@ -144,6 +147,8 @@ export default function PulseView() {
           <Ionicons name={menuOpen ? "close" : "ellipsis-horizontal"} size={24} color="#fff" />
         </Pressable>
       </View>
+
+      {shareOpen ? <ShareHub obs={obs} reposted={reposted} onReposted={setReposted} onClose={() => setShareOpen(false)} /> : null}
     </View>
   );
 }
