@@ -3,6 +3,7 @@ import { StyleSheet, View, Text, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as FileSystem from "expo-file-system/legacy";
+import * as ImageManipulator from "expo-image-manipulator";
 import { GestureDetector, Gesture } from "react-native-gesture-handler";
 import Reanimated, { useSharedValue, useAnimatedProps, useAnimatedStyle, withTiming } from "react-native-reanimated";
 import { Camera, useCameraDevice, useCameraFormat, PhotoFile } from "react-native-vision-camera";
@@ -346,19 +347,29 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
         // Full native Apple pipeline (Smart HDR / Deep Fusion / denoise / sharpening).
         const photo: PhotoFile = await cam.current.takePhoto({ flash: "off", enableShutterSound: false });
         const raw = photo.path;
+        // Front camera: the saved file can carry an orientation the display path ignores
+        // (preview looked correct, file was rotated ~90°). Bake the EXIF orientation into
+        // the pixels so the saved image matches EXACTLY what the preview showed.
+        let baseUri = "file://" + raw;
+        if (facing === "front") {
+          try {
+            const fixed = await ImageManipulator.manipulateAsync(baseUri, [], { compress: 1, format: ImageManipulator.SaveFormat.JPEG });
+            baseUri = fixed.uri;
+          } catch { /* keep raw */ }
+        }
         const zf = zoom.value / neutral;
         // "Originale" = Apple's photo, UNTOUCHED and at full resolution. Sense Vision layers
         // are applied later (in the viewer), never degrading the base image. The only
         // capture-time pass is Sky Boost at extreme zoom on faint/noisy real sky signal,
         // and even that keeps full resolution (no downscale).
         const useSkyBoost = enhance && zf >= 5;
-        const finalUri = useSkyBoost ? await enhanceImage(raw, zf) : "file://" + raw;
+        const finalUri = useSkyBoost ? await enhanceImage(baseUri.replace("file://", ""), zf) : baseUri;
         let base64: string | undefined;
         try { base64 = await FileSystem.readAsStringAsync(finalUri.replace("file://", ""), { encoding: FileSystem.EncodingType.Base64 }); } catch { /* ignore */ }
         return { uri: finalUri, base64 };
       } catch { return null; }
     },
-  }), [enhance, zoom, neutral]);
+  }), [enhance, zoom, neutral, facing]);
 
   // Live Sense™ frame grab — fast preview snapshot, downscaled for cheap AI calls.
   const snapshotBase64 = useCallback(async (): Promise<string | null> => {

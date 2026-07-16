@@ -51,7 +51,7 @@ export function ObservationCard({ obs }: { obs: FeedObservation }) {
         </View>
       </Pressable>
 
-      <Pressable testID={`obs-open-${obs.id}`} onPress={() => router.push(`/observation-detail?id=${obs.id}` as never)}>
+      <Pressable testID={`obs-open-${obs.id}`} onPress={() => router.push(`${obs.is_pulse ? "/pulse-view" : "/observation-detail"}?id=${obs.id}` as never)}>
         {uri ? (
           <Image source={{ uri }} style={styles.image} contentFit="cover" transition={200} />
         ) : (

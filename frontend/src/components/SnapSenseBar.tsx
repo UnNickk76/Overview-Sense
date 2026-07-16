@@ -200,7 +200,7 @@ export function SnapSenseBar() {
           s.type === "snap"
             ? <Ring key={`s-${s.group.user_id}`} group={s.group} isOwn={s.group.user_id === user?.id} onPress={() => openGroup(groups.indexOf(s.group))} />
             : <PulseRing key={`p-${s.obs.id}`} obs={s.obs} glow={glowStyle}
-                onPress={() => { Haptics.selectionAsync(); router.push(`/observation-detail?id=${s.obs.id}` as never); }} />
+                onPress={() => { Haptics.selectionAsync(); router.push(`/pulse-view?id=${s.obs.id}` as never); }} />
         )}
       </ScrollView>
 
