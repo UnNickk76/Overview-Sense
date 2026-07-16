@@ -65,6 +65,11 @@ export default function SenseVision() {
   const [stage, setStage] = useState<"init" | "scan" | "ready">("init");
   const [created, setCreated] = useState(false);
   const [review, setReview] = useState<{ uri: string; data: ObsData } | null>(null);
+  const chromeOpacity = useSharedValue(1);
+  const chromeStyle = useAnimatedStyle(() => ({ opacity: chromeOpacity.value }));
+  const onChromeChange = React.useCallback((m: "full" | "dim" | "hidden") => {
+    chromeOpacity.value = withTiming(m === "full" ? 1 : m === "dim" ? 0.32 : 0.05, { duration: 260 });
+  }, [chromeOpacity]);
   const [weather, setWeather] = useState<Weather | null>(null);
   const [space, setSpace] = useState<SpaceWeather | null>(null);
   const satsReady = useRef(false);
@@ -208,7 +213,7 @@ export default function SenseVision() {
 
   return (
     <View style={styles.root}>
-      <CameraPro ref={cameraRef} enhance={enhance} hudBottom={insets.bottom + 220} />
+      <CameraPro ref={cameraRef} enhance={enhance} hudBottom={insets.bottom + 220} onChromeChange={onChromeChange} />
       <View style={[StyleSheet.absoluteFill, { backgroundColor: layer.tint }]} pointerEvents="none" />
 
       {/* Real-data Sense visualization overlay (Invisible Fields engine) */}
@@ -261,7 +266,7 @@ export default function SenseVision() {
       ) : null}
 
       {/* Top HUD */}
-      <View style={[styles.floatHeader, { paddingTop: insets.top + 6 }]}>
+      <Animated.View pointerEvents="box-none" style={[styles.floatHeader, { paddingTop: insets.top + 6 }, chromeStyle]}>
         <Pressable testID="sense-back" style={styles.glassBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.back(); }}>
           <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
           <Ionicons name="chevron-back" size={22} color="#fff" />
@@ -277,20 +282,21 @@ export default function SenseVision() {
             <Ionicons name="images-outline" size={20} color="#fff" />
           </Pressable>
         </View>
-      </View>
+      </Animated.View>
 
       {/* Real-enhancement toggle — "observe better", never invents detail */}
       {stage === "ready" && !review ? (
-        <Pressable testID="sense-enhance" onPress={() => { Haptics.selectionAsync(); setEnhance((e) => !e); }}
-          style={[styles.enhancePill, { top: insets.top + 104 }, enhance && { backgroundColor: colors.brand, borderColor: colors.brand }]}>
-          <Ionicons name="sparkles" size={13} color={enhance ? colors.onBrand : "#fff"} />
-          <Text style={[styles.enhanceText, enhance && { color: colors.onBrand }]}>Osserva meglio</Text>
-        </Pressable>
+        <Animated.View pointerEvents="box-none" style={[styles.enhancePill, { top: insets.top + 104 }, enhance && { backgroundColor: colors.brand, borderColor: colors.brand }, chromeStyle]}>
+          <Pressable testID="sense-enhance" hitSlop={8} style={styles.enhanceInner} onPress={() => { Haptics.selectionAsync(); setEnhance((e) => !e); }}>
+            <Ionicons name="sparkles" size={13} color={enhance ? colors.onBrand : "#fff"} />
+            <Text style={[styles.enhanceText, enhance && { color: colors.onBrand }]}>Osserva meglio</Text>
+          </Pressable>
+        </Animated.View>
       ) : null}
 
       {/* Sense Layer selector */}
       {stage === "ready" && !review ? (
-        <Animated.View entering={FadeIn.delay(150)} style={[styles.layerBar, { top: insets.top + 52 }]}>
+        <Animated.View entering={FadeIn.delay(150)} style={[styles.layerBar, { top: insets.top + 52 }, chromeStyle]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingHorizontal: spacing.lg }}>
             {SENSE_LAYERS.map((m, i) => (
               <Pressable key={m.key} testID={`sense-layer-${m.key}`} onPress={() => { Haptics.selectionAsync(); setLayerIdx(i); }}
@@ -305,7 +311,7 @@ export default function SenseVision() {
 
       {/* Bottom — MAKE A SENSE */}
       {stage === "ready" && !review ? (
-        <Animated.View entering={FadeIn.delay(200)} style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }]}>
+        <Animated.View entering={FadeIn.delay(200)} pointerEvents="box-none" style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }, chromeStyle]}>
           {pulseTask ? (
             <View style={styles.pulseBanner}>
               <Text style={styles.pulseBannerIcon}>{pulseTask.icon}</Text>
@@ -380,6 +386,7 @@ const styles = StyleSheet.create({
   hudText: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.sm, letterSpacing: 1.5 },
   hudRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   enhancePill: { position: "absolute", right: spacing.lg, flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.3)" },
+  enhanceInner: { flexDirection: "row", alignItems: "center", gap: 5 },
   enhanceText: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.sm - 2, letterSpacing: 0.3 },
   hudMeta: { color: "#fff", fontFamily: fonts.mono, fontSize: type.sm - 1, opacity: 0.85 },
   pivotRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },

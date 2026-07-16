@@ -94,20 +94,24 @@ function LiveSkyEngine({ zoomFactor, facing }: { zoomFactor: number; facing: "ba
   const primaryId = primary?.o.id ?? null;
   const lastId = useRef<string | null>(null);
   useEffect(() => {
-    if (!primaryId || !stable) { if (!primaryId) { setPhase("idle"); lastId.current = null; } return; }
-    if (primaryId !== lastId.current) {
-      lastId.current = primaryId;
-      setPhase("analyzing");
-      const t = setTimeout(() => setPhase("revealed"), 500);
-      return () => clearTimeout(t);
-    }
+    if (!primaryId) { setPhase("idle"); lastId.current = null; return; }
+    if (!stable) return;                         // keep current phase while moving
+    if (primaryId !== lastId.current) { lastId.current = primaryId; setPhase("analyzing"); }
+    const t = setTimeout(() => setPhase("revealed"), 500);  // always resolves → never stuck
+    return () => clearTimeout(t);
   }, [primaryId, stable]);
 
-  if (!marked.length) return null;
+  // Sky context (sensor-only, honest): is the camera actually aimed at open sky?
+  const skyVisible = cameraAlt >= 18;
+  const ctxMsg = skyVisible ? null
+    : cameraAlt < -12 ? "Fotocamera verso il basso · punta verso il cielo"
+    : "Cielo vicino all'orizzonte · alza la fotocamera";
+
   const thumb = primary ? celestialThumb(primary.o.id, primary.o.name) : null;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <SkyStatus visible={skyVisible} msg={ctxMsg} width={width} />
       {marked.map((m) => {
         const isPrimary = m.o.id === primaryId;
         return (
@@ -143,9 +147,27 @@ function LiveSkyEngine({ zoomFactor, facing }: { zoomFactor: number; facing: "ba
                   <Text style={styles.revealName} numberOfLines={1}>{primary.o.name}</Text>
                 </View>
                 <Text style={styles.revealSub} numberOfLines={1}>{primary.o.subtitle}</Text>
+                {!skyVisible ? <Text style={styles.ctxNote} numberOfLines={2}>In questa direzione, ma il cielo non è visibile ora.</Text> : null}
               </View>
             </Animated.View>
           )}
+        </Animated.View>
+      ) : null}
+    </View>
+  );
+}
+
+// Discrete sky-context indicator (sensor-only). Tells the user WHY objects may or
+// may not be observable right now — the astronomy is always computed correctly.
+function SkyStatus({ visible, msg, width }: { visible: boolean; msg: string | null; width: number }) {
+  return (
+    <View style={[styles.skyStatusWrap, { width }]} pointerEvents="none">
+      <Animated.View entering={FadeIn.duration(300)} style={[styles.skyStatusPill, !visible && styles.skyStatusHidden]}>
+        <Text style={styles.skyStatusText}>{visible ? "🌌 Sky Visible" : "🌌 Sky Hidden"}</Text>
+      </Animated.View>
+      {msg ? (
+        <Animated.View entering={FadeIn.duration(300)} exiting={FadeOut.duration(200)} style={styles.skyHint}>
+          <Text style={styles.skyHintText}>{msg}</Text>
         </Animated.View>
       ) : null}
     </View>
@@ -181,8 +203,18 @@ function LiveAIEngine({ snapshot, categories }: { snapshot: SnapFn; categories: 
   const resultRef = useRef<LiveRecognition | null>(null);
   const [result, setResult] = useState<LiveRecognition | null>(null);
   const [thumb, setThumb] = useState<string | null>(null);
-  const [phase, setPhase] = useState<"idle" | "analyzing" | "revealed">("idle");
+  const [phase, setPhase] = useState<"idle" | "analyzing" | "revealed" | "none">("idle");
+  const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const catsKey = categories.join(",");
+
+  // Show "not found" briefly, then quietly return to idle — never leave "Analizzo…" hanging.
+  const showNotFound = () => {
+    resultRef.current = null; setResult(null); setThumb(null); setPhase("none");
+    if (hintTimer.current) clearTimeout(hintTimer.current);
+    hintTimer.current = setTimeout(() => setPhase("idle"), 2600);
+  };
+
+  useEffect(() => () => { if (hintTimer.current) clearTimeout(hintTimer.current); }, []);
 
   useEffect(() => {
     if (!stable || busy.current) return;
@@ -195,19 +227,21 @@ function LiveAIEngine({ snapshot, categories }: { snapshot: SnapFn; categories: 
       const b64 = await snapshot();
       if (!b64) { busy.current = false; setPhase(resultRef.current ? "revealed" : "idle"); return; }
       try {
-        const r = await aiApi.liveRecognize(b64, categories);
+        // Hard timeout: if recognition doesn't return in time, stop "Analizzo…".
+        const timeout = new Promise<null>((res) => setTimeout(() => res(null), 7000));
+        const r = await Promise.race([aiApi.liveRecognize(b64, categories), timeout]);
         lastTs.current = Date.now();
         dirty.current = false;
         if (cancelled) return;
-        if (r.recognized) {
+        if (r && r.recognized) {
           resultRef.current = r; setResult(r); setPhase("revealed"); setThumb(null);
           const t = await wikiThumb(r.wiki || r.label || "");
           if (!cancelled) setThumb(t);
         } else {
-          resultRef.current = null; setResult(null); setThumb(null); setPhase("idle");
+          showNotFound();
         }
       } catch {
-        setPhase(resultRef.current ? "revealed" : "idle");
+        if (!cancelled) { if (resultRef.current) setPhase("revealed"); else showNotFound(); }
       } finally {
         busy.current = false;
       }
@@ -224,6 +258,10 @@ function LiveAIEngine({ snapshot, categories }: { snapshot: SnapFn; categories: 
         <Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(200)} style={styles.aiCard}>
           <View style={styles.spinnerDot} />
           <Text style={styles.analyzeText}>Analizzo…</Text>
+        </Animated.View>
+      ) : phase === "none" ? (
+        <Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(250)} style={styles.aiCard}>
+          <Text style={styles.hintText}>Nessun oggetto identificato · continua a osservare</Text>
         </Animated.View>
       ) : result ? (
         <Animated.View key={`${result.label}-${result.reliability}`} entering={FadeInDown.duration(420)}
@@ -269,4 +307,12 @@ const styles = StyleSheet.create({
   aiCardWide: { maxWidth: 260, paddingRight: 16 },
   aiCardProbable: { borderColor: "rgba(255,255,255,0.28)" },
   probableTag: { color: "#9AA0A6", fontFamily: fonts.medium, fontSize: type.sm - 3, marginTop: 2, letterSpacing: 0.4 },
+  hintText: { color: "rgba(240,240,245,0.9)", fontFamily: fonts.medium, fontSize: type.sm - 1, letterSpacing: 0.2 },
+  ctxNote: { color: colors.brand, fontFamily: fonts.medium, fontSize: type.sm - 2, marginTop: 3, lineHeight: 15 },
+  skyStatusWrap: { position: "absolute", top: 148, left: 0, alignItems: "center" },
+  skyStatusPill: { backgroundColor: "rgba(10,12,16,0.55)", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(212,175,55,0.45)" },
+  skyStatusHidden: { borderColor: "rgba(255,255,255,0.2)" },
+  skyStatusText: { color: "rgba(240,240,245,0.92)", fontFamily: fonts.semibold, fontSize: type.sm - 2, letterSpacing: 0.3 },
+  skyHint: { marginTop: 5, backgroundColor: "rgba(10,12,16,0.45)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
+  skyHintText: { color: "rgba(220,220,225,0.85)", fontFamily: fonts.regular, fontSize: type.sm - 3, letterSpacing: 0.2 },
 });

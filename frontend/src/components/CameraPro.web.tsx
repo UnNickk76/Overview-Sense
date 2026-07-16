@@ -8,7 +8,7 @@ export interface CameraProHandle {
 }
 
 // Web / Expo Go fallback: the pro camera (VisionCamera) requires a native build.
-export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean }>((_props, ref) => {
+export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBottom?: number; onChromeChange?: (m: "full" | "dim" | "hidden") => void }>((_props, ref) => {
   useImperativeHandle(ref, () => ({ capture: async () => null }), []);
   return (
     <View style={styles.wrap}>

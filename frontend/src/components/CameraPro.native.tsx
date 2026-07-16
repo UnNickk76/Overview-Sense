@@ -167,7 +167,9 @@ async function downscaleToBase64(path: string, edge: number): Promise<string | n
 }
 
 
-export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBottom?: number }>(({ enhance = true, hudBottom = 150 }, ref) => {
+export type ChromeMode = "full" | "dim" | "hidden";
+
+export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBottom?: number; onChromeChange?: (m: ChromeMode) => void }>(({ enhance = true, hudBottom = 150, onChromeChange }, ref) => {
   // Full physical optical range: ultra-wide → wide → tele. The virtual multi-cam
   // device auto-switches lenses for the widest field of view and Super Macro on
   // supported iPhones (Beyond View: only real optics, never fabricated detail).
@@ -191,6 +193,27 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
   const [zoomFactor, setZoomFactor] = useState(1);
   const [macro, setMacro] = useState(false);
   const [wheelOpen, setWheelOpen] = useState(false);
+
+  // Smart controls: fade when idle, wake on tap, hide (cinema) on double-tap.
+  const chromeOpacity = useSharedValue(1);
+  const chromeModeRef = useRef<ChromeMode>("full");
+  const dimTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const applyChrome = useCallback((m: ChromeMode) => {
+    chromeModeRef.current = m;
+    chromeOpacity.value = withTiming(m === "full" ? 1 : m === "dim" ? 0.32 : 0.05, { duration: 260 });
+    onChromeChange?.(m);
+  }, [chromeOpacity, onChromeChange]);
+  const clearDim = useCallback(() => { if (dimTimer.current) { clearTimeout(dimTimer.current); dimTimer.current = null; } }, []);
+  const wake = useCallback(() => {
+    clearDim();
+    if (chromeModeRef.current !== "full") applyChrome("full");
+    dimTimer.current = setTimeout(() => { if (chromeModeRef.current === "full") applyChrome("dim"); }, 4000);
+  }, [applyChrome, clearDim]);
+  const toggleCinema = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (chromeModeRef.current === "hidden") wake();
+    else { clearDim(); applyChrome("hidden"); }
+  }, [applyChrome, wake, clearDim]);
 
   const minZoom = device?.minZoom ?? 1;
   // Full REAL optical+digital range of the device (e.g. up to ~123.8× on Pro tele).
@@ -231,6 +254,8 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
       else { const r = await Camera.requestCameraPermission(); setHasPerm(r === "granted"); }
     })();
     hydrateLiveSense();
+    wake();
+    return () => clearDim();
   }, []);
 
   // Reset zoom when flipping camera (front/back have different optical ranges).
@@ -254,13 +279,14 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
 
   const setPreset = useCallback((z: number) => {
     Haptics.selectionAsync();
+    wake();
     zoom.value = withTiming(z, { duration: 220 });
     lastZoomRef.current = z;
     setZoomLabel(`${(z / neutral).toFixed(1)}×`);
     setZoomFactor(z / neutral);
     setFocusPt(null);
     setMacro(isMacro(z));
-  }, [zoom, neutral, isMacro]);
+  }, [zoom, neutral, isMacro, wake]);
 
   const doFocus = useCallback((x: number, y: number) => {
     if (lock) return;
@@ -274,16 +300,18 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
 
   const toggleLock = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    wake();
     setLock((l) => !l);
-  }, []);
+  }, [wake]);
 
   const pinch = Gesture.Pinch()
     .runOnJS(true)
-    .onBegin(() => { startZoom.value = zoom.value; })
+    .onBegin(() => { startZoom.value = zoom.value; wake(); })
     .onUpdate((e) => { const z = clamp(startZoom.value * e.scale, minZoom, maxZoom); zoom.value = z; showZoom(z); });
-  const tap = Gesture.Tap().runOnJS(true).onEnd((e) => doFocus(e.x, e.y));
+  const tap = Gesture.Tap().numberOfTaps(1).runOnJS(true).onEnd((e) => { doFocus(e.x, e.y); if (chromeModeRef.current !== "hidden") wake(); });
+  const doubleTap = Gesture.Tap().numberOfTaps(2).runOnJS(true).onEnd(() => toggleCinema());
   const longPress = Gesture.LongPress().runOnJS(true).minDuration(450).onStart(() => toggleLock());
-  const gesture = Gesture.Simultaneous(pinch, Gesture.Exclusive(longPress, tap));
+  const gesture = Gesture.Simultaneous(pinch, Gesture.Exclusive(longPress, doubleTap, tap));
 
   // iPhone-style dial: slide left/right on the preset row → smooth decimal zoom.
   const wheelPan = Gesture.Pan()
@@ -304,6 +332,7 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
   // stuck dark after a zoom/lens change. Locking freezes AF/AE at the current point.
   const animatedProps = useAnimatedProps(() => ({ zoom: zoom.value }));
   const focusStyle = useAnimatedStyle(() => ({ opacity: focusOpacity.value }));
+  const chromeStyle = useAnimatedStyle(() => ({ opacity: chromeOpacity.value }));
 
   useImperativeHandle(ref, () => ({
     capture: async () => {
@@ -356,12 +385,12 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
           <Reanimated.View pointerEvents="none" style={[styles.focusRing, { left: focusPt.x - 34, top: focusPt.y - 34 }, focusStyle]} />
         ) : null}
         {zoomFactor > 20 ? (
-          <View pointerEvents="none" style={styles.radarPos}>
+          <Reanimated.View pointerEvents="none" style={[styles.radarPos, chromeStyle]}>
             <SenseRadar zoom={zoomFactor} />
-          </View>
+          </Reanimated.View>
         ) : null}
         <LiveSense zoomFactor={zoomFactor} active={hasPerm && !!device} snapshot={snapshotBase64} facing={facing} />
-        <View pointerEvents="box-none" style={[styles.hud, { bottom: hudBottom }]}>
+        <Reanimated.View pointerEvents="box-none" style={[styles.hud, { bottom: hudBottom }, chromeStyle]}>
           <GestureDetector gesture={wheelPan}>
             <View style={styles.presetZone}>
               {wheelOpen ? (
@@ -407,12 +436,12 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
             </Pressable>
             {frontDevice ? (
               <Pressable testID="camerapro-flip" style={styles.flipBtn}
-                onPress={() => { Haptics.selectionAsync(); setFacing((f) => (f === "back" ? "front" : "back")); }}>
+                onPress={() => { Haptics.selectionAsync(); wake(); setFacing((f) => (f === "back" ? "front" : "back")); }}>
                 <Ionicons name="camera-reverse-outline" size={18} color={facing === "front" ? colors.brand : "#fff"} />
               </Pressable>
             ) : null}
           </View>
-        </View>
+        </Reanimated.View>
       </View>
     </GestureDetector>
   );
