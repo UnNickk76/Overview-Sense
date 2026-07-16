@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
+import Svg, { Path } from "react-native-svg";
 import { captureRef } from "react-native-view-shot";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 
@@ -18,6 +19,7 @@ export interface TextOverlay { id: string; text: string; color: string; font: st
 const FONTS = [fonts.bold, fonts.regular, fonts.mono, fonts.semibold];
 const FONT_LABELS = ["Bold", "Regular", "Mono", "Medium"];
 const PALETTE = ["#FFFFFF", "#000000", "#D4AF37", "#FF453A", "#0A84FF", "#30D158", "#FF9F0A", "#BF5AF2"];
+const EMOJIS = ["✨", "🌙", "🪐", "☀️", "⭐", "🌈", "🛰", "🌌", "🔭", "🌸", "🐦", "🌊", "🌋", "🏔", "❤️", "🔥", "👁", "🧭", "📍", "🌡", "🧲", "🎵"];
 
 function DraggableText({ item, selected, onSelect, onEdit }: {
   item: TextOverlay; selected: boolean; onSelect: () => void; onEdit: () => void;
@@ -70,6 +72,11 @@ export function SenseEditor({ uri, place, onCancel, onDone }: {
   const [editing, setEditing] = useState<TextOverlay | null>(null);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
+  const [drawMode, setDrawMode] = useState(false);
+  const [emojiTray, setEmojiTray] = useState(false);
+  const [paths, setPaths] = useState<{ d: string; color: string; width: number }[]>([]);
+  const [curD, setCurD] = useState("");
+  const cur = useRef("");
 
   const H = width * 1.25;
 
@@ -96,6 +103,12 @@ export function SenseEditor({ uri, place, onCancel, onDone }: {
   const cycleFont = () => { const n = (fontIdx + 1) % FONTS.length; setFontIdx(n); if (selId) setOverlays((o) => o.map((x) => (x.id === selId ? { ...x, font: FONTS[n] } : x))); };
   const delSel = () => { if (selId) { setOverlays((o) => o.filter((x) => x.id !== selId)); setSelId(null); } };
 
+  const drawPan = Gesture.Pan().runOnJS(true)
+    .onBegin((e) => { cur.current = `M ${e.x.toFixed(1)} ${e.y.toFixed(1)}`; setCurD(cur.current); })
+    .onUpdate((e) => { cur.current += ` L ${e.x.toFixed(1)} ${e.y.toFixed(1)}`; setCurD(cur.current); })
+    .onEnd(() => { if (cur.current.includes("L")) setPaths((p) => [...p, { d: cur.current, color, width: 5 }]); cur.current = ""; setCurD(""); });
+  const undoDraw = () => setPaths((p) => p.slice(0, -1));
+
   const now = new Date();
   const chips: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }[] = [
     { icon: "time", label: "Ora", value: now.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) },
@@ -121,10 +134,19 @@ export function SenseEditor({ uri, place, onCancel, onDone }: {
       <Pressable style={[styles.canvasWrap, { marginTop: insets.top + 44 }]} onPress={() => setSelId(null)}>
         <View ref={shotRef} collapsable={false} style={[styles.canvas, { width, height: H }]}>
           <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" />
+          <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+            {paths.map((p, i) => <Path key={i} d={p.d} stroke={p.color} strokeWidth={p.width} fill="none" strokeLinecap="round" strokeLinejoin="round" />)}
+            {curD ? <Path d={curD} stroke={color} strokeWidth={5} fill="none" strokeLinecap="round" strokeLinejoin="round" /> : null}
+          </Svg>
           {overlays.map((o) => (
             <DraggableText key={o.id} item={o} selected={selId === o.id}
               onSelect={() => setSelId(o.id)} onEdit={() => { setEditing(o); setDraft(o.text); }} />
           ))}
+          {drawMode ? (
+            <GestureDetector gesture={drawPan}>
+              <Animated.View style={StyleSheet.absoluteFill} />
+            </GestureDetector>
+          ) : null}
         </View>
       </Pressable>
 
@@ -132,7 +154,14 @@ export function SenseEditor({ uri, place, onCancel, onDone }: {
       <View style={[styles.topBar, { top: insets.top + 4 }]}>
         <Pressable testID="editor-cancel" hitSlop={10} onPress={onCancel}><Ionicons name="close" size={26} color="#fff" /></Pressable>
         <View style={styles.topActions}>
+          {drawMode && paths.length > 0 ? <Pressable testID="editor-undo" hitSlop={10} onPress={undoDraw}><Ionicons name="arrow-undo" size={22} color="#fff" /></Pressable> : null}
           {selId ? <Pressable testID="editor-delete" hitSlop={10} onPress={delSel}><Ionicons name="trash" size={22} color="#fff" /></Pressable> : null}
+          <Pressable testID="editor-draw" hitSlop={10} onPress={() => { setDrawMode((v) => !v); setSelId(null); setEmojiTray(false); }}>
+            <Ionicons name="brush" size={22} color={drawMode ? colors.brand : "#fff"} />
+          </Pressable>
+          <Pressable testID="editor-emoji" hitSlop={10} onPress={() => { setEmojiTray((v) => !v); setDrawMode(false); }}>
+            <Ionicons name="happy" size={22} color={emojiTray ? colors.brand : "#fff"} />
+          </Pressable>
           <Pressable testID="editor-font" style={styles.fontBtn} onPress={cycleFont}><Text style={[styles.fontBtnText, { fontFamily: FONTS[fontIdx] }]}>{FONT_LABELS[fontIdx]}</Text></Pressable>
         </View>
         <Pressable testID="editor-done" style={styles.doneBtn} onPress={finish} disabled={saving}>
