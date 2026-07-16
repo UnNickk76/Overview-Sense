@@ -838,3 +838,19 @@ Cause individuate e corrette:
 - **#1+#2 Viewer immersivo (FATTO)**: nuovo `app/pulse-view.tsx` — foto fullscreen in Pure Sense (nessun pannello scientifico), chevron chiudi, autore minimale + apprezzamenti (animazione trasparente) in alto a sinistra, **pulsante floating trasparente in basso a destra** che apre un menu: Apri Observe™, Condividi (Share), RePost, Apprezza (interact observed + cuore animato), Audio ON/OFF (solo se `music.audio_url`), Salva. Routing: `PulseRing` (SnapSenseBar) e `ObservationCard` con `is_pulse` → `/pulse-view` invece di observation-detail. Verificato via screenshot (menu ok).
 - **#5**: già rispettato — post-pubblicazione si modificano solo legenda Sense/privacy/tag/posizione, non il contenuto creativo.
 - DA FARE (grandi, da pianificare): **#3 editor creativo stile Stories** (testi/font/colori/resize/rotazione/sticker/emoji/ora/data/posizione/GIF/disegno/audio/musica/countdown/tag) — feature molto ampia, da fasare; **#4 messaggi vocali** (registrazione+upload+playback su Observe/Pulse/SenseShot).
+
+### SESSIONE (fork) — #4 Messaggi vocali (FATTO)
+- Backend (`social.py`): `POST /api/media/audio` (base64→media doc uuid, max ~8MB, auth) servito da `GET /api/media/{id}`. CreateObs + obs_public: campo `voice {media_id, duration, url}`. Testato via python.
+- Frontend: `src/components/Voice.tsx` → `VoiceRecorder` (composer: expo-audio `useAudioRecorder`, permesso mic contestuale con fallback Impostazioni, max 60s, upload → media_id, preview) + `VoicePlayer` (viewer). Integrato in `publish-composer` (sezione "Messaggio vocale"), `observation-detail` (player sotto caption/musica) e `pulse-view` (player compatto sopra il FAB). `RECORD_AUDIO` aggiunto ad app.json (mic già in infoPlist). Lint pulito, bundle OK.
+- ⚠️ Registrazione = NATIVA (mic) → validare su BUILD; il player si può testare su web con un media audio reale.
+
+### ROADMAP feature grandi richieste (da costruire a fasi)
+- **#3 Editor creativo stile Stories** (PROSSIMO): Fase A = testi multi-font/colori/resize/rotazione (drag con gesture-handler+reanimated) + tag/ora/data/posizione, cattura composita via react-native-view-shot. Fase B = disegno a mano + sticker/emoji. Fase C = GIF + countdown + audio/musica nell'editor.
+- **The Sense Collection™**: SenseShot/Pulse temporanei (24h) → entrano in Collection permanenti (manuali o automatiche/dinamiche per regola es. "tutti i tramonti"), con copertina/nome/descrizione/#Sense/#views/#observers/ultimo aggiornamento, privacy (privata/amici/pubblica), collaborative, mostrate anche sotto gli Observe ("Fa parte della Collection: …").
+- **Observe World™**: archivio mondiale curato da OverView (non feed, griglia 5 Discovery Card/riga), promozione automatica per rarità/valore scientifico/verifiche ecc. (algoritmo non svelato), badge permanente 🌍 Observe World, niente like (solo indicatori di valore: Scientific Value, Reality Score, Verified, Rare, Historic, First, Confirmed…). Pulse/SenseShot selezionati diventano permanenti.
+
+### SESSIONE (fork) — #3 Fase A: editor creativo testi (FATTO)
+- `src/components/SenseEditor.tsx`: editor full-screen sulla foto. Aggiungi testo (multi-font: Bold/Regular/Mono/Medium, 8 colori), ogni testo è **draggabile/scalabile/ruotabile** (gesture-handler Pan+Pinch+Rotation + reanimated). Chip rapidi **Ora/Data/Posizione** (inseriti come testo). Doppio tap = modifica testo, selezione = bordo + elimino. "Fatto" → `captureRef` (react-native-view-shot) dell'immagine composta → torna al composer.
+- Integrato in `publish-composer`: pulsante "Aggiungi testo/Modifica creatività" sulla foto; l'immagine composta (`editedUri`) sostituisce la base per la pubblicazione. `RECORD_AUDIO` già aggiunto.
+- ⚠️ Editor (gesture + captureRef) e cattura = validare su BUILD. Lint pulito, bundle OK.
+- RESTA di #3: Fase B (disegno a mano + sticker/emoji), Fase C (GIF + countdown + audio/musica nell'editor). Poi: The Sense Collection™, Observe World™ (vedi roadmap sopra).

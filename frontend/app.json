@@ -34,6 +34,7 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "CAMERA",
+        "RECORD_AUDIO",
         "HIGH_SAMPLING_RATE_SENSORS",
         "READ_CONTACTS"
       ]

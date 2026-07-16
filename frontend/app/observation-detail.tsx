@@ -23,6 +23,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { nf, compassPoint } from "@/src/lib/format";
 import { SenseSurface } from "@/src/components/SenseSurface";
 import { PublishedMusic } from "@/src/components/PublishedMusic";
+import { VoicePlayer } from "@/src/components/Voice";
 import { SenseRecognized } from "@/src/components/SenseRecognized";
 import { orderedDataLayers } from "@/src/lib/senseLayers";
 import { GeoPrivacyPicker } from "@/src/components/GeoPrivacyPicker";
@@ -395,6 +396,9 @@ export default function ObservationDetail() {
           ) : null}
           {obs.music ? (
             <View style={{ marginTop: spacing.md }}><PublishedMusic music={obs.music} /></View>
+          ) : null}
+          {obs.voice ? (
+            <View style={{ marginTop: spacing.md }}><VoicePlayer voice={obs.voice} /></View>
           ) : null}
           <InteractionBar obs={obs} />
           <ActionBar obs={obs} />

@@ -308,6 +308,7 @@ def obs_public(o: dict, viewer_interactions: Optional[set] = None,
         "hashtags": o.get("hashtags", []),
         "music": o.get("music"),
         "tagged_users": o.get("tagged_users", []),
+        "voice": ({**o["voice"], "url": f"/api/media/{o['voice']['media_id']}"} if o.get("voice") and o["voice"].get("media_id") else None),
         "scientific_value": o.get("scientific_value", 0),
         "ai_confidence": o.get("ai_confidence"),
         "is_pulse": o.get("is_pulse", False),
@@ -344,6 +345,7 @@ class CreateObs(BaseModel):
     hashtags: Optional[List[str]] = None
     music: Optional[dict] = None
     tagged_users: Optional[List[dict]] = None
+    voice: Optional[dict] = None
     image_base64: Optional[str] = None
     data: Optional[dict] = None
     ai_confidence: Optional[int] = None
@@ -408,6 +410,8 @@ async def create_observation(req: CreateObs, user: dict = Depends(get_current_us
         "hashtags": hashtags,
         "music": music,
         "tagged_users": tagged,
+        "voice": ({"media_id": req.voice.get("media_id"), "duration": float(req.voice.get("duration") or 0)}
+                  if req.voice and req.voice.get("media_id") else None),
         "data": data,
         "has_image": has_image,
         "lat": data.get("lat"),
@@ -433,6 +437,31 @@ async def get_media(obs_id: str):
         raise HTTPException(status_code=404, detail="Media non trovato")
     return Response(content=base64.b64decode(doc["data"]),
                     media_type=doc.get("content_type", "image/jpeg"))
+
+
+class AudioUpload(BaseModel):
+    base64: str
+    content_type: str = "audio/m4a"
+    duration: Optional[float] = 0
+
+
+@social_router.post("/media/audio")
+async def upload_audio(req: AudioUpload, user: dict = Depends(get_current_user)):
+    """Store a short recorded audio clip (voice message / original audio) and return its id.
+    We keep only a reference on the observation, never a duplicated copy."""
+    raw = req.base64
+    if "," in raw and raw.strip().startswith("data:"):
+        raw = raw.split(",", 1)[1]
+    try:
+        size = len(base64.b64decode(raw))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Audio non valido")
+    if size > 8 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Audio troppo lungo (max ~1 min)")
+    mid = str(uuid.uuid4())
+    await db.media.insert_one({"id": mid, "content_type": req.content_type, "data": raw,
+                               "owner": user["id"], "kind": "audio"})
+    return {"id": mid, "url": f"/api/media/{mid}", "duration": req.duration}
 
 
 # ---------------------------------------------------------------------------

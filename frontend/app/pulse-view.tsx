@@ -8,6 +8,7 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeOut, useSharedValue, useAnimatedStyle, withSequence, withTiming } from "react-native-reanimated";
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from "expo-audio";
 import { socialApi, mediaUrl, FeedObservation } from "@/src/lib/backend";
+import { VoicePlayer } from "@/src/components/Voice";
 import { useAuth } from "@/src/context/AuthContext";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 
@@ -120,6 +121,13 @@ export default function PulseView() {
         {obs.title ? <Text style={styles.authorSub} numberOfLines={1}>{obs.title}</Text> : null}
       </View>
 
+      {/* Voice message — the author's spoken explanation */}
+      {obs.voice ? (
+        <View style={[styles.voiceWrap, { bottom: insets.bottom + 92 }]}>
+          <VoicePlayer voice={obs.voice} compact />
+        </View>
+      ) : null}
+
       {/* Floating transparent menu button — bottom right */}
       <View style={[styles.fabWrap, { bottom: insets.bottom + 24 }]}>
         {menuOpen ? (
@@ -151,6 +159,7 @@ const styles = StyleSheet.create({
   authorName: { color: "#fff", fontFamily: fonts.bold, fontSize: type.base, textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 6 },
   authorSub: { color: "rgba(255,255,255,0.8)", fontFamily: fonts.regular, fontSize: type.sm, textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 6 },
   fabWrap: { position: "absolute", right: spacing.lg, alignItems: "flex-end", gap: spacing.sm },
+  voiceWrap: { position: "absolute", left: spacing.lg, right: 88 },
   fab: { width: 52, height: 52, borderRadius: 26, backgroundColor: "rgba(20,22,28,0.55)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(212,175,55,0.5)", alignItems: "center", justifyContent: "center" },
   menu: { backgroundColor: "rgba(16,18,24,0.82)", borderRadius: radius.lg, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.12)", minWidth: 190 },
   menuItem: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: 12 },

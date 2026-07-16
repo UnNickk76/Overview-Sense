@@ -22,6 +22,8 @@ import { useAuth } from "@/src/context/AuthContext";
 import { assessPrivacy, recordPlace } from "@/src/lib/placeHistory";
 import { communityApi, DiscoverPerson } from "@/src/lib/community";
 import { MusicRef } from "@/src/lib/music";
+import { VoiceRecorder, VoiceRef } from "@/src/components/Voice";
+import { SenseEditor } from "@/src/components/SenseEditor";
 import { pulseForNow } from "@/src/lib/pulseTasks";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 
@@ -37,6 +39,9 @@ export default function PublishComposer() {
   const [desc, setDesc] = useState("");
   const [tagsText, setTagsText] = useState("");
   const [music, setMusic] = useState<MusicRef | null>(null);
+  const [voice, setVoice] = useState<VoiceRef | null>(null);
+  const [editedUri, setEditedUri] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [musicOpen, setMusicOpen] = useState(false);
   const [place, setPlace] = useState<string | null>(null);
   const [geoPrec, setGeoPrec] = useState<GeoPrecision>("exact");
@@ -88,7 +93,7 @@ export default function PublishComposer() {
     setPublishing(true); setErr(null);
     try {
       const manipulated = await ImageManipulator.manipulateAsync(
-        obs.uri, [{ resize: { width: 1280 } }],
+        editedUri || obs.uri, [{ resize: { width: 1280 } }],
         { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true },
       );
       let pulseTask = obs.data.pulse;
@@ -104,6 +109,7 @@ export default function PublishComposer() {
         hashtags: parseTags(),
         music: music ? { ...music } : undefined,
         tagged_users: tagged,
+        voice: voice ? { media_id: voice.media_id, duration: voice.duration } : undefined,
         image_base64: manipulated.base64 ?? undefined,
         data,
         is_pulse: asPulse || !!obs.data.pulse,
@@ -135,7 +141,15 @@ export default function PublishComposer() {
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 120, gap: spacing.lg }}>
           {/* Photo */}
           <View style={[styles.preview, { width: previewW, height: previewW * 1.1 }]}>
-            <SenseCanvas uri={obs.uri} width={previewW} height={previewW * 1.1} layer={layerToVisual(obs.data?.senseLayer)} />
+            {editedUri ? (
+              <Image source={{ uri: editedUri }} style={{ width: previewW, height: previewW * 1.1 }} contentFit="cover" />
+            ) : (
+              <SenseCanvas uri={obs.uri} width={previewW} height={previewW * 1.1} layer={layerToVisual(obs.data?.senseLayer)} />
+            )}
+            <Pressable testID="composer-edit" style={styles.editBtn} onPress={() => setEditorOpen(true)}>
+              <Ionicons name="brush" size={15} color="#fff" />
+              <Text style={styles.editBtnText}>{editedUri ? "Modifica creatività" : "Aggiungi testo"}</Text>
+            </Pressable>
           </View>
 
           {/* Title */}
@@ -174,6 +188,13 @@ export default function PublishComposer() {
                 <Text style={styles.addText}>Aggiungi musica</Text>
               </Pressable>
             )}
+          </View>
+
+          {/* Voice message */}
+          <View style={styles.field}>
+            <Text style={styles.label}>🎙 Messaggio vocale <Text style={styles.opt}>facoltativo</Text></Text>
+            <Text style={styles.place}>Racconta a voce cosa hai osservato — chi guarda ascolterà la tua spiegazione.</Text>
+            <VoiceRecorder value={voice} onChange={setVoice} />
           </View>
 
           {/* Location */}
@@ -231,6 +252,12 @@ export default function PublishComposer() {
 
       <MusicPicker visible={musicOpen} onClose={() => setMusicOpen(false)} onSelect={setMusic} />
 
+      {editorOpen ? (
+        <SenseEditor uri={editedUri || obs.uri} place={place}
+          onCancel={() => setEditorOpen(false)}
+          onDone={(u) => { setEditedUri(u); setEditorOpen(false); }} />
+      ) : null}
+
       {/* People picker */}
       {peopleOpen ? (
         <View style={styles.peopleSheet}>
@@ -267,6 +294,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
   hTitle: { color: colors.onSurface, fontFamily: fonts.bold, fontSize: type.lg },
   preview: { borderRadius: radius.lg, overflow: "hidden", alignSelf: "center", backgroundColor: colors.surfaceSecondary },
+  editBtn: { position: "absolute", bottom: spacing.md, right: spacing.md, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 8, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(212,175,55,0.6)" },
+  editBtnText: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.sm - 1 },
   field: { gap: spacing.sm },
   label: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
   opt: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1 },

@@ -41,6 +41,7 @@ export interface FeedObservation {
   hashtags?: string[];
   music?: MusicRef | null;
   tagged_users?: { id: string; nickname?: string }[];
+  voice?: { media_id: string; duration: number; url: string } | null;
   scientific_value: number;
   ai_confidence?: number | null;
   image_url: string | null;
@@ -158,11 +159,16 @@ export const socialApi = {
     media_type?: string; source?: string; caption?: string;
     title?: string; description?: string; hashtags?: string[];
     music?: Record<string, unknown>; tagged_users?: { id: string; nickname?: string }[];
+    voice?: { media_id: string; duration: number };
     image_base64?: string; data?: ObsData; ai_confidence?: number;
     is_pulse?: boolean; pulse_task?: { id: string; title: string; theme: string; prompt?: string };
   }) => apiFetch<FeedObservation>("/observations", {
     method: "POST", body: JSON.stringify(payload),
   }),
+  uploadAudio: (base64: string, duration: number, content_type = "audio/m4a") =>
+    apiFetch<{ id: string; url: string; duration: number }>("/media/audio", {
+      method: "POST", body: JSON.stringify({ base64, content_type, duration }),
+    }),
   feed: (f: FeedFilters = {}) => {
     const q = new URLSearchParams();
     Object.entries(f).forEach(([k, v]) => { if (v !== undefined && v !== "") q.append(k, String(v)); });
