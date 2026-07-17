@@ -122,6 +122,54 @@ async def recognize_subject(req: RecognizeReq):
         return {"subject": "generic", "label_it": "Realtà"}
 
 
+SCENE_SYSTEM = (
+    "You are the scene analyzer of Overview's Sense Vision. Look at a real camera frame and decide "
+    "whether the SKY is actually visible (so astronomical objects could be shown) and what the user is observing. "
+    "sky_visibility = 0 if no open sky at all (indoor, wall, ceiling, floor/ground, pointing down), "
+    "up to 100 if wide open sky. Partial (sky between buildings/trees) = a middle value. "
+    "scene = one of: sky, ground, surface, water, nature, person, object, indoor. "
+    "('surface'=wall/building facade, 'ground'=floor/asphalt/soil/sand/grass seen from above, "
+    "'nature'=plants/trees/vegetation, 'object'=vehicles/structures/things, 'indoor'=inside a room). "
+    "Respond ONLY compact JSON: {\"sky_visibility\": <0-100 int>, \"scene\": <one of those>}."
+)
+
+
+class SceneReq(BaseModel):
+    image_base64: str
+
+
+@ai_router.post("/scene")
+async def analyze_scene(req: SceneReq):
+    """Sky Visibility™ + Sense Auto Mode™ — is the sky really in view, and what is being observed?
+    Fails open to an 'unknown' verdict so device-orientation stays authoritative offline."""
+    import json as _json
+    from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+    raw = req.image_base64
+    if "," in raw and raw.strip().startswith("data:"):
+        raw = raw.split(",", 1)[1]
+    if not EMERGENT_LLM_KEY or not raw:
+        return {"sky_visibility": None, "scene": "unknown"}
+    try:
+        chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=str(uuid.uuid4()),
+                       system_message=SCENE_SYSTEM).with_model("openai", "gpt-5.4")
+        resp = await chat.send_message(UserMessage(
+            text="Analyze this frame. Return only the JSON.",
+            file_contents=[ImageContent(image_base64=raw)],
+        ))
+        text = resp if isinstance(resp, str) else (getattr(resp, "text", None) or str(resp))
+        s, e = text.find("{"), text.rfind("}")
+        data = _json.loads(text[s:e + 1]) if s != -1 else {}
+        sv = data.get("sky_visibility")
+        try:
+            sv = max(0, min(100, int(sv))) if sv is not None else None
+        except (TypeError, ValueError):
+            sv = None
+        scene = data.get("scene", "unknown")
+        return {"sky_visibility": sv, "scene": scene}
+    except Exception:
+        return {"sky_visibility": None, "scene": "unknown"}
+
+
 class SeeReq(BaseModel):
     image_base64: str
     facts: List[str] = []

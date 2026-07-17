@@ -17,6 +17,8 @@ import { useHeading, useAccelerometer } from "@/src/hooks/useSensors";
 import { computeSky, SkyObject } from "@/src/lib/skyObjects";
 import { compassPoint, nf } from "@/src/lib/format";
 import { project, FOV_H } from "@/src/lib/project";
+import { pitchVisibility, combineVisibility, sceneToMode, skyBucket, SKY_THRESHOLD, SENSE_MODES, AUTO_MODES, type Scene, type SenseModeKey } from "@/src/lib/skyVisibility";
+import { aiApi } from "@/src/lib/backend";
 import { api, Weather, SpaceWeather } from "@/src/lib/api";
 import { loadSatrecs, computeSatellites, SatPos } from "@/src/lib/satellites";
 import { buildObservation } from "@/src/lib/observationData";
@@ -55,6 +57,39 @@ export default function Cielo() {
     () => -Math.atan2(accel.z, Math.hypot(accel.x, accel.y)) * (180 / Math.PI),
     [accel.x, accel.y, accel.z],
   );
+
+  // --- Sky Visibility™ + Sense Auto Mode™ ---
+  const [aiScene, setAiScene] = useState<{ v: number | null; scene: Scene }>({ v: null, scene: "unknown" });
+  const [manualMode, setManualMode] = useState<SenseModeKey | null>(null);
+  const [modePicker, setModePicker] = useState(false);
+  const analyzing = useRef(false);
+
+  const pitchScore = useMemo(() => pitchVisibility(cameraAlt), [cameraAlt]);
+  const skyScore = useMemo(() => combineVisibility(pitchScore, aiScene.v, aiScene.scene), [pitchScore, aiScene]);
+  const skyBkt = skyBucket(skyScore);
+  const skyVisible = manualMode === "sky" || (manualMode === null && skyScore >= SKY_THRESHOLD);
+  const autoMode: SenseModeKey = skyScore >= SKY_THRESHOLD ? "sky" : sceneToMode(aiScene.scene);
+  const activeMode = manualMode ?? autoMode;
+
+  // Periodic AI scene read — refines pitch (tells walls/ceilings/ground from open sky).
+  useEffect(() => {
+    if (perm?.granted !== true) return;
+    let alive = true;
+    const run = async () => {
+      if (analyzing.current || !cameraRef.current) return;
+      analyzing.current = true;
+      try {
+        const photo = await cameraRef.current.takePictureAsync({ quality: 0.2, base64: true, skipProcessing: true });
+        if (alive && photo?.base64) {
+          const r = await aiApi.scene(photo.base64);
+          if (alive) setAiScene({ v: r.sky_visibility, scene: (r.scene as Scene) || "unknown" });
+        }
+      } catch { /* web / no camera: device orientation stays authoritative */ } finally { analyzing.current = false; }
+    };
+    const first = setTimeout(run, 3000);
+    const t = setInterval(run, 9000);
+    return () => { alive = false; clearTimeout(first); clearInterval(t); };
+  }, [perm?.granted]);
 
   const objects = useMemo(() => {
     if (obs.status !== "granted") return [];
@@ -137,7 +172,7 @@ export default function Cielo() {
       <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
       <View style={[StyleSheet.absoluteFill, styles.dim]} pointerEvents="none" />
 
-      {showConst ? (
+      {skyVisible && showConst ? (
         <Svg width={width} height={height} style={StyleSheet.absoluteFill} pointerEvents="none">
           {lines.map((l, i) => (
             <Line key={i} x1={l.a!.x} y1={l.a!.y} x2={l.b!.x} y2={l.b!.y} stroke="#5AB0FF" strokeWidth={1} opacity={0.55} />
@@ -145,7 +180,7 @@ export default function Cielo() {
         </Svg>
       ) : null}
 
-      {objects.map((o) => {
+      {skyVisible ? objects.map((o) => {
         const p = project(o.az, o.alt, heading, cameraAlt, width, height, FOV_H);
         if (!p) return null;
         return (
@@ -163,9 +198,9 @@ export default function Cielo() {
             ) : null}
           </Pressable>
         );
-      })}
+      }) : null}
 
-      {showSats ? sats.map((s) => {
+      {skyVisible && showSats ? sats.map((s) => {
         const p = project(s.az, s.alt, heading, cameraAlt, width, height, FOV_H);
         if (!p) return null;
         return (
@@ -185,6 +220,55 @@ export default function Cielo() {
         );
       }) : null}
 
+      {!skyVisible ? (
+        <View style={styles.senseCenter} pointerEvents="none">
+          <View style={styles.senseCard}>
+            <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+            <Text style={styles.senseEmoji}>{SENSE_MODES[activeMode].emoji}</Text>
+            <Text style={styles.senseTitle}>{activeMode === "sky" ? "Sky Hidden™" : SENSE_MODES[activeMode].label}</Text>
+            <Text style={styles.senseMsg}>
+              {activeMode === "sky"
+                ? "Il cielo non è visibile. Punta la fotocamera verso il cielo per attivare Sky Vision."
+                : "Sense Vision sta osservando questa scena. Non ci sono oggetti astronomici da mostrare qui."}
+            </Text>
+            <View style={styles.skyVisBar}>
+              <View style={[styles.skyVisFill, { width: `${skyBkt}%` }]} />
+            </View>
+            <Text style={styles.skyVisLabel}>Sky Visibility™ {skyBkt}%</Text>
+          </View>
+        </View>
+      ) : null}
+
+      {/* Sense Auto Mode™ chip */}
+      <View style={[styles.modeWrap, { top: insets.top + 54 }]} pointerEvents="box-none">
+        <Pressable testID="sense-mode-chip" style={styles.modeChip} onPress={() => { Haptics.selectionAsync(); setModePicker((v) => !v); }}>
+          <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+          <Text style={styles.modeEmoji}>{SENSE_MODES[activeMode].emoji}</Text>
+          <Text style={styles.modeText}>{SENSE_MODES[activeMode].label}</Text>
+          <View style={[styles.modeBadge, manualMode !== null && styles.modeBadgeManual]}>
+            <Text style={styles.modeBadgeTxt}>{manualMode === null ? "AUTO" : "MANUAL"}</Text>
+          </View>
+          <Ionicons name={modePicker ? "chevron-up" : "chevron-down"} size={14} color="#fff" />
+        </Pressable>
+        {modePicker ? (
+          <View style={styles.modeMenu}>
+            <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+            <Pressable testID="mode-auto" style={styles.modeItem} onPress={() => { Haptics.selectionAsync(); setManualMode(null); setModePicker(false); }}>
+              <Ionicons name="sparkles" size={16} color={colors.brand} />
+              <Text style={styles.modeItemTxt}>Auto</Text>
+              {manualMode === null ? <Ionicons name="checkmark" size={16} color={colors.brand} style={{ marginLeft: "auto" }} /> : null}
+            </Pressable>
+            {AUTO_MODES.map((k) => (
+              <Pressable key={k} testID={`mode-${k}`} style={styles.modeItem} onPress={() => { Haptics.selectionAsync(); setManualMode(k); setModePicker(false); }}>
+                <Text style={styles.modeEmoji}>{SENSE_MODES[k].emoji}</Text>
+                <Text style={styles.modeItemTxt}>{SENSE_MODES[k].label}</Text>
+                {manualMode === k ? <Ionicons name="checkmark" size={16} color={colors.brand} style={{ marginLeft: "auto" }} /> : null}
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+      </View>
+
       <View style={[styles.floatHeader, { paddingTop: insets.top + 6 }]}>
         <Pressable testID="cielo-back" style={styles.glassBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.back(); }}>
           <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
@@ -192,7 +276,7 @@ export default function Cielo() {
         </Pressable>
         <View style={styles.compassPill}>
           <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
-          <Text style={styles.compassText}>{compassPoint(heading)} · {heading.toFixed(0)}°  ↕ {cameraAlt.toFixed(0)}°</Text>
+          <Text style={styles.compassText}>{compassPoint(heading)} · {heading.toFixed(0)}°  ↕ {cameraAlt.toFixed(0)}°  ·  Sky {skyBkt}%</Text>
         </View>
       </View>
 
@@ -203,7 +287,7 @@ export default function Cielo() {
           <Toggle label="Satelliti" active={showSats} onPress={() => setShowSats((v) => !v)} testID="toggle-sats" />
         </View>
         <View style={styles.captureRow}>
-          <Text style={styles.countInline} numberOfLines={1}>{`${visibleCount} sopra di te`}</Text>
+          <Text style={styles.countInline} numberOfLines={1}>{skyVisible ? `${visibleCount} sopra di te` : `${SENSE_MODES[activeMode].emoji} ${SENSE_MODES[activeMode].label}`}</Text>
           <Pressable testID="capture-button" style={[styles.shutter, busy && { opacity: 0.5 }]} onPress={capture}>
             <View style={styles.shutterInner} />
           </Pressable>
@@ -251,6 +335,24 @@ function SkyList({ objects, onSelect }: { objects: SkyObject[]; onSelect: (o: Sk
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#000" },
   dim: { backgroundColor: "rgba(0,0,0,0.25)" },
+  senseCenter: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.xl },
+  senseCard: { width: "100%", maxWidth: 340, borderRadius: 24, overflow: "hidden", alignItems: "center", padding: spacing.xl, gap: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.18)" },
+  senseEmoji: { fontSize: 42 },
+  senseTitle: { color: "#fff", fontFamily: fonts.bold, fontSize: type["2xl"], textAlign: "center" },
+  senseMsg: { color: "rgba(255,255,255,0.82)", fontFamily: fonts.regular, fontSize: type.base, textAlign: "center", lineHeight: 21 },
+  skyVisBar: { width: "80%", height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.15)", overflow: "hidden", marginTop: spacing.sm },
+  skyVisFill: { height: "100%", borderRadius: 3, backgroundColor: colors.brand },
+  skyVisLabel: { color: colors.brand, fontFamily: fonts.mono, fontSize: type.sm, letterSpacing: 0.5 },
+  modeWrap: { position: "absolute", left: 0, right: 0, alignItems: "center", zIndex: 20 },
+  modeChip: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.22)" },
+  modeEmoji: { fontSize: 16 },
+  modeText: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.sm },
+  modeBadge: { backgroundColor: colors.brand, borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 },
+  modeBadgeManual: { backgroundColor: colors.blue },
+  modeBadgeTxt: { color: colors.onBrand, fontFamily: fonts.bold, fontSize: 8, letterSpacing: 0.5 },
+  modeMenu: { marginTop: 6, borderRadius: 16, overflow: "hidden", width: 210, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.18)" },
+  modeItem: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 10 },
+  modeItemTxt: { color: "#fff", fontFamily: fonts.medium, fontSize: type.base },
   permCenter: { flex: 1, alignItems: "center", paddingHorizontal: spacing.xl, gap: spacing.md },
   permTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.xl, textAlign: "center", marginTop: spacing.md },
   permText: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.base, textAlign: "center", lineHeight: 21 },

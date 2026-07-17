@@ -377,6 +377,10 @@ export const aiApi = {
     apiFetch<{ subject: string; label_it: string }>("/ai/recognize-subject", {
       method: "POST", body: JSON.stringify({ image_base64 }),
     }),
+  scene: (image_base64: string) =>
+    apiFetch<{ sky_visibility: number | null; scene: string }>("/ai/scene", {
+      method: "POST", body: JSON.stringify({ image_base64 }),
+    }),
   liveRecognize: (image_base64: string, categories: string[]) =>
     apiFetch<LiveRecognition>("/ai/live-recognize", {
       method: "POST", body: JSON.stringify({ image_base64, categories }),
