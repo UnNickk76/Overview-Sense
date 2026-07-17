@@ -14,7 +14,7 @@ import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { getObservation, observationCode, Observation, ObsPoint } from "@/src/lib/gallery";
-import { CONSTELLATION_LINES } from "@/src/lib/stars";
+import { CONSTELLATION_LINES, activeConstellations } from "@/src/lib/constellations";
 import { project } from "@/src/lib/project";
 import { nf, compassPoint } from "@/src/lib/format";
 import { socialApi, aiApi } from "@/src/lib/backend";
@@ -101,6 +101,7 @@ export default function ObservationView() {
     return {
       stars: Array.from(starPts.values()),
       lines,
+      inFrameConstellations: activeConstellations(new Set(starPts.keys())).map((c) => c.name),
       planets: mk(d.planets),
       satellites: mk(d.satellites),
       iss: d.iss && d.iss.alt >= 0 ? { ...d.iss, pt: p(d.iss.az, d.iss.alt) } : null,
@@ -471,8 +472,8 @@ export default function ObservationView() {
           {d.cameraAz != null ? <Row label="Direzione fotocamera" value={`${compassPoint(d.cameraAz)} ${nf(d.cameraAz, 0)}° · elev ${nf(d.cameraAlt ?? 0, 0)}°`} /> : null}
           {d.sun ? <Row label="Sole" value={d.sun.alt > 0 ? `${nf(d.sun.alt, 0)}° sopra · ${compassPoint(d.sun.az)}` : "sotto l'orizzonte"} /> : null}
           {d.moon ? <Row label="Luna" value={`${d.moon.phase} · ${nf(d.moon.illum * 100, 0)}%`} /> : null}
-          {d.planets && d.planets.length ? <Row label="Pianeti visibili" value={d.planets.map((p) => p.name).join(", ")} /> : null}
-          {d.constellations && d.constellations.length ? <Row label="Costellazioni" value={d.constellations.join(", ")} /> : null}
+          {d.planets && d.planets.length ? <Row label="Pianeti nel cielo" value={d.planets.map((p) => p.name).join(", ")} /> : null}
+          {overlay?.inFrameConstellations?.length ? <Row label="Costellazioni nell'inquadratura" value={overlay.inFrameConstellations.join(", ")} /> : (d.constellations && d.constellations.length ? <Row label="Costellazioni nel cielo" value={d.constellations.join(", ")} /> : null)}
           {d.satellites && d.satellites.length ? <Row label="Satelliti sopra di te" value={`${d.satellites.length}`} /> : null}
           {d.iss ? <Row label="ISS" value={`visibile · ${nf(d.iss.alt, 0)}° ${compassPoint(d.iss.az)}`} /> : null}
           {d.galacticCenter ? <Row label="Centro Via Lattea" value={d.galacticCenter.alt > 0 ? `${nf(d.galacticCenter.alt, 0)}° ${compassPoint(d.galacticCenter.az)}` : "sotto l'orizzonte"} /> : null}

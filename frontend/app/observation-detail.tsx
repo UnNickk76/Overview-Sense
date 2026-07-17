@@ -5,7 +5,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
 import Svg, { Line, Circle, Text as SvgText, G } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
-import { CONSTELLATION_LINES } from "@/src/lib/stars";
+import { CONSTELLATION_LINES, activeConstellations } from "@/src/lib/constellations";
 import { project } from "@/src/lib/project";
 import type { ObsPoint } from "@/src/lib/gallery";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
@@ -138,6 +138,7 @@ export default function ObservationDetail() {
     return {
       stars: Array.from(starPts.values()),
       lines,
+      inFrameConstellations: activeConstellations(new Set(starPts.keys())).map((c) => c.name),
       planets: mk(dd.planets),
       satellites: mk(dd.satellites),
       iss: dd.iss && dd.iss.alt >= 0 ? { ...dd.iss, pt: p(dd.iss.az, dd.iss.alt) } : null,
@@ -404,7 +405,7 @@ export default function ObservationDetail() {
               {d.cameraAz != null ? <Row label="Direzione" value={`${compassPoint(d.cameraAz)} ${nf(d.cameraAz, 0)}°`} /> : null}
               {d.moon ? <Row label="Luna" value={`${d.moon.phase} · ${nf(d.moon.illum * 100, 0)}%`} /> : null}
               {d.planets && d.planets.length ? <Row label="Pianeti" value={d.planets.map((p) => p.name).join(", ")} /> : null}
-              {d.constellations && d.constellations.length ? <Row label="Costellazioni" value={d.constellations.join(", ")} /> : null}
+              {overlay?.inFrameConstellations?.length ? <Row label="Costellazioni nell'inquadratura" value={overlay.inFrameConstellations.join(", ")} /> : (d.constellations && d.constellations.length ? <Row label="Costellazioni nel cielo" value={d.constellations.join(", ")} /> : null)}
               {d.iss ? <Row label="ISS" value={`visibile · ${nf(d.iss.alt, 0)}° ${compassPoint(d.iss.az)}`} /> : null}
               {d.satellites && d.satellites.length ? <Row label="Satelliti" value={`${d.satellites.length}`} /> : null}
               {d.spaceWeather?.kp != null ? <Row label="Meteo spaziale" value={`Kp ${nf(d.spaceWeather.kp, 1)}`} /> : null}

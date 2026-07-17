@@ -3,7 +3,6 @@ import { StyleSheet, Text, View, Pressable, useWindowDimensions, Linking, Scroll
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { BlurView } from "expo-blur";
-import Svg, { Line } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -23,7 +22,10 @@ import { api, Weather, SpaceWeather } from "@/src/lib/api";
 import { loadSatrecs, computeSatellites, SatPos } from "@/src/lib/satellites";
 import { buildObservation } from "@/src/lib/observationData";
 import { saveObservation } from "@/src/lib/gallery";
-import { CONSTELLATION_LINES } from "@/src/lib/stars";
+import { activeConstellations, type Constellation } from "@/src/lib/constellations";
+import { ConstellationLayer, DEFAULT_LAYERS, type Layers } from "@/src/components/SkyVision";
+import { ConstellationSheet } from "@/src/components/ConstellationSheet";
+import { storage } from "@/src/utils/storage";
 
 export default function Cielo() {
   const insets = useSafeAreaInsets();
@@ -39,7 +41,7 @@ export default function Cielo() {
   const cameraRef = useRef<CameraView>(null);
   const [showConst, setShowConst] = useState(true);
   const [showSats, setShowSats] = useState(true);
-  const [showNames, setShowNames] = useState(true);
+  const [showNames] = useState(true);
   const [busy, setBusy] = useState(false);
   const [weather, setWeather] = useState<Weather | null>(null);
   const [space, setSpace] = useState<SpaceWeather | null>(null);
@@ -90,6 +92,17 @@ export default function Cielo() {
     const t = setInterval(run, 9000);
     return () => { alive = false; clearTimeout(first); clearInterval(t); };
   }, [perm?.granted]);
+
+  const [layers, setLayers] = useState<Layers>(DEFAULT_LAYERS);
+  const [layersOpen, setLayersOpen] = useState(false);
+  const [constSel, setConstSel] = useState<Constellation | null>(null);
+  const [firstDisc, setFirstDisc] = useState(false);
+  const discovered = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    storage.getItem<string>("discovered_constellations", "[]").then((v) => {
+      try { discovered.current = new Set(JSON.parse(v)); } catch { /* ignore */ }
+    });
+  }, []);
 
   const objects = useMemo(() => {
     if (obs.status !== "granted") return [];
@@ -159,13 +172,29 @@ export default function Cielo() {
     );
   }
 
-  // constellation line segments in screen space
+  // Projected in-frame star points (only real, currently-visible stars).
   const starPts = new Map<string, { x: number; y: number }>();
   objects.filter((o) => o.kind === "star" && o.alt > 0).forEach((o) => {
     const p = project(o.az, o.alt, heading, cameraAlt, width, height, FOV_H);
     if (p) starPts.set(o.name, p);
   });
-  const lines = CONSTELLATION_LINES.map(([a, b]) => ({ a: starPts.get(a), b: starPts.get(b) })).filter((l) => l.a && l.b);
+  const activeConsts = activeConstellations(new Set(starPts.keys()));
+  const constStarNames = new Set(activeConsts.flatMap((c) => c.stars));
+
+  const openConstellation = (c: Constellation) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const isFirst = !discovered.current.has(c.key);
+    if (isFirst) {
+      discovered.current.add(c.key);
+      storage.setItem("discovered_constellations", JSON.stringify(Array.from(discovered.current)));
+    }
+    setFirstDisc(isFirst);
+    setConstSel(c);
+  };
+  const openStar = (name: string) => {
+    const so = objects.find((o) => o.name === name);
+    if (so) open(so);
+  };
 
   return (
     <View style={styles.root}>
@@ -173,14 +202,11 @@ export default function Cielo() {
       <View style={[StyleSheet.absoluteFill, styles.dim]} pointerEvents="none" />
 
       {skyVisible && showConst ? (
-        <Svg width={width} height={height} style={StyleSheet.absoluteFill} pointerEvents="none">
-          {lines.map((l, i) => (
-            <Line key={i} x1={l.a!.x} y1={l.a!.y} x2={l.b!.x} y2={l.b!.y} stroke="#5AB0FF" strokeWidth={1} opacity={0.55} />
-          ))}
-        </Svg>
+        <ConstellationLayer points={starPts} layers={layers} onTapStar={openStar} onTapConstellation={openConstellation} />
       ) : null}
 
       {skyVisible ? objects.map((o) => {
+        if (o.kind === "star" && showConst && constStarNames.has(o.name)) return null;
         const p = project(o.az, o.alt, heading, cameraAlt, width, height, FOV_H);
         if (!p) return null;
         return (
@@ -281,9 +307,22 @@ export default function Cielo() {
       </View>
 
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 10 }]}>
+        {skyVisible && layersOpen ? (
+          <View style={styles.layersPanel}>
+            <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+            {([
+              ["name", "Nome"], ["stars", "Stelle"], ["lines", "Linee"], ["figure", "Figura di luce"], ["info", "Info"],
+            ] as [keyof Layers, string][]).map(([k, label]) => (
+              <Pressable key={k} testID={`layer-${k}`} style={styles.layerRow} onPress={() => { Haptics.selectionAsync(); setLayers((l) => ({ ...l, [k]: !l[k] })); }}>
+                <Ionicons name={layers[k] ? "checkbox" : "square-outline"} size={18} color={layers[k] ? colors.brand : "#fff"} />
+                <Text style={styles.layerTxt}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
         <View style={styles.toggles}>
           <Toggle label="Costellazioni" active={showConst} onPress={() => setShowConst((v) => !v)} testID="toggle-const" />
-          <Toggle label="Nomi" active={showNames} onPress={() => setShowNames((v) => !v)} testID="toggle-names" />
+          <Toggle label="Layers" active={layersOpen} onPress={() => setLayersOpen((v) => !v)} testID="toggle-layers" />
           <Toggle label="Satelliti" active={showSats} onPress={() => setShowSats((v) => !v)} testID="toggle-sats" />
         </View>
         <View style={styles.captureRow}>
@@ -301,6 +340,7 @@ export default function Cielo() {
       </View>
 
       <ObjectSheet ref={sheetRef} object={selected} onClose={() => setSelected(null)} />
+      {constSel ? <ConstellationSheet c={constSel} firstDiscovery={firstDisc} onClose={() => setConstSel(null)} /> : null}
     </View>
   );
 }
@@ -353,6 +393,9 @@ const styles = StyleSheet.create({
   modeMenu: { marginTop: 6, borderRadius: 16, overflow: "hidden", width: 210, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.18)" },
   modeItem: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 10 },
   modeItemTxt: { color: "#fff", fontFamily: fonts.medium, fontSize: type.base },
+  layersPanel: { position: "absolute", bottom: 88, alignSelf: "center", borderRadius: 16, overflow: "hidden", paddingVertical: 8, paddingHorizontal: 14, gap: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.2)" },
+  layerRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 5 },
+  layerTxt: { color: "#fff", fontFamily: fonts.medium, fontSize: type.base },
   permCenter: { flex: 1, alignItems: "center", paddingHorizontal: spacing.xl, gap: spacing.md },
   permTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.xl, textAlign: "center", marginTop: spacing.md },
   permText: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.base, textAlign: "center", lineHeight: 21 },
