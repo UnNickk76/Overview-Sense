@@ -10,7 +10,7 @@ import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { ControlCenterMark } from "@/src/components/ControlCenterMark";
 import { BottomNav } from "@/src/components/BottomNav";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
-import { socialApi, Profile as ProfileT, FeedObservation, mediaUrl, snapSenseApi, SnapGroup, dmApi } from "@/src/lib/backend";
+import { socialApi, Profile as ProfileT, FeedObservation, mediaUrl, snapSenseApi, SnapGroup, SnapItem, dmApi } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
 
 export default function Profile() {
@@ -26,6 +26,8 @@ export default function Profile() {
   const [tab, setTab] = useState<"archive" | "snapsense" | "collection">("archive");
   const [collection, setCollection] = useState<FeedObservation[] | null>(null);
   const [snaps, setSnaps] = useState<SnapGroup | null | undefined>(undefined);
+  const [archive, setArchive] = useState<SnapItem[] | undefined>(undefined);
+  const isMe = !id || id === user?.id;
 
   const load = useCallback(async () => {
     if (!targetId) { setLoading(false); return; }
@@ -47,7 +49,10 @@ export default function Profile() {
     if (tab === "snapsense" && snaps === undefined && targetId) {
       snapSenseApi.list().then((r) => setSnaps(r.groups.find((g) => g.user_id === targetId) ?? null)).catch(() => setSnaps(null));
     }
-  }, [tab, collection, snaps, targetId]);
+    if (tab === "snapsense" && isMe && archive === undefined) {
+      snapSenseApi.archive().then((r) => setArchive(r.items)).catch(() => setArchive([]));
+    }
+  }, [tab, collection, snaps, archive, isMe, targetId]);
 
   const onFollow = async () => {
     if (!user) { router.push("/login" as never); return; }
@@ -257,6 +262,28 @@ export default function Profile() {
               </View>
             );
           })()}
+          {tab === "snapsense" && isMe && archive && archive.length > 0 ? (
+            <View style={styles.archiveSec}>
+              <View style={styles.archiveHead}>
+                <Ionicons name="archive-outline" size={15} color={colors.onSurfaceSecondary} />
+                <Text style={styles.archiveTitle}>Archivio SnapSense · scaduti</Text>
+              </View>
+              <View style={styles.grid}>
+                {archive.map((s) => (
+                  <View key={s.id} style={styles.gridItem}>
+                    {s.image_url ? (
+                      <Image source={{ uri: mediaUrl(s.image_url)! }} style={[styles.gridImg, styles.archiveImg]} contentFit="cover" />
+                    ) : (
+                      <View style={[styles.gridImg, styles.gridPlaceholder, styles.archiveImg, { backgroundColor: s.bg_color || colors.tertiary }]}>
+                        <Text style={styles.snapCap} numberOfLines={3}>{s.caption || "SnapSense"}</Text>
+                      </View>
+                    )}
+                    <View style={styles.archiveBadge}><Ionicons name="time-outline" size={11} color="#fff" /></View>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
         </ScrollView>
       )}
       <BottomNav active="profile" />
@@ -294,6 +321,11 @@ const styles = StyleSheet.create({
   soonRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: spacing.md, opacity: 0.7 },
   soonText: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1 },
   snapCap: { color: "#fff", fontFamily: fonts.medium, fontSize: type.sm - 2, textAlign: "center", padding: 6 },
+  archiveSec: { marginTop: spacing.lg, gap: spacing.sm },
+  archiveHead: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: spacing.xs },
+  archiveTitle: { color: colors.onSurfaceSecondary, fontFamily: fonts.semibold, fontSize: type.sm - 1, letterSpacing: 0.3 },
+  archiveImg: { opacity: 0.55 },
+  archiveBadge: { position: "absolute", top: 6, right: 6, width: 20, height: 20, borderRadius: 10, backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center" },
   badge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.tertiary, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 3, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
   badgeText: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.sm - 2, letterSpacing: 0.3 },
   levelWrap: { width: "100%", alignItems: "center", gap: spacing.sm },

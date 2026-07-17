@@ -338,6 +338,7 @@ export interface SnapItem {
   id: string; kind: string; media_type: string;
   image_url: string | null; caption: string | null;
   bg_color: string | null; source: string | null; created_at: string;
+  visibility?: "public" | "followers" | "private"; expires_at?: string;
   seen?: boolean;
 }
 export interface SnapGroup {
@@ -346,10 +347,11 @@ export interface SnapGroup {
 }
 export const snapSenseApi = {
   list: () => apiFetch<{ groups: SnapGroup[] }>("/snapsenses"),
-  create: (payload: { kind?: string; image_base64?: string; caption?: string; bg_color?: string; source?: string }) =>
+  create: (payload: { kind?: string; image_base64?: string; caption?: string; bg_color?: string; source?: string; visibility?: "public" | "followers" | "private" }) =>
     apiFetch<SnapItem>("/snapsenses", { method: "POST", body: JSON.stringify(payload) }),
   remove: (id: string) => apiFetch<{ ok: boolean }>(`/snapsenses/${id}`, { method: "DELETE" }),
   seen: (id: string) => apiFetch<{ ok: boolean }>(`/snapsenses/${id}/seen`, { method: "POST" }),
+  archive: () => apiFetch<{ items: SnapItem[] }>("/snapsenses/mine/archive"),
   react: (id: string, type: "observed" | "discovery" | "learned") =>
     apiFetch<{ active: boolean; type: string }>(`/snapsenses/${id}/react`, { method: "POST", body: JSON.stringify({ type }) }),
 };

@@ -79,6 +79,7 @@ export function SnapshotStudio({ visible, input, onClose, onPublished }: Props) 
   const [current, setCurrent] = useState("");
   const currentD = useRef("");
   const [senseTrack, setSenseTrack] = useState<string | undefined>(undefined);
+  const [snapVisibility, setSnapVisibility] = useState<"public" | "followers" | "private">("public");
 
   useEffect(() => {
     if (visible && input) {
@@ -165,9 +166,11 @@ export function SnapshotStudio({ visible, input, onClose, onPublished }: Props) 
         image_base64: out.base64,
         caption,
         source: input.socialSource,
+        visibility: snapVisibility,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setStatus("SnapSense pubblicato · visibile 24h ✓");
+      const visLabel = snapVisibility === "public" ? "pubblico" : snapVisibility === "followers" ? "solo follower" : "solo tu";
+      setStatus(`SnapSense pubblicato · visibile 24h · ${visLabel} ✓`);
     } catch {
       setStatus("SnapSense non riuscito");
     } finally { setBusy(false); }
@@ -276,6 +279,27 @@ export function SnapshotStudio({ visible, input, onClose, onPublished }: Props) 
             {/* Sense Match™ — pick a royalty-free / CC0 soundtrack for this Senshot */}
             <SenseMatchBar hint={senseHint} trackId={senseTrack} onPick={setSenseTrack} />
 
+            {/* SnapSense privacy — who can see the 24h ephemeral SnapSense */}
+            <View style={styles.privRow}>
+              <Text style={styles.privLabel}>Privacy SnapSense</Text>
+              <View style={styles.privSeg}>
+                {([
+                  { k: "public", icon: "earth", label: "Tutti" },
+                  { k: "followers", icon: "people", label: "Follower" },
+                  { k: "private", icon: "lock-closed", label: "Solo tu" },
+                ] as const).map((o) => {
+                  const on = snapVisibility === o.k;
+                  return (
+                    <Pressable key={o.k} testID={`snap-vis-${o.k}`} style={[styles.privOpt, on && styles.privOptOn]}
+                      onPress={() => { Haptics.selectionAsync(); setSnapVisibility(o.k); }}>
+                      <Ionicons name={o.icon} size={13} color={on ? colors.onBrand : colors.onSurfaceSecondary} />
+                      <Text style={[styles.privOptText, on && { color: colors.onBrand }]}>{o.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
             {status ? <Text style={[styles.status, status.includes("✓") && { color: colors.brand }]}>{status}</Text> : null}
           </ScrollView>
 
@@ -342,4 +366,10 @@ const styles = StyleSheet.create({
   swatchOn: { borderColor: "#fff" },
   drawIcon: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: colors.tertiary, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   drawHint: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, flex: 1 },
+  privRow: { gap: 6 },
+  privLabel: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm - 1 },
+  privSeg: { flexDirection: "row", gap: spacing.sm },
+  privOpt: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, backgroundColor: colors.tertiary, borderRadius: radius.md, paddingVertical: 8, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  privOptOn: { backgroundColor: colors.brand, borderColor: colors.brand },
+  privOptText: { color: colors.onSurfaceSecondary, fontFamily: fonts.semibold, fontSize: type.sm - 2 },
 });

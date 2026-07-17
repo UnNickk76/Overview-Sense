@@ -50,6 +50,7 @@ export default function Chat() {
   const [picker, setPicker] = useState<PickMode | null>(null);
   const [compareMid, setCompareMid] = useState<string | null>(null);
   const [myObs, setMyObs] = useState<FeedObservation[]>([]);
+  const [snapPreview, setSnapPreview] = useState<{ img: string | null; caption: string; format: string } | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const lastId = useRef<string | null>(null);
 
@@ -124,6 +125,43 @@ export default function Chat() {
             <Text style={styles.shareTag}>🔭 Senshot</Text>
             <Text style={styles.shareCaption} numberOfLines={2}>{(share.caption as string) || "Observation"}</Text>
           </View>
+        </Pressable>
+      );
+    }
+    if (m.kind === "snapsense") {
+      const img = mediaUrl((share.image_url as string) || null);
+      const expired = !!share.expired;
+      const fmt = (share.format as string) || "SnapSense™";
+      const cap = (share.caption as string) || "";
+      return (
+        <Pressable
+          testID={`snap-msg-${m.id}`}
+          disabled={expired}
+          onPress={() => { if (!expired) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSnapPreview({ img, caption: cap, format: fmt }); } }}
+          style={[styles.snapCard, mine ? styles.mineCard : styles.theirCard, expired && styles.snapExpired]}
+        >
+          <View style={styles.snapHead}>
+            <Ionicons name="flash" size={13} color={colors.brand} />
+            <Text style={styles.snapTag}>Risposta a {fmt}</Text>
+          </View>
+          {expired ? (
+            <View style={styles.snapExpiredBox}>
+              <Ionicons name="time-outline" size={20} color={colors.onSurfaceSecondary} />
+              <Text style={styles.snapExpiredText}>Questo {fmt} è scaduto</Text>
+            </View>
+          ) : img ? (
+            <Image source={{ uri: img }} style={styles.snapImg} contentFit="cover" />
+          ) : (
+            <View style={[styles.snapImg, styles.compImgEmpty]}>
+              <Ionicons name="chatbubble-ellipses" size={22} color={colors.onSurfaceSecondary} />
+            </View>
+          )}
+          {cap ? <Text style={styles.snapCaption} numberOfLines={2}>“{cap}”</Text> : null}
+          {m.text ? (
+            <View style={[styles.snapReply, mine ? styles.mineBubble : styles.theirBubble]}>
+              <Text style={[styles.bubbleText, mine && { color: colors.onBrand }]}>{m.text}</Text>
+            </View>
+          ) : null}
         </Pressable>
       );
     }
@@ -249,6 +287,23 @@ export default function Chat() {
           </View>
         </View>
       </Modal>
+
+      {/* SnapSense preview */}
+      <Modal visible={!!snapPreview} transparent animationType="fade" onRequestClose={() => setSnapPreview(null)}>
+        <Pressable style={styles.snapPrevRoot} onPress={() => setSnapPreview(null)}>
+          <View style={styles.snapPrevCard}>
+            {snapPreview?.img ? (
+              <Image source={{ uri: snapPreview.img }} style={styles.snapPrevImg} contentFit="contain" />
+            ) : (
+              <View style={[styles.snapPrevImg, styles.compImgEmpty]}>
+                <Ionicons name="flash" size={40} color={colors.brand} />
+              </View>
+            )}
+            {snapPreview?.caption ? <Text style={styles.snapPrevCap}>“{snapPreview.caption}”</Text> : null}
+            <Text style={styles.snapPrevHint}>{snapPreview?.format} · tocca per chiudere</Text>
+          </View>
+        </Pressable>
+      </Modal>
     </SpaceBackground>
   );
 }
@@ -273,6 +328,20 @@ const styles = StyleSheet.create({
   shareMeta: { padding: spacing.sm, gap: 2 },
   shareTag: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.sm - 1 },
   shareCaption: { color: colors.onSurface, fontFamily: fonts.regular, fontSize: type.sm },
+  snapCard: { width: 240, borderRadius: radius.md, padding: spacing.sm, gap: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
+  snapExpired: { borderColor: colors.border, opacity: 0.8 },
+  snapHead: { flexDirection: "row", alignItems: "center", gap: 4 },
+  snapTag: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.sm - 2 },
+  snapImg: { width: "100%", height: 200, borderRadius: radius.sm },
+  snapCaption: { color: colors.onSurface, fontFamily: fonts.regular, fontSize: type.sm, fontStyle: "italic" },
+  snapReply: { alignSelf: "flex-start", borderRadius: 14, paddingHorizontal: spacing.md, paddingVertical: 6, marginTop: 2 },
+  snapExpiredBox: { alignItems: "center", justifyContent: "center", gap: 4, paddingVertical: spacing.lg },
+  snapExpiredText: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm },
+  snapPrevRoot: { flex: 1, backgroundColor: "rgba(0,0,0,0.9)", alignItems: "center", justifyContent: "center", padding: spacing.lg },
+  snapPrevCard: { width: "100%", alignItems: "center", gap: spacing.md },
+  snapPrevImg: { width: "100%", height: 460, borderRadius: radius.md },
+  snapPrevCap: { color: colors.onSurface, fontFamily: fonts.regular, fontSize: type.base, fontStyle: "italic", textAlign: "center" },
+  snapPrevHint: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm },
   compareCard: { width: 300, borderRadius: radius.md, padding: spacing.md, gap: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
   compareTitle: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.sm },
   compareRow: { flexDirection: "row", gap: spacing.sm },

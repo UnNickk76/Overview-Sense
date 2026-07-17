@@ -906,3 +906,12 @@ Cause individuate e corrette:
   - Il proprio anello resta primo; delete del proprio contenuto nel viewer.
 - Verifica: lint pulito, backend `/api/snapsenses` (+seen) OK, feed+barra rendono su web. ⚠️ Gesti/hold/progresso e viewer completo si validano meglio su **device**.
 - **DEFERITO (Fase 2/3, come da piano concordato)**: consegna reale reply→DM con miniatura, reactions con notifica autore, notifiche per commento/reaction/share/repost/sfida/salvataggio, unificazione dei Pulse™ recenti nella stessa sequenza, privacy per-contenuto, scadenza→archivio automatico.
+
+
+---
+## Session Update — SnapSense™/Pulse™ Fase 2 & 3 (completata)
+- **Rendering risposta SnapSense nei DM** (`app/chat.tsx`): card dedicata `kind === "snapsense"` con header "Risposta a SnapSense™/Pulse™", anteprima immagine + caption, bolla di testo della risposta, tap-to-preview a schermo intero (disabilitato se scaduto → placeholder "scaduto"). Verificato via screenshot.
+- **Privacy SnapSense** (`snapsense.py` + `SnapshotStudio.tsx`): campo `visibility` = public/followers/private. `GET /api/snapsenses` filtra in base al follow del viewer. Selettore segmentato "Tutti/Follower/Solo tu" nel composer. Verificato E2E (public visibile, followers nascosto fino al follow).
+- **Auto-archiviazione**: gli SnapSense scaduti restano in DB (nessun delete). Nuovo `GET /api/snapsenses/mine/archive` + sezione "Archivio SnapSense · scaduti" nel tab SnapSense del proprio profilo (immagini dimmed + badge orologio).
+- **Notifiche autore**: reazioni (`/react`) e risposte DM (`snapsense` message) notificano già l'autore.
+

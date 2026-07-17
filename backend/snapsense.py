@@ -22,6 +22,7 @@ snapsense_router = APIRouter(prefix="/api", tags=["snapsense"])
 
 TTL_HOURS = 24
 VALID_KINDS = {"photo", "sense", "satellite", "universe", "timeline", "invisible", "spaceweather", "audio", "text"}
+VALID_VISIBILITY = {"public", "followers", "private"}
 
 
 async def ensure_snapsense_indexes():
@@ -36,6 +37,7 @@ class CreateSnap(BaseModel):
     caption: Optional[str] = None
     bg_color: Optional[str] = None
     source: Optional[str] = None
+    visibility: str = "public"
 
 
 def _now():
@@ -51,13 +53,16 @@ def _item_public(s: dict) -> dict:
         "caption": s.get("caption"),
         "bg_color": s.get("bg_color"),
         "source": s.get("source"),
+        "visibility": s.get("visibility", "public"),
         "created_at": s.get("created_at"),
+        "expires_at": s.get("expires_at"),
     }
 
 
 @snapsense_router.post("/snapsenses")
 async def create_snapsense(req: CreateSnap, user: dict = Depends(get_current_user)):
     kind = req.kind if req.kind in VALID_KINDS else "photo"
+    visibility = req.visibility if req.visibility in VALID_VISIBILITY else "public"
     sid = str(uuid.uuid4())
     has_image = False
     media_type = "text"
@@ -93,6 +98,7 @@ async def create_snapsense(req: CreateSnap, user: dict = Depends(get_current_use
         "caption": (req.caption or "").strip()[:280] or None,
         "bg_color": req.bg_color,
         "source": req.source,
+        "visibility": visibility,
         "created_at": now.isoformat(),
         "expires_at": (now + timedelta(hours=TTL_HOURS)).isoformat(),
     }
@@ -106,6 +112,27 @@ async def list_snapsenses(viewer: Optional[dict] = Depends(get_optional_user)):
     docs = await db.snapsenses.find(
         {"expires_at": {"$gt": now_iso}}, {"_id": 0}
     ).sort("created_at", 1).limit(500).to_list(500)
+
+    # Visibility gating: public → everyone; followers → only the author's followers;
+    # private → only the author. Compute the viewer's "following" set once.
+    following: set = set()
+    viewer_id = viewer["id"] if viewer else None
+    if viewer_id:
+        async for f in db.follows.find({"follower_id": viewer_id}, {"following_id": 1, "_id": 0}).limit(5000):
+            following.add(f["following_id"])
+
+    def _can_see(s: dict) -> bool:
+        vis = s.get("visibility", "public")
+        author = s["user_id"]
+        if viewer_id and author == viewer_id:
+            return True
+        if vis == "public":
+            return True
+        if vis == "followers":
+            return author in following
+        return False  # private → only author (handled above)
+
+    docs = [s for s in docs if _can_see(s)]
 
     groups: dict = {}
     for s in docs:
@@ -147,6 +174,16 @@ async def list_snapsenses(viewer: Optional[dict] = Depends(get_optional_user)):
     if viewer:
         out.sort(key=lambda g: 0 if g["user_id"] == viewer["id"] else 1)
     return {"groups": out}
+
+
+@snapsense_router.get("/snapsenses/mine/archive")
+async def my_snapsense_archive(user: dict = Depends(get_current_user)):
+    """The author's expired SnapSenses, auto-archived (kept in DB until deleted)."""
+    now_iso = _now().isoformat()
+    docs = await db.snapsenses.find(
+        {"user_id": user["id"], "expires_at": {"$lte": now_iso}}, {"_id": 0}
+    ).sort("created_at", -1).limit(200).to_list(200)
+    return {"items": [_item_public(s) for s in docs]}
 
 
 @snapsense_router.post("/snapsenses/{snap_id}/seen")
