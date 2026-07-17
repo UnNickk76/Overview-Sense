@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View, Pressable, ScrollView, useWindowDimensions, ActivityIndicator, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import Svg, { Line, Circle, Text as SvgText, G } from "react-native-svg";
+import Svg, { Line, Circle, Text as SvgText, G, Polygon } from "react-native-svg";
 import ViewShot, { captureRef } from "react-native-view-shot";
 import QRCode from "react-native-qrcode-svg";
 import * as MediaLibrary from "expo-media-library";
@@ -14,7 +14,8 @@ import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { getObservation, observationCode, Observation, ObsPoint } from "@/src/lib/gallery";
-import { CONSTELLATION_LINES, activeConstellations } from "@/src/lib/constellations";
+import { CONSTELLATION_LINES, activeConstellations, type Constellation } from "@/src/lib/constellations";
+import { ConstellationSheet } from "@/src/components/ConstellationSheet";
 import { project } from "@/src/lib/project";
 import { nf, compassPoint } from "@/src/lib/format";
 import { socialApi, aiApi } from "@/src/lib/backend";
@@ -64,6 +65,7 @@ export default function ObservationView() {
   const [geoReason, setGeoReason] = useState<string | null>(null);
   const shotRef = useRef<ViewShot>(null);
   const cardRef = useRef<ViewShot>(null);
+  const [constSel, setConstSel] = useState<Constellation | null>(null);
 
   useEffect(() => { if (id) getObservation(id).then(setObs); }, [id]);
   useEffect(() => {
@@ -98,10 +100,19 @@ export default function ObservationView() {
       .filter((l) => l.a && l.b) as { a: { x: number; y: number }; b: { x: number; y: number } }[];
     const mk = (arr: ObsPoint[] | undefined) =>
       (arr ?? []).map((o) => ({ ...o, pt: o.alt >= 0 ? p(o.az, o.alt) : null })).filter((o) => o.pt) as (ObsPoint & { pt: { x: number; y: number } })[];
+    const activeC = activeConstellations(new Set(starPts.keys()));
+    const figures = activeC.map((c) => {
+      const pts = c.figure.map((n) => starPts.get(n)).filter(Boolean) as { x: number; y: number }[];
+      const memberPts = c.stars.map((n) => starPts.get(n)).filter(Boolean) as { x: number; y: number }[];
+      const cx = memberPts.reduce((a, m) => a + m.x, 0) / Math.max(1, memberPts.length);
+      const cy = memberPts.reduce((a, m) => a + m.y, 0) / Math.max(1, memberPts.length);
+      return { c, poly: pts.length >= 3 ? pts.map((pt) => `${pt.x},${pt.y}`).join(" ") : null, cx, cy };
+    });
     return {
       stars: Array.from(starPts.values()),
       lines,
-      inFrameConstellations: activeConstellations(new Set(starPts.keys())).map((c) => c.name),
+      inFrameConstellations: activeC.map((c) => c.name),
+      figures,
       planets: mk(d.planets),
       satellites: mk(d.satellites),
       iss: d.iss && d.iss.alt >= 0 ? { ...d.iss, pt: p(d.iss.az, d.iss.alt) } : null,
@@ -273,8 +284,11 @@ export default function ObservationView() {
               <>
                 {reveal && overlay ? (
                   <Svg width={cardW} height={cardH} style={StyleSheet.absoluteFill}>
+                    {overlay.figures.map((f) => f.poly ? (
+                      <Polygon key={`fig${f.c.key}`} points={f.poly} fill="#7FC0FF" opacity={0.1} />
+                    ) : null)}
                     {overlay.lines.map((l, i) => (
-                      <Line key={`l${i}`} x1={l.a.x} y1={l.a.y} x2={l.b.x} y2={l.b.y} stroke="#5AB0FF" strokeWidth={1.2} opacity={0.7} />
+                      <Line key={`l${i}`} x1={l.a.x} y1={l.a.y} x2={l.b.x} y2={l.b.y} stroke="#7FC0FF" strokeWidth={1.3} opacity={0.75} />
                     ))}
                     {overlay.stars.map((s, i) => (
                       <Circle key={`st${i}`} cx={s.x} cy={s.y} r={2.2} fill="#EAF2FF" />
@@ -320,6 +334,14 @@ export default function ObservationView() {
                     {overlay.gc ? <SvgText x={overlay.gc.x - 20} y={overlay.gc.y} fill="#F0C674" fontSize={10}>◄ Via Lattea</SvgText> : null}
                   </Svg>
                 ) : null}
+
+                {reveal && overlay ? overlay.figures.map((f) => (
+                  <Pressable key={`cn${f.c.key}`} testID={`obs-const-${f.c.key}`}
+                    onPress={() => { Haptics.selectionAsync(); setConstSel(f.c); }}
+                    style={[styles.constName, { left: f.cx - 70, top: Math.max(6, f.cy - 44) }]}>
+                    <Text style={styles.constNameTxt}>{f.c.name}</Text>
+                  </Pressable>
+                )) : null}
 
                 {activeData.size ? (
                   <View style={styles.dataOverlay} pointerEvents="none">
@@ -574,6 +596,7 @@ export default function ObservationView() {
           </View>
         </View>
       </Modal>
+      {constSel ? <ConstellationSheet c={constSel} onClose={() => setConstSel(null)} /> : null}
     </SpaceBackground>
   );
 }
@@ -633,6 +656,8 @@ const styles = StyleSheet.create({
   actText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.base },
   status: { color: colors.success, fontFamily: fonts.medium, fontSize: type.base, textAlign: "center" },
   dataOverlay: { position: "absolute", top: 12, left: 12, gap: 6, maxWidth: "72%" },
+  constName: { position: "absolute", width: 140, alignItems: "center", backgroundColor: "rgba(10,12,18,0.6)", borderRadius: 999, paddingVertical: 3, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(127,192,255,0.5)" },
+  constNameTxt: { color: "#EAF4FF", fontFamily: fonts.semibold, fontSize: type.sm, letterSpacing: 0.8 },
   subjectBanner: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: spacing.sm },
   subjectText: { flex: 1, color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1 },
   dataPill: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", backgroundColor: "rgba(10,12,16,0.44)", borderRadius: 7, paddingHorizontal: 9, paddingVertical: 4, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(212,175,55,0.55)", borderLeftWidth: 2, borderLeftColor: colors.brand },
