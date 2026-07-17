@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   StyleSheet, Text, View, Pressable, ScrollView, Modal, TextInput,
-  ActivityIndicator, useWindowDimensions,
+  ActivityIndicator, useWindowDimensions, PanResponder,
 } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,6 +13,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Eas
 import { snapSenseApi, pulseApi, SnapGroup, FeedObservation, mediaUrl } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const TEXT_BGS = ["#0d2947", "#3a1d5c", "#5c1d2e", "#1d5c3a", "#5c4a1d", "#1d3a5c"];
 
@@ -25,9 +26,10 @@ function timeAgo(iso: string): string {
 
 function Ring({ group, isOwn, onPress }: { group: SnapGroup; isOwn: boolean; onPress: () => void }) {
   const avatar = mediaUrl(group.avatar_url);
+  const unseen = group.has_unseen !== false;
   return (
     <Pressable testID={`snap-ring-${group.user_id}`} style={styles.ringItem} onPress={onPress}>
-      <View style={styles.ring}>
+      <View style={[styles.ring, !unseen && styles.ringSeen]}>
         {avatar ? (
           <Image source={{ uri: avatar }} style={styles.avatar} contentFit="cover" transition={120} />
         ) : (
@@ -60,6 +62,7 @@ function PulseRing({ obs, glow, onPress }: { obs: FeedObservation; glow: ReturnT
 
 export function SnapSenseBar() {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { width } = useWindowDimensions();
   const [groups, setGroups] = useState<SnapGroup[]>([]);
@@ -69,7 +72,11 @@ export function SnapSenseBar() {
   const [text, setText] = useState("");
   const [bg, setBg] = useState(TEXT_BGS[0]);
   const [busy, setBusy] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [prog, setProg] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [audioOn, setAudioOn] = useState(true);
+  const pressAt = useRef(0);
+  const tick = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Shared "pulse" glow for every Pulse ring (gold, subtly alive).
   const glow = useSharedValue(0);
@@ -99,11 +106,26 @@ export function SnapSenseBar() {
   }, [groups]);
 
   useEffect(() => {
-    if (!viewer) { if (timer.current) clearTimeout(timer.current); return; }
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(advance, 5000);
-    return () => { if (timer.current) clearTimeout(timer.current); };
-  }, [viewer, advance]);
+    if (!viewer) { if (tick.current) clearInterval(tick.current); return; }
+    const g = groups[viewer.g];
+    const item = g?.items[viewer.i];
+    if (!item) return;
+    // mark seen (best-effort)
+    if (user && g.user_id !== user.id) { snapSenseApi.seen(item.id).catch(() => {}); }
+    setProg(0);
+    const duration = item.media_type === "image" ? 10000 : 7000;
+    const step = 50;
+    if (tick.current) clearInterval(tick.current);
+    tick.current = setInterval(() => {
+      setProg((p) => {
+        if (paused) return p;
+        const np = p + step / duration;
+        if (np >= 1) { advance(); return 0; }
+        return np;
+      });
+    }, step);
+    return () => { if (tick.current) clearInterval(tick.current); };
+  }, [viewer, advance, paused, groups, user]);
 
   const prev = () => setViewer((v) => {
     if (!v) return v;
@@ -112,7 +134,24 @@ export function SnapSenseBar() {
     return v;
   });
 
-  const openGroup = (idx: number) => { Haptics.selectionAsync(); setViewer({ g: idx, i: 0 }); };
+  const openGroup = (idx: number) => {
+    Haptics.selectionAsync();
+    const g = groups[idx];
+    const firstUnseen = g ? g.items.findIndex((it) => !it.seen) : -1;
+    setViewer({ g: idx, i: firstUnseen >= 0 ? firstUnseen : 0 });
+  };
+
+  // Swipe: down → close, horizontal → prev/next user.
+  const pan = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_e, gs) => Math.abs(gs.dy) > 16 || Math.abs(gs.dx) > 24,
+    onPanResponderGrant: () => setPaused(true),
+    onPanResponderRelease: (_e, gs) => {
+      setPaused(false);
+      if (gs.dy > 90 && Math.abs(gs.dy) > Math.abs(gs.dx)) { setViewer(null); return; }
+      if (gs.dx < -70) { setViewer((v) => (v && v.g + 1 < groups.length ? { g: v.g + 1, i: 0 } : null)); }
+      else if (gs.dx > 70) { setViewer((v) => (v && v.g > 0 ? { g: v.g - 1, i: 0 } : v)); }
+    },
+  })).current;
 
   // ---- Create ----
   const pickImage = async (fromCamera: boolean) => {
@@ -206,14 +245,14 @@ export function SnapSenseBar() {
 
       {/* ---- Viewer ---- */}
       <Modal visible={!!viewer} animationType="fade" onRequestClose={() => setViewer(null)}>
-        <View style={styles.viewer}>
+        <View style={styles.viewer} {...pan.panHandlers}>
           {curGroup && curItem ? (
             <>
               {/* Progress bars */}
               <View style={[styles.progressRow, { top: 46 }]}>
                 {curGroup.items.map((_, k) => (
                   <View key={k} style={styles.progressTrack}>
-                    <View style={[styles.progressFill, { width: k < viewer!.i ? "100%" : k === viewer!.i ? "100%" : "0%" }]} />
+                    <View style={[styles.progressFill, { width: k < viewer!.i ? "100%" : k === viewer!.i ? `${Math.min(100, prog * 100)}%` : "0%" }]} />
                   </View>
                 ))}
               </View>
@@ -225,6 +264,10 @@ export function SnapSenseBar() {
                   <View style={[styles.vAvatar, styles.avatarEmpty]}><Text style={styles.avatarInitial}>{(curGroup.nickname || "?").charAt(0).toUpperCase()}</Text></View>
                 )}
                 <Text style={styles.vName}>{curGroup.nickname}</Text>
+                <View style={[styles.kindBadge, curItem.kind === "pulse" && styles.kindBadgePulse]}>
+                  <Ionicons name={curItem.kind === "pulse" ? "pulse" : "sparkles"} size={10} color={curItem.kind === "pulse" ? colors.onBrand : "#fff"} />
+                  <Text style={[styles.kindBadgeTxt, curItem.kind === "pulse" && { color: colors.onBrand }]}>{curItem.kind === "pulse" ? "Pulse™" : "SnapSense™"}</Text>
+                </View>
                 <Text style={styles.vTime}>{timeAgo(curItem.created_at)}</Text>
                 <View style={{ flex: 1 }} />
                 {curGroup.user_id === user?.id ? (
@@ -249,9 +292,29 @@ export function SnapSenseBar() {
                 <View style={styles.vCaptionWrap}><Text style={styles.vCaption}>{curItem.caption}</Text></View>
               ) : null}
 
-              {/* Tap zones */}
-              <Pressable style={[styles.tapZone, { left: 0, width: width * 0.32 }]} onPress={prev} />
-              <Pressable style={[styles.tapZone, { right: 0, width: width * 0.68 }]} onPress={advance} />
+              {/* Tap zones — short tap navigates, hold pauses */}
+              <Pressable style={[styles.tapZone, { left: 0, width: width * 0.32 }]}
+                onPressIn={() => { pressAt.current = Date.now(); setPaused(true); }}
+                onPressOut={() => { setPaused(false); if (Date.now() - pressAt.current < 260) prev(); }} />
+              <Pressable style={[styles.tapZone, { right: 0, width: width * 0.68 }]}
+                onPressIn={() => { pressAt.current = Date.now(); setPaused(true); }}
+                onPressOut={() => { setPaused(false); if (Date.now() - pressAt.current < 260) advance(); }} />
+
+              {/* Overlay controls — minimal, transparent */}
+              <View style={[styles.controls, { bottom: insets.bottom + 14 }]}>
+                <View style={styles.replyField} pointerEvents="none">
+                  <Text style={styles.replyPlaceholder}>Invia un messaggio…</Text>
+                </View>
+                <Pressable testID="snap-react" style={styles.ctrlBtn} onPress={() => { Haptics.selectionAsync(); }}>
+                  <Ionicons name="heart-outline" size={24} color="#fff" />
+                </Pressable>
+                <Pressable testID="snap-audio" style={styles.ctrlBtn} onPress={() => { Haptics.selectionAsync(); setAudioOn((v) => !v); }}>
+                  <Ionicons name={audioOn ? "volume-high" : "volume-mute"} size={22} color="#fff" />
+                </Pressable>
+                <Pressable testID="snap-menu" style={styles.ctrlBtn} onPress={() => { Haptics.selectionAsync(); }}>
+                  <Ionicons name="ellipsis-horizontal" size={24} color="#fff" />
+                </Pressable>
+              </View>
             </>
           ) : null}
         </View>
@@ -315,6 +378,14 @@ const styles = StyleSheet.create({
   progressRow: { position: "absolute", left: spacing.md, right: spacing.md, flexDirection: "row", gap: 4, zIndex: 3 },
   progressTrack: { flex: 1, height: 3, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.3)", overflow: "hidden" },
   progressFill: { height: 3, backgroundColor: "#fff" },
+  ringSeen: { opacity: 0.5 },
+  kindBadge: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(255,255,255,0.18)", borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2, marginLeft: 8 },
+  kindBadgePulse: { backgroundColor: colors.brand },
+  kindBadgeTxt: { color: "#fff", fontFamily: fonts.bold, fontSize: 9 },
+  controls: { position: "absolute", left: spacing.md, right: spacing.md, flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  replyField: { flex: 1, height: 44, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.4)", justifyContent: "center", paddingHorizontal: spacing.md, backgroundColor: "rgba(0,0,0,0.25)" },
+  replyPlaceholder: { color: "rgba(255,255,255,0.7)", fontFamily: fonts.regular, fontSize: type.base },
+  ctrlBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
   vHeader: { position: "absolute", left: spacing.md, right: spacing.md, flexDirection: "row", alignItems: "center", gap: spacing.sm, zIndex: 3 },
   vAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.tertiary },
   vName: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.base },

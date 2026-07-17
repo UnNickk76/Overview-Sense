@@ -894,3 +894,15 @@ Cause individuate e corrette:
 - **First Discovery** ✨: badge discreto la prima volta che si riconosce una costellazione (persistito in storage `discovered_constellations`).
 - **AI di scena** (`/api/ai/scene`) già usato per Sky Visibility resta attivo.
 - Verifica: lint pulito su tutti i file, bundle `cielo.tsx`/`observation*.tsx` compilano e rendono. ⚠️ **WOW animation, figura di luce, tap e riconoscimento live si validano SOLO su BUILD NATIVA** (fotocamera + accelerometro); su web/Expo Go si vede il prompt fotocamera.
+
+### SESSIONE (fork) — Costellazioni in Observe + SnapSense/Pulse Viewer Fase 1 (FATTO)
+- **Costellazioni nello snapshot Observe** (`observation.tsx`): oltre alle linee ufficiali, ora disegna la **figura di luce** (Polygon semi-trasparente dalle stelle reali) e mostra il **nome tap→ConstellationSheet** (Sense Summary™ + Explore). Conteggi coerenti "Costellazioni nell'inquadratura" (via activeConstellations sulle stelle proiettate).
+- **SnapSense™/Pulse™ Immersive Viewer — FASE 1** (`SnapSenseBar.tsx` + backend `snapsense.py`):
+  - Barra segmenti in alto con **avanzamento animato** (~10s foto / 7s testo, tick 50ms), completato/in-corso/vuoto.
+  - Navigazione: **tap dx→successivo, tap sx→precedente, hold→pausa** (rilevamento durata <260ms = tap), **swipe giù→chiudi, swipe orizzontale→utente prec/succ** (PanResponder).
+  - **Anello visto/non visto** (backend `snapsense_views` + `POST /api/snapsenses/{id}/seen`; list include `seen`/`has_unseen`), apertura dal **primo non visto**.
+  - **Badge proprietario** SnapSense™/Pulse™ nell'header del viewer.
+  - **Comandi in sovraimpressione** minimali: campo "Invia un messaggio…", reactions (heart), audio ON/OFF (icona OverView), menu.
+  - Il proprio anello resta primo; delete del proprio contenuto nel viewer.
+- Verifica: lint pulito, backend `/api/snapsenses` (+seen) OK, feed+barra rendono su web. ⚠️ Gesti/hold/progresso e viewer completo si validano meglio su **device**.
+- **DEFERITO (Fase 2/3, come da piano concordato)**: consegna reale reply→DM con miniatura, reactions con notifica autore, notifiche per commento/reaction/share/repost/sfida/salvataggio, unificazione dei Pulse™ recenti nella stessa sequenza, privacy per-contenuto, scadenza→archivio automatico.

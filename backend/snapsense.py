@@ -120,12 +120,40 @@ async def list_snapsenses(viewer: Optional[dict] = Depends(get_optional_user)):
                 groups[u["id"]]["avatar_url"] = u.get("avatar")
                 groups[u["id"]]["nickname"] = u.get("nickname") or groups[u["id"]]["nickname"]
 
+    # Seen/unseen state for the current viewer.
+    if viewer:
+        seen_ids = set()
+        async for v in db.snapsense_views.find({"user_id": viewer["id"]}, {"snap_id": 1, "_id": 0}):
+            seen_ids.add(v["snap_id"])
+        for g in groups.values():
+            has_unseen = False
+            for it in g["items"]:
+                it["seen"] = it["id"] in seen_ids or g["user_id"] == viewer["id"]
+                if not it["seen"]:
+                    has_unseen = True
+            g["has_unseen"] = has_unseen
+    else:
+        for g in groups.values():
+            for it in g["items"]:
+                it["seen"] = False
+            g["has_unseen"] = True
+
     out = list(groups.values())
     out.sort(key=lambda g: g["latest_at"], reverse=True)
     # The viewer's own ring first, so they can add/see their SnapSense quickly.
     if viewer:
         out.sort(key=lambda g: 0 if g["user_id"] == viewer["id"] else 1)
     return {"groups": out}
+
+
+@snapsense_router.post("/snapsenses/{snap_id}/seen")
+async def mark_seen(snap_id: str, user: dict = Depends(get_current_user)):
+    await db.snapsense_views.update_one(
+        {"user_id": user["id"], "snap_id": snap_id},
+        {"$set": {"user_id": user["id"], "snap_id": snap_id, "seen_at": _now().isoformat()}},
+        upsert=True,
+    )
+    return {"ok": True}
 
 
 @snapsense_router.delete("/snapsenses/{snap_id}")
