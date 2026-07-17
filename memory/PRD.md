@@ -915,3 +915,43 @@ Cause individuate e corrette:
 - **Auto-archiviazione**: gli SnapSense scaduti restano in DB (nessun delete). Nuovo `GET /api/snapsenses/mine/archive` + sezione "Archivio SnapSense · scaduti" nel tab SnapSense del proprio profilo (immagini dimmed + badge orologio).
 - **Notifiche autore**: reazioni (`/react`) e risposte DM (`snapsense` message) notificano già l'autore.
 
+
+
+---
+## 📌 BACKLOG PRIORITIZZATO — richieste utente in memoria (17/07/2026)
+
+### 🔴 P0 — Share Hub™ unificato (OBBLIGATORIO, no dipendenze native)
+Regola unica e assoluta: da QUALSIASI pulsante Share dell'app (Observe, Pulse, SenseShot,
+Pure Vision™, Gallery, Saved, Profile, Observe World™ e ogni contenuto condivisibile futuro),
+il PRIMO tap deve SEMPRE aprire lo Share Hub™ interno di OverView. MAI il menu nativo iOS/Android direttamente.
+- Bug attuale: da Pure Vision™ (menu ⋯) apre correttamente Share Hub™, ma da Observe e altre schermate
+  il pulsante Share apre direttamente il menu nativo. Da eliminare.
+- Voci Share Hub™ (SEMPRE in inglese):
+  • Publish as Pulse™
+  • Publish as SenseShot™
+  • Repost
+  • Send via Direct Message
+  • Copy Link
+  • Share Externally  ← UNICA voce che apre il menu nativo (AirDrop/WhatsApp/Telegram/IG/Email…)
+- Coerenza assoluta: stesso identico Share Hub™ ovunque. "Tap su Share = Share Hub™. Sempre. Mai eccezioni."
+- Obiettivo UX: trattenere l'utente nell'ecosistema OverView. Prima COME condividere dentro OverView,
+  poi (se vuole) DOVE via OS. Il sistema operativo è sempre l'ultima scelta, mai la prima.
+- File: `src/components/ShareHub.tsx` (già esiste) + audit di tutti i punti che chiamano `Sharing.shareAsync`/share nativo
+  in Observe, Gallery, Saved, Profile, Observe World, feed cards, ecc. → sostituire con apertura ShareHub.
+
+### 🟠 P1 — Sense Vision™: Night Vision / Low Light (RICHIEDE BUILD NATIVA — non testabile su Expo Go/web)
+Obiettivo: ottenere SEMPRE la massima qualità possibile dall'hardware, mai dettagli inventati.
+Filosofia: "la migliore interpretazione della realtà che l'iPhone è realmente in grado di acquisire,
+mai una ricostruzione artificiale della scena" (coerente con Beyond View).
+- Migliorare qualità fotocamera in scarsa illuminazione (anteriore E posteriore), oggi inferiore alla Camera nativa iOS.
+- **Night Vision™ (modalità OPZIONALE)**: quando ON, usa automaticamente tutte le tecnologie del device:
+  Night Mode, esposizione più lunga, multi-frame, Deep Fusion, Smart HDR, riduzione rumore, stabilizzazione,
+  massima qualità sensore. Non una semplice schiaritura, ma vera acquisizione ottimizzata.
+- **Fotocamera anteriore**: sfruttare il massimo delle capacità iPhone; se il volto è rilevato ma migliorabile,
+  continuare l'elaborazione automatica finché possibile.
+- **Comportamento intelligente**: se Night Vision™ OFF → comportamento normale. Se ON → Sense Vision™ decide
+  automaticamente quando applicare le elaborazioni avanzate, mostrando indicatore leggero:
+  "Optimizing…" / "Night Vision™" / "Enhancing…" finché raggiunge la migliore qualità.
+- Nota tecnica: dipende da `react-native-vision-camera` + formati/HDR nativi; molte capacità non emulabili su web.
+  Valutare API camera (photoQualityBalance, enableHdr, low-light-boost, formato con exposure range più ampio).
+
