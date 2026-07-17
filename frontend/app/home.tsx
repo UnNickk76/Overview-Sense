@@ -283,6 +283,15 @@ export default function Home() {
           </Animated.View>
         </View>
 
+        <Pressable testID="home-observe-world" style={styles.worldBanner} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/observe-world" as never); }}>
+          <View style={styles.worldIcon}><Ionicons name="earth" size={22} color={colors.brand} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.worldTitle}>Observe World™</Text>
+            <Text style={styles.worldSub}>Il museo vivente della realtà — niente like, solo valore</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceSecondary} />
+        </Pressable>
+
         <Pressable testID="home-signature" onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/about" as never); }} style={styles.signatureWrap}>
           <View style={styles.sigRule} />
           <Text style={styles.signature}>&ldquo;OverView doesn&apos;t create reality. It reveals it.&rdquo;</Text>
@@ -366,6 +375,10 @@ const styles = StyleSheet.create({
   caption: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 2, marginTop: 2 },
   footer: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, textAlign: "center", marginTop: spacing["2xl"], paddingHorizontal: spacing.xl, opacity: 0.55 },
   signatureWrap: { alignItems: "center", gap: spacing.md, paddingVertical: spacing.xl, marginTop: spacing.lg },
+  worldBanner: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceTertiary, borderRadius: radius.lg, padding: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand, marginHorizontal: spacing.lg, marginTop: spacing.lg },
+  worldIcon: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(212,175,55,0.1)" },
+  worldTitle: { color: colors.onSurface, fontFamily: fonts.bold, fontSize: type.lg },
+  worldSub: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, marginTop: 1 },
   sigRule: { width: 100, height: StyleSheet.hairlineWidth, backgroundColor: colors.borderStrong },
   signature: { color: colors.brand, fontFamily: fonts.regular, fontSize: type.lg, fontStyle: "italic", textAlign: "center", opacity: 0.8, paddingHorizontal: spacing.xl },
   copyright: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm, opacity: 0.7 },
