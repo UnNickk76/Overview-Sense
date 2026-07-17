@@ -10,7 +10,7 @@ import * as ImageManipulator from "expo-image-manipulator";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from "react-native-reanimated";
-import { snapSenseApi, pulseApi, SnapGroup, FeedObservation, mediaUrl } from "@/src/lib/backend";
+import { snapSenseApi, pulseApi, dmApi, SnapGroup, FeedObservation, mediaUrl } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -75,6 +75,9 @@ export function SnapSenseBar() {
   const [prog, setProg] = useState(0);
   const [paused, setPaused] = useState(false);
   const [audioOn, setAudioOn] = useState(true);
+  const [replyText, setReplyText] = useState("");
+  const [reactOpen, setReactOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const pressAt = useRef(0);
   const tick = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -201,6 +204,28 @@ export function SnapSenseBar() {
   const curItem = viewer ? groups[viewer.g]?.items[viewer.i] : null;
   const curGroup = viewer ? groups[viewer.g] : null;
 
+  const flash = (t: string) => { setToast(t); setTimeout(() => setToast(null), 1500); };
+  const sendReply = async () => {
+    const text = replyText.trim();
+    if (!text || !curGroup || !curItem) return;
+    if (!user) { setViewer(null); router.push("/login" as never); return; }
+    setReplyText("");
+    try {
+      const conv = await dmApi.start(curGroup.user_id);
+      await dmApi.send(conv.id, { kind: "snapsense", text, share: { snap_id: curItem.id } });
+      flash("Risposta inviata in DM ✓");
+    } catch { flash("Invio non riuscito"); }
+  };
+  const react = async (type: "observed" | "discovery" | "learned") => {
+    if (!curItem) return;
+    if (!user) { setViewer(null); router.push("/login" as never); return; }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setReactOpen(false);
+    const label = type === "observed" ? "Osservato" : type === "discovery" ? "Scoperta" : "Imparato";
+    flash(`${label} ✓`);
+    try { await snapSenseApi.react(curItem.id, type); } catch { /* ignore */ }
+  };
+
   // Interleave user SnapSenses with published Pulses — one natural flow.
   const orderedGroups = ownGroup
     ? [ownGroup, ...groups.filter((g) => g.user_id !== user?.id)]
@@ -300,14 +325,37 @@ export function SnapSenseBar() {
                 onPressIn={() => { pressAt.current = Date.now(); setPaused(true); }}
                 onPressOut={() => { setPaused(false); if (Date.now() - pressAt.current < 260) advance(); }} />
 
+              {/* Reaction quick-select */}
+              {reactOpen ? (
+                <View style={[styles.reactRow, { bottom: insets.bottom + 70 }]}>
+                  <Pressable testID="react-observed" style={styles.reactPick} onPress={() => react("observed")}>
+                    <Ionicons name="eye" size={26} color="#5AB0FF" /><Text style={styles.reactPickTxt}>Osservato</Text>
+                  </Pressable>
+                  <Pressable testID="react-discovery" style={styles.reactPick} onPress={() => react("discovery")}>
+                    <Ionicons name="star" size={26} color={colors.brand} /><Text style={styles.reactPickTxt}>Scoperta</Text>
+                  </Pressable>
+                  <Pressable testID="react-learned" style={styles.reactPick} onPress={() => react("learned")}>
+                    <Ionicons name="bulb" size={26} color="#5FD08B" /><Text style={styles.reactPickTxt}>Imparato</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+              {toast ? <View style={[styles.toast, { bottom: insets.bottom + 132 }]}><Text style={styles.toastTxt}>{toast}</Text></View> : null}
+
               {/* Overlay controls — minimal, transparent */}
               <View style={[styles.controls, { bottom: insets.bottom + 14 }]}>
-                <View style={styles.replyField} pointerEvents="none">
-                  <Text style={styles.replyPlaceholder}>Invia un messaggio…</Text>
-                </View>
-                <Pressable testID="snap-react" style={styles.ctrlBtn} onPress={() => { Haptics.selectionAsync(); }}>
-                  <Ionicons name="heart-outline" size={24} color="#fff" />
-                </Pressable>
+                <TextInput testID="snap-reply" style={styles.replyField} value={replyText} onChangeText={setReplyText}
+                  placeholder="Invia un messaggio…" placeholderTextColor="rgba(255,255,255,0.7)"
+                  onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}
+                  returnKeyType="send" onSubmitEditing={sendReply} />
+                {replyText.trim() ? (
+                  <Pressable testID="snap-reply-send" style={styles.ctrlBtn} onPress={sendReply}>
+                    <Ionicons name="send" size={20} color={colors.brand} />
+                  </Pressable>
+                ) : (
+                  <Pressable testID="snap-react" style={styles.ctrlBtn} onPress={() => { Haptics.selectionAsync(); setReactOpen((v) => !v); setPaused((p) => !p ? true : p); }}>
+                    <Ionicons name="heart-outline" size={24} color="#fff" />
+                  </Pressable>
+                )}
                 <Pressable testID="snap-audio" style={styles.ctrlBtn} onPress={() => { Haptics.selectionAsync(); setAudioOn((v) => !v); }}>
                   <Ionicons name={audioOn ? "volume-high" : "volume-mute"} size={22} color="#fff" />
                 </Pressable>
@@ -386,6 +434,11 @@ const styles = StyleSheet.create({
   replyField: { flex: 1, height: 44, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.4)", justifyContent: "center", paddingHorizontal: spacing.md, backgroundColor: "rgba(0,0,0,0.25)" },
   replyPlaceholder: { color: "rgba(255,255,255,0.7)", fontFamily: fonts.regular, fontSize: type.base },
   ctrlBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  reactRow: { position: "absolute", alignSelf: "center", flexDirection: "row", gap: spacing.lg, backgroundColor: "rgba(20,20,24,0.9)", borderRadius: 999, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.2)" },
+  reactPick: { alignItems: "center", gap: 4 },
+  reactPickTxt: { color: "#fff", fontFamily: fonts.medium, fontSize: type.sm - 2 },
+  toast: { position: "absolute", alignSelf: "center", backgroundColor: "rgba(212,175,55,0.95)", borderRadius: 999, paddingHorizontal: spacing.lg, paddingVertical: 8 },
+  toastTxt: { color: colors.onBrand, fontFamily: fonts.bold, fontSize: type.sm },
   vHeader: { position: "absolute", left: spacing.md, right: spacing.md, flexDirection: "row", alignItems: "center", gap: spacing.sm, zIndex: 3 },
   vAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.tertiary },
   vName: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.base },

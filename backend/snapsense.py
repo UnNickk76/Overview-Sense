@@ -14,6 +14,9 @@ from pydantic import BaseModel
 
 from database import db
 from auth import get_current_user, get_optional_user
+from push import notify
+
+SNAP_REACTIONS = {"observed", "discovery", "learned"}
 
 snapsense_router = APIRouter(prefix="/api", tags=["snapsense"])
 
@@ -154,6 +157,33 @@ async def mark_seen(snap_id: str, user: dict = Depends(get_current_user)):
         upsert=True,
     )
     return {"ok": True}
+
+
+class SnapReact(BaseModel):
+    type: str
+
+
+@snapsense_router.post("/snapsenses/{snap_id}/react")
+async def react_snapsense(snap_id: str, req: SnapReact, user: dict = Depends(get_current_user)):
+    """Same apprezzamenti as Observe (observed/discovery/learned). Toggles + notifies the author."""
+    if req.type not in SNAP_REACTIONS:
+        raise HTTPException(status_code=400, detail="Tipo non valido")
+    snap = await db.snapsenses.find_one({"id": snap_id}, {"_id": 0, "id": 1, "user_id": 1, "kind": 1})
+    if not snap:
+        raise HTTPException(status_code=404, detail="SnapSense non trovato")
+    existing = await db.snapsense_reactions.find_one({"user_id": user["id"], "snap_id": snap_id, "type": req.type})
+    if existing:
+        await db.snapsense_reactions.delete_one({"_id": existing["_id"]})
+        return {"active": False, "type": req.type}
+    await db.snapsense_reactions.insert_one({
+        "user_id": user["id"], "snap_id": snap_id, "type": req.type, "created_at": _now().isoformat(),
+    })
+    if snap["user_id"] != user["id"]:
+        fmt = "Pulse™" if snap.get("kind") == "pulse" else "SnapSense™"
+        verb = {"observed": "ha osservato", "discovery": "ha segnato come Scoperta", "learned": "ha imparato da"}.get(req.type, "ha apprezzato")
+        await notify(snap["user_id"], "reactions", "OverView™",
+                     f"@{user['nickname']} {verb} il tuo {fmt}.", action_url="/feed")
+    return {"active": True, "type": req.type}
 
 
 @snapsense_router.delete("/snapsenses/{snap_id}")

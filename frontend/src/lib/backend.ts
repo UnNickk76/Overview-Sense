@@ -350,6 +350,8 @@ export const snapSenseApi = {
     apiFetch<SnapItem>("/snapsenses", { method: "POST", body: JSON.stringify(payload) }),
   remove: (id: string) => apiFetch<{ ok: boolean }>(`/snapsenses/${id}`, { method: "DELETE" }),
   seen: (id: string) => apiFetch<{ ok: boolean }>(`/snapsenses/${id}/seen`, { method: "POST" }),
+  react: (id: string, type: "observed" | "discovery" | "learned") =>
+    apiFetch<{ active: boolean; type: string }>(`/snapsenses/${id}/react`, { method: "POST", body: JSON.stringify({ type }) }),
 };
 
 // ---- AI narration ----

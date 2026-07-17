@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from database import db
 from auth import get_current_user
+from push import notify
 
 dm_router = APIRouter(prefix="/api")
 
@@ -141,6 +142,20 @@ async def send_message(conv_id: str, req: SendMsg, user: dict = Depends(get_curr
         share = {"obs_id": obs["id"], "nickname": obs.get("nickname"),
                  "image_url": f"/api/media/{obs['id']}" if obs.get("has_image") else None,
                  "caption": obs.get("caption", "")}
+    elif kind == "snapsense":
+        snap = await db.snapsenses.find_one({"id": share.get("snap_id")}, {"_id": 0})
+        expired = snap is None
+        author = None
+        if snap:
+            author = await db.users.find_one({"id": snap["user_id"]}, {"_id": 0, "nickname": 1})
+        share = {
+            "snap_id": share.get("snap_id"),
+            "format": (snap or {}).get("kind") == "pulse" and "Pulse™" or "SnapSense™",
+            "nickname": (author or {}).get("nickname") or share.get("nickname"),
+            "image_url": f"/api/media/{snap['id']}" if snap and snap.get("has_image") else None,
+            "caption": (snap or {}).get("caption", ""),
+            "expired": expired,
+        }
     elif kind == "profile":
         share = await _user_public(share.get("user_id"))
     elif kind == "compare":
@@ -160,6 +175,13 @@ async def send_message(conv_id: str, req: SendMsg, user: dict = Depends(get_curr
     msg.pop("_id", None)
     await db.conversations.update_one({"id": conv_id}, {"$set": {
         "last_at": msg["created_at"], "last_message": _preview(kind, msg["text"], share), "last_sender": user["id"]}})
+    if kind == "snapsense":
+        conv = await db.conversations.find_one({"id": conv_id}, {"_id": 0, "participants": 1})
+        others = [p for p in (conv or {}).get("participants", []) if p != user["id"]]
+        fmt = (share or {}).get("format", "SnapSense™")
+        for uid in others:
+            await notify(uid, "snapsense", "OverView™",
+                         f"@{user['nickname']} ha risposto al tuo {fmt}.", action_url=f"/dm?conv={conv_id}")
     return msg
 
 
