@@ -6,6 +6,7 @@ import { colors, fonts } from "@/src/theme";
 import { nf, compassPoint } from "@/src/lib/format";
 import { SenseMark } from "@/src/components/SenseMark";
 import { SenseCanvas, SenseVisualLayer } from "@/src/components/SenseCanvas";
+import { observationLandingUrl } from "@/src/lib/deeplink";
 import type { Observation, ObsData } from "@/src/lib/gallery";
 
 export type CardFormat = "square" | "story";
@@ -30,12 +31,13 @@ interface Props {
   visualLayer: SenseVisualLayer;
   format: CardFormat;
   width: number;
+  showQr?: boolean;
 }
 
-export function DiscoveryCard({ obs, publishedId, visualLayer, format, width }: Props) {
+export function DiscoveryCard({ obs, publishedId, visualLayer, format, width, showQr = true }: Props) {
   const d = obs.data as ObsData;
   const height = format === "square" ? width : Math.round((width * 16) / 9);
-  const qr = publishedId ? `${WEB_BASE}/observation-detail?id=${publishedId}` : (WEB_BASE || "overview");
+  const qr = publishedId ? observationLandingUrl(publishedId) : (WEB_BASE || "overview");
   const lines = buildLines(d);
   const dateStr = new Date(d.ts).toLocaleString([], { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
@@ -67,10 +69,14 @@ export function DiscoveryCard({ obs, publishedId, visualLayer, format, width }: 
           <Text style={styles.date}>{dateStr}</Text>
         </View>
         <View style={styles.qrCol}>
-          <View style={styles.qrBox}>
-            <QRCode value={qr} size={68} color="#0A0A0A" backgroundColor="#FFFFFF" />
-          </View>
-          <Text style={styles.scan}>{publishedId ? "Osserva" : "overview"}</Text>
+          {showQr ? (
+            <>
+              <View style={styles.qrBox}>
+                <QRCode value={qr} size={68} color="#0A0A0A" backgroundColor="#FFFFFF" />
+              </View>
+              <Text style={styles.scan}>{publishedId ? "Osserva" : "overview"}</Text>
+            </>
+          ) : null}
         </View>
       </View>
 

@@ -31,6 +31,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as FileSystem from "expo-file-system/legacy";
 import { SenseMark } from "@/src/components/SenseMark";
 import { DiscoveryCard, CardFormat } from "@/src/components/DiscoveryCard";
+import { observationLandingUrl, observationAppUrl } from "@/src/lib/deeplink";
 import { GeoPrivacyPicker } from "@/src/components/GeoPrivacyPicker";
 import { SenseRecognized } from "@/src/components/SenseRecognized";
 import type { GeoPrecision } from "@/src/lib/backend";
@@ -59,6 +60,7 @@ export default function ObservationView() {
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [hiddenObj, setHiddenObj] = useState<Set<string>>(new Set());
   const [legendOn, setLegendOn] = useState(true);
+  const [includeQr, setIncludeQr] = useState(false);
   const [pubOpen, setPubOpen] = useState(false);
   const [geoPrec, setGeoPrec] = useState<GeoPrecision>("exact");
   const [geoSuggest, setGeoSuggest] = useState<GeoPrecision | null>(null);
@@ -258,7 +260,7 @@ export default function ObservationView() {
   }
 
   const dateStr = new Date(d.ts).toLocaleString([], { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-  const qrValue = `frontend://observation?id=${obs.id}`;
+  const qrValue = published ? observationLandingUrl(published) : observationAppUrl(obs.id);
   const dataLayers = orderedDataLayers(d, subject?.data);
 
   return (
@@ -361,9 +363,11 @@ export default function ObservationView() {
                     <Text style={styles.wmBrand}>OverView <Text style={styles.wmDot}>•</Text> The Invisible Sense</Text>
                     <Text style={styles.wmMeta}>{observationCode(obs.seq)}{d.lat != null ? `  ·  ${nf(d.lat, 2)}°, ${nf(d.lon!, 2)}°` : ""}</Text>
                   </View>
-                  <View style={styles.qrBox}>
-                    <QRCode value={qrValue} size={30} color="#0A0A0A" backgroundColor="#FFFFFF" />
-                  </View>
+                  {includeQr ? (
+                    <View style={styles.qrBox}>
+                      <QRCode value={qrValue} size={30} color="#0A0A0A" backgroundColor="#FFFFFF" />
+                    </View>
+                  ) : null}
                 </View>
               </>
             }
@@ -429,6 +433,16 @@ export default function ObservationView() {
           <Pressable testID="reveal-toggle" style={[styles.revealBtn, reveal && styles.revealActive]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setLayersVisible(true); setReveal((r) => !r); }}>
             <Ionicons name={reveal ? "eye" : "eye-outline"} size={18} color={reveal ? colors.onBrand : colors.onSurface} />
             <Text style={[styles.revealText, reveal && { color: colors.onBrand }]}>What You Couldn&apos;t See</Text>
+          </Pressable>
+        </View>
+        <View style={styles.qrToggleRow}>
+          <View style={styles.qrToggleLeft}>
+            <Ionicons name="qr-code-outline" size={16} color={colors.onSurfaceSecondary} />
+            <Text style={styles.qrToggleText}>Includi QR code nel salvataggio</Text>
+          </View>
+          <Pressable testID="toggle-qr" onPress={() => { Haptics.selectionAsync(); setIncludeQr((v) => !v); }}
+            style={[styles.qrSwitch, includeQr && styles.qrSwitchOn]}>
+            <View style={[styles.qrKnob, includeQr && styles.qrKnobOn]} />
           </Pressable>
         </View>
         <View style={styles.actions}>
@@ -576,10 +590,20 @@ export default function ObservationView() {
                 <SenseLayerBar value={visualLayer} onChange={setVisualLayer} compact />
               </View>
               <ViewShot ref={cardRef}>
-                <DiscoveryCard obs={obs} publishedId={published} visualLayer={visualLayer}
+                <DiscoveryCard obs={obs} publishedId={published} visualLayer={visualLayer} showQr={includeQr}
                   format={exportFormat} width={exportFormat === "square" ? width - spacing.lg * 2 : (width - spacing.lg * 2) * 0.62} />
               </ViewShot>
             </ScrollView>
+
+            <Pressable testID="toggle-qr-export" onPress={() => { Haptics.selectionAsync(); setIncludeQr((v) => !v); }} style={styles.qrToggleRow}>
+              <View style={styles.qrToggleLeft}>
+                <Ionicons name="qr-code-outline" size={16} color={colors.onSurfaceSecondary} />
+                <Text style={styles.qrToggleText}>Includi QR code</Text>
+              </View>
+              <View style={[styles.qrSwitch, includeQr && styles.qrSwitchOn]}>
+                <View style={[styles.qrKnob, includeQr && styles.qrKnobOn]} />
+              </View>
+            </Pressable>
 
             {exportStatus ? <Text style={styles.status}>{exportStatus}</Text> : null}
             <View style={styles.actions}>
@@ -654,6 +678,13 @@ const styles = StyleSheet.create({
   revealText: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
   actBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.tertiary, borderRadius: 16, paddingVertical: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   actText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.base },
+  qrToggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: spacing.sm, paddingHorizontal: spacing.xs, marginBottom: spacing.xs },
+  qrToggleLeft: { flexDirection: "row", alignItems: "center", gap: spacing.sm, flex: 1 },
+  qrToggleText: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm },
+  qrSwitch: { width: 46, height: 28, borderRadius: 14, backgroundColor: colors.tertiary, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, padding: 3, justifyContent: "center" },
+  qrSwitchOn: { backgroundColor: colors.brand, borderColor: colors.brand },
+  qrKnob: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.onSurfaceSecondary },
+  qrKnobOn: { backgroundColor: colors.onBrand, alignSelf: "flex-end" },
   status: { color: colors.success, fontFamily: fonts.medium, fontSize: type.base, textAlign: "center" },
   dataOverlay: { position: "absolute", top: 12, left: 12, gap: 6, maxWidth: "72%" },
   constName: { position: "absolute", width: 140, alignItems: "center", backgroundColor: "rgba(10,12,18,0.6)", borderRadius: 999, paddingVertical: 3, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(127,192,255,0.5)" },

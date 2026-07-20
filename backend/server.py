@@ -1,5 +1,5 @@
-from fastapi import FastAPI, APIRouter, Query
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, APIRouter, Query, Request
+from fastapi.responses import StreamingResponse, HTMLResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -377,6 +377,60 @@ async def satellites():
         return {"available": True, "source": "tle.ivanstanojevic.me",
                 "cached": True, "satellites": _TLE_CACHE["data"]}
     return {"available": False, "satellites": []}
+
+
+# --- Smart deep-link landing (QR target) ---------------------------------
+# The QR on a saved Observation points here. This page tries to open the
+# OverView app via the "overview://" scheme; if the app is not installed it
+# redirects to the App Store / Play Store; on desktop it opens the web page.
+APPSTORE_URL = os.environ.get("APPSTORE_URL", "https://apps.apple.com/app/overview/id0000000000")
+PLAYSTORE_URL = os.environ.get("PLAYSTORE_URL", "https://play.google.com/store/apps/details?id=sense.invisible.overview")
+
+
+@app.get("/api/go/{obs_id}", response_class=HTMLResponse)
+async def observation_landing(obs_id: str, request: Request):
+    obs = await db.observations.find_one({"id": obs_id}, {"_id": 0, "caption": 1})
+    title = ((obs or {}).get("caption") or "Observation").replace('"', "").replace("<", "").replace(">", "")[:120]
+    base = str(request.base_url).rstrip("/")
+    web_url = f"{base}/observation-detail?id={obs_id}"
+    app_url = f"overview://observation-detail?id={obs_id}"
+    html = f"""<!DOCTYPE html>
+<html lang="it"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-itunes-app" content="app-id=0000000000, app-argument={app_url}">
+<title>OverView — {title}</title>
+<style>
+  html,body{{margin:0;height:100%;background:#0A0A0A;color:#fff;font-family:-apple-system,Segoe UI,Roboto,sans-serif}}
+  .wrap{{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;gap:14px}}
+  .mark{{width:64px;height:64px;border-radius:16px;border:1.5px solid #D4AF37;display:flex;align-items:center;justify-content:center;font-size:30px}}
+  h1{{font-size:20px;margin:6px 0 0}} p{{color:#bbb;font-size:14px;margin:0;max-width:320px;line-height:1.5}}
+  a.btn{{margin-top:10px;background:#D4AF37;color:#0A0A0A;text-decoration:none;font-weight:700;padding:13px 22px;border-radius:12px}}
+  a.link{{color:#D4AF37;text-decoration:none;font-size:13px;margin-top:4px}}
+  .tag{{color:#D4AF37;letter-spacing:2px;font-size:10px}}
+</style></head>
+<body><div class="wrap">
+  <div class="mark">🔭</div>
+  <div class="tag">OVERVIEW · THE INVISIBLE SENSE</div>
+  <h1>{title}</h1>
+  <p>Apertura di OverView in corso… Se l'app non si apre automaticamente, usa il pulsante qui sotto.</p>
+  <a class="btn" id="open" href="{app_url}">Apri in OverView</a>
+  <a class="link" href="{web_url}">Continua sul web</a>
+</div>
+<script>
+  var appUrl = "{app_url}", web = "{web_url}";
+  var ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  var android = /Android/.test(navigator.userAgent);
+  var store = ios ? "{APPSTORE_URL}" : (android ? "{PLAYSTORE_URL}" : web);
+  var fired = false;
+  function go(){{ if(fired) return; fired = true; window.location.replace(store); }}
+  var t = setTimeout(go, 1600);
+  document.addEventListener("visibilitychange", function(){{ if(document.hidden){{ fired = true; clearTimeout(t); }} }});
+  try {{ window.location.href = appUrl; }} catch(e) {{}}
+  document.getElementById("open").addEventListener("click", function(e){{ e.preventDefault(); fired=false; clearTimeout(t); try{{window.location.href=appUrl;}}catch(_){{}} setTimeout(go,1600); }});
+</script>
+</body></html>"""
+    return HTMLResponse(content=html)
+
 
 
 app.include_router(api_router)

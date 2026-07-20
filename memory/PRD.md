@@ -921,6 +921,11 @@ Cause individuate e corrette:
 ## 📌 BACKLOG PRIORITIZZATO — richieste utente in memoria (17/07/2026)
 
 ### 🔴 P0 — Share Hub™ unificato (OBBLIGATORIO, no dipendenze native)
+**QR CODE (20/07/2026):** ✅ FATTO lato-app.
+- Toggle "Includi QR code" al salvataggio/export in `observation.tsx` (DEFAULT OFF). Governa sia il watermark della cattura live sia la `DiscoveryCard` (prop `showQr`).
+- QR ora punta alla landing smart backend `GET /api/go/{id}` (`src/lib/deeplink.ts` → `observationLandingUrl`). La landing prova `overview://observation-detail?id=<id>` (schema app aggiunto in app.json: `["overview","frontend"]`); se l'app non è installata reindirizza allo Store (env `APPSTORE_URL`/`PLAYSTORE_URL`, oggi placeholder), su desktop apre la pagina web.
+- RESIDUO POST-DEPLOY: sostituire `app-id`/`APPSTORE_URL` con l'ID reale App Store dopo l'approvazione; `PLAYSTORE_URL` già usa il package `sense.invisible.overview`. Universal/App Links (AASA/assetlinks) opzionali per apertura diretta da link tappati fuori dal QR. Il deep-link in-app è testabile solo su build nativa/TestFlight.
+
 **STATO (parziale, 20/07/2026):** ✅ FATTO — Observe feed + tutti i contenuti resi via `ObservationCard`/`ActionBar` e `observation-detail`/`pulse-view` ora aprono lo Share Hub™ (mai il menu nativo). ShareHub aggiornato con le 6 voci in inglese: Publish as Pulse™ · Publish as SenseShot™ · Repost · Send via Direct Message · Copy Link · Share Externally (unica che apre l'OS). Verificato via screenshot.
 **RESIDUO da decidere con l'utente:** superfici che condividono un'immagine/export SENZA una FeedObservation pubblicata → oggi usano ancora share nativo: `observation.tsx` (export cattura/card), `cosmic-object.tsx` (snapshot oggetto), `opportunity.tsx` (share testo), `SnapshotStudio.saveOrShare` (Salva/Condividi). `discover-people` = invito referral (non è share di contenuto). Serve una variante ShareHub "obs-less" (Copy Link + Share Externally + eventuale Publish) per queste.
 
