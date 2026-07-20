@@ -918,6 +918,31 @@ Cause individuate e corrette:
 
 
 ---
+
+## ⭐ PRINCIPIO FONDANTE — "Content First" / Uguaglianza Osservativa (20/07/2026)
+**REGOLA INVIOLABILE per OGNI lavoro futuro su feed, ranking, distribuzione, Observe World, Pulse, SnapSense.**
+OverView NON è un social di creator/influencer/VIP. Vince il CONTENUTO, mai la popolarità dell'autore.
+Il ranking NON deve MAI usare: numero di follower/Observer™/oViewers™, anzianità account, frequenza di
+pubblicazione, notorietà, verifiche account, collaborazioni, o qualsiasi metrica legata alla persona.
+Ogni nuovo Observe™/Pulse™/SenseShot™ parte con lo STESSO identico peso. Sarà il contenuto a guadagnarsi
+più diffusione. Fattori di ranking AMMESSI (solo contenuto/community): valore scientifico, rarità, qualità,
+originalità, rilevanza geografica, momento di pubblicazione, qualità delle interazioni ricevute sul contenuto,
+conferme della community, validazione automatica OverView. Observe World™ = vittoria dell'osservazione, non
+della persona (autore sempre riconosciuto, ma protagonista = ciò che è stato osservato).
+
+**STATO ATTUALE (verificato, già CONFORME):**
+- `social.py` → `smart_score`: `sv*0.34 + aff*0.22 + rare*0.16 + recency*0.16 + pop*0.10 + prox*0.02`.
+  Nessun segnale legato a follower/Observer/oViewers/età account/notorietà. `aff`=affinità di CATEGORIA del
+  viewer (personalizzazione lato osservatore, non fama autore); `pop`=interazioni SUL contenuto (conferme community, ammesso).
+- Observe World™ `sense_world.py` → `reality_score`: `sv*0.48 + rarity*0.34 + verified*0.12 + ai*0.06`.
+  Ignora deliberatamente popolarità (osservato/saves/repost). 100% contenuto.
+- Nessun endpoint di ranking legge `follows`/conteggi autore per ordinare i contenuti.
+
+**ENHANCEMENT PROPOSTO (da confermare):** "fresh-start fairness boost" → garantire a ogni contenuto nuovissimo
+(0 interazioni) una finestra di esposizione iniziale equa nelle prime ore, così il primo Observe di un
+principiante parte davvero alla pari. Aggiungere anche commento/guardia nel codice che vieta esplicitamente
+qualunque segnale author-popularity nel ranking.
+
 ## 📌 BACKLOG PRIORITIZZATO — richieste utente in memoria (17/07/2026)
 
 ### 🔴 P0 — Share Hub™ unificato (OBBLIGATORIO, no dipendenze native)
