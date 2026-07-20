@@ -7,8 +7,10 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as Sharing from "expo-sharing";
+import * as Clipboard from "expo-clipboard";
 import * as FileSystem from "expo-file-system/legacy";
 import { socialApi, snapSenseApi, dmApi, mediaUrl, FeedObservation } from "@/src/lib/backend";
+import { BASE } from "@/src/lib/client";
 import { useAuth } from "@/src/context/AuthContext";
 import { pulseForNow } from "@/src/lib/pulseTasks";
 import { SenseEditor } from "@/src/components/SenseEditor";
@@ -103,7 +105,15 @@ export function ShareHub({ obs, reposted, onReposted, onClose }: {
     } catch { setMsg("Invio non riuscito"); setSending(false); }
   };
 
-  // 5) External — the ONLY action that opens the native OS share sheet.
+  // 5) Copy Link — copy the public Observation link to the clipboard.
+  const copyLink = async () => {
+    Haptics.selectionAsync();
+    const url = `${BASE}/api/observations/${obs.id}`;
+    try { await Clipboard.setStringAsync(url); } catch { /* ignore */ }
+    flash("Link copiato ✓");
+  };
+
+  // 6) External — the ONLY action that opens the native OS share sheet.
   const shareExternal = async () => {
     setBusy("external"); Haptics.selectionAsync();
     const uri = mediaUrl(obs.image_url);
@@ -123,8 +133,9 @@ export function ShareHub({ obs, reposted, onReposted, onClose }: {
     { key: "pulse", icon: "pulse", title: "Publish as Pulse™", sub: "Partecipa alla sfida osservativa del momento.", onPress: asPulse },
     { key: "senseshot", icon: "sparkles", title: "Publish as SenseShot™", sub: "Apri l'editor Stories e condividi per 24 ore.", onPress: () => { if (requireAuth()) setEditorOpen(true); } },
     { key: "repost", icon: "repeat", title: "Repost", sub: "Ripubblica mantenendo il collegamento all'originale.", onPress: doRepost, active: rep },
-    { key: "dm", icon: "paper-plane", title: "Direct Message", sub: "Invia ai tuoi OViewers™ / Observers.", onPress: openDM },
-    { key: "external", icon: "share-outline", title: "Share externally", sub: "AirDrop, WhatsApp, Telegram, Email…", onPress: shareExternal },
+    { key: "dm", icon: "paper-plane", title: "Send via Direct Message", sub: "Invia ai tuoi OViewers™ / Observers.", onPress: openDM },
+    { key: "copy", icon: "link", title: "Copy Link", sub: "Copia il link dell'Observation.", onPress: copyLink },
+    { key: "external", icon: "share-outline", title: "Share Externally", sub: "AirDrop, WhatsApp, Telegram, Email…", onPress: shareExternal },
   ];
 
   const editUri = mediaUrl(obs.image_url);

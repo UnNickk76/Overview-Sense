@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { StyleSheet, Text, View, Pressable, Share } from "react-native";
+import { StyleSheet, Text, View, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { colors, fonts, spacing, type } from "@/src/theme";
 import { FeedObservation, socialApi } from "@/src/lib/backend";
-import { BASE } from "@/src/lib/client";
 import { useAuth } from "@/src/context/AuthContext";
+import { ShareHub } from "@/src/components/ShareHub";
 
 export function ActionBar({ obs, onComment }: { obs: FeedObservation; onComment?: () => void }) {
   const { user } = useAuth();
@@ -16,6 +16,7 @@ export function ActionBar({ obs, onComment }: { obs: FeedObservation; onComment?
   const [reposts, setReposts] = useState(obs.repost_count);
   const [reposted, setReposted] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const requireAuth = () => { if (!user) { router.push("/login" as never); return false; } return true; };
 
@@ -31,14 +32,9 @@ export function ActionBar({ obs, onComment }: { obs: FeedObservation; onComment?
     try { const r = await socialApi.repost(obs.id); setReposted(r.reposted); setReposts((c) => c + (r.reposted ? 1 : -1)); }
     catch { /* ignore */ } finally { setBusy(null); }
   };
-  const onShare = async () => {
+  const onShare = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const url = `${BASE}/api/observations/${obs.id}`;
-    try {
-      await Share.share({
-        message: `${obs.category} · Scientific Value ${obs.scientific_value}\n${obs.caption || "Un'Observation su OverView"}\n${url}`,
-      });
-    } catch { /* ignore */ }
+    setShareOpen(true);
   };
 
   return (
@@ -58,6 +54,9 @@ export function ActionBar({ obs, onComment }: { obs: FeedObservation; onComment?
       <Pressable testID={`action-share-${obs.id}`} style={styles.item} onPress={onShare}>
         <Ionicons name="share-outline" size={18} color={colors.onSurfaceSecondary} />
       </Pressable>
+      {shareOpen ? (
+        <ShareHub obs={obs} reposted={reposted} onReposted={setReposted} onClose={() => setShareOpen(false)} />
+      ) : null}
     </View>
   );
 }

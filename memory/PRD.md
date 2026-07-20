@@ -921,6 +921,9 @@ Cause individuate e corrette:
 ## 📌 BACKLOG PRIORITIZZATO — richieste utente in memoria (17/07/2026)
 
 ### 🔴 P0 — Share Hub™ unificato (OBBLIGATORIO, no dipendenze native)
+**STATO (parziale, 20/07/2026):** ✅ FATTO — Observe feed + tutti i contenuti resi via `ObservationCard`/`ActionBar` e `observation-detail`/`pulse-view` ora aprono lo Share Hub™ (mai il menu nativo). ShareHub aggiornato con le 6 voci in inglese: Publish as Pulse™ · Publish as SenseShot™ · Repost · Send via Direct Message · Copy Link · Share Externally (unica che apre l'OS). Verificato via screenshot.
+**RESIDUO da decidere con l'utente:** superfici che condividono un'immagine/export SENZA una FeedObservation pubblicata → oggi usano ancora share nativo: `observation.tsx` (export cattura/card), `cosmic-object.tsx` (snapshot oggetto), `opportunity.tsx` (share testo), `SnapshotStudio.saveOrShare` (Salva/Condividi). `discover-people` = invito referral (non è share di contenuto). Serve una variante ShareHub "obs-less" (Copy Link + Share Externally + eventuale Publish) per queste.
+
 Regola unica e assoluta: da QUALSIASI pulsante Share dell'app (Observe, Pulse, SenseShot,
 Pure Vision™, Gallery, Saved, Profile, Observe World™ e ogni contenuto condivisibile futuro),
 il PRIMO tap deve SEMPRE aprire lo Share Hub™ interno di OverView. MAI il menu nativo iOS/Android direttamente.
