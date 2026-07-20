@@ -14,6 +14,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import BaseModel
+from pymongo import UpdateOne
 
 from database import db
 from auth import get_current_user, get_optional_user
@@ -173,6 +174,11 @@ async def ensure_social_indexes():
     await db.saves.create_index([("user_id", 1), ("obs_id", 1)], unique=True)
     await db.reposts.create_index([("user_id", 1), ("obs_id", 1)], unique=True)
     await db.media.create_index("id", unique=True)
+    # Per-user "already seen" memory (dwell >= 3s) — powers dynamic, non-repetitive ranking.
+    await db.obs_views.create_index([("user_id", 1), ("obs_id", 1)], unique=True)
+    await db.obs_views.create_index("user_id")
+    await db.obs_impressions.create_index([("user_id", 1), ("obs_id", 1)], unique=True)
+    await db.obs_impressions.create_index("user_id")
 
 
 # ---------------------------------------------------------------------------
@@ -425,6 +431,7 @@ async def create_observation(req: CreateObs, user: dict = Depends(get_current_us
         "views": 0, "observed": 0, "discovery": 0, "learned": 0,
         "comments_count": 0, "saves_count": 0, "repost_count": 0,
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.observations.insert_one(doc)
     return obs_public(doc, set())
@@ -467,6 +474,35 @@ async def upload_audio(req: AudioUpload, user: dict = Depends(get_current_user))
 # ---------------------------------------------------------------------------
 # Feed  (single global feed with rich filters + smart scoring)
 # ---------------------------------------------------------------------------
+class SeenItem(BaseModel):
+    id: str
+    dwell_ms: int = 0
+
+
+class SeenBatch(BaseModel):
+    items: List[SeenItem]
+
+
+@social_router.post("/observations/seen")
+async def mark_observations_seen(req: SeenBatch, user: dict = Depends(get_current_user)):
+    """Record that the viewer actually saw an observation (>= 3s on screen).
+    Fuels the "don't re-propose what I've already seen" part of the dynamic feed.
+    Author popularity is NEVER involved."""
+    now = datetime.now(timezone.utc).isoformat()
+    n = 0
+    for it in req.items:
+        if it.dwell_ms < 3000:
+            continue
+        await db.obs_views.update_one(
+            {"user_id": user["id"], "obs_id": it.id},
+            {"$set": {"last_seen_at": now}, "$max": {"dwell_ms": it.dwell_ms},
+             "$inc": {"count": 1}, "$setOnInsert": {"first_seen_at": now}},
+            upsert=True,
+        )
+        n += 1
+    return {"ok": True, "recorded": n}
+
+
 @social_router.get("/feed")
 async def feed(
     category: Optional[str] = None,
@@ -536,18 +572,124 @@ async def feed(
             mx = max(tally.values())
             interest = {c: v / mx for c, v in tally.items()}
 
-    def recency(o):
+    # ---- "Already seen" memory: an Observe is "seen" when the viewer spent >=3s
+    # on it, opened the full view, OR interacted with it (Apprezza/comment/save/
+    # RePost/share/confirmation). Any of these promotes it out of re-proposal. ----
+    seen_map: dict = {}      # obs_id -> last_seen datetime
+    impr_map: dict = {}      # obs_id -> {"shown": int, "first": datetime, "bucket": int}
+    IMPRESSION_CAP = 4       # times an ignored Observe may be re-proposed before muting
+    if viewer and sort == "smart":
+        async for v in db.obs_views.find({"user_id": viewer["id"]}, {"_id": 0, "obs_id": 1, "last_seen_at": 1}).limit(4000):
+            try:
+                seen_map[v["obs_id"]] = datetime.fromisoformat(v["last_seen_at"])
+            except Exception:
+                seen_map[v["obs_id"]] = now
+        # Any interaction / save / repost / comment counts as "seen" too.
+        for coll in (db.interactions, db.saves, db.reposts):
+            async for e in coll.find({"user_id": viewer["id"]}, {"_id": 0, "obs_id": 1}).limit(4000):
+                seen_map.setdefault(e["obs_id"], now)
+        async for im in db.obs_impressions.find({"user_id": viewer["id"]}, {"_id": 0}).limit(6000):
+            try:
+                first = datetime.fromisoformat(im.get("first_shown_at"))
+            except Exception:
+                first = now
+            impr_map[im["obs_id"]] = {"shown": im.get("shown", 0), "first": first, "bucket": im.get("last_bucket", -1)}
+    # How saturated is each category among fresh content right now — a sparse
+    # category is a concrete reason to re-surface an older high-value observation.
+    cat_recent: dict = {}
+    if sort == "smart":
+        for o in docs:
+            try:
+                if (now - datetime.fromisoformat(o["created_at"])).total_seconds() <= 3 * 86400:
+                    for c in (o.get("categories") or []):
+                        cat_recent[c] = cat_recent.get(c, 0) + 1
+            except Exception:
+                pass
+
+    def _age_days(o) -> float:
         try:
-            t = datetime.fromisoformat(o["created_at"])
-            hours = (now - t).total_seconds() / 3600
-            return max(0.0, 1.0 - hours / (24 * 14))  # decays over 2 weeks
+            return max(0.0, (now - datetime.fromisoformat(o["created_at"])).total_seconds() / 86400.0)
+        except Exception:
+            return 999.0
+
+    def recency(o):
+        return max(0.0, 1.0 - _age_days(o) / 14.0)  # decays over 2 weeks
+
+    # Fresh-start fairness: every brand-new observation gets an equal initial
+    # exposure boost in its first hours, BEFORE any engagement exists — so a
+    # first-timer's Observe starts exactly on par with everyone else.
+    def fresh_boost(o) -> float:
+        try:
+            hours = (now - datetime.fromisoformat(o["created_at"])).total_seconds() / 3600.0
         except Exception:
             return 0.0
+        if hours < 0:
+            hours = 0.0
+        return max(0.0, 1.0 - hours / 48.0)  # full at publish, gone after ~48h
+
+    # Second-chance windows: content value doesn't expire the instant it's
+    # buried by other excellent Observes. Exposure tapers, it never "dies".
+    #   0-3 days  → full        4-10 days → reduced (smart)   >10 days → only with reasons
+    def window_mult(o, aff: float) -> float:
+        d = _age_days(o)
+        if d <= 3:
+            return 1.0
+        if d <= 10:
+            return 0.55
+        # Beyond 10 days: shown only if there are concrete reasons.
+        reason = 0.0
+        if aff >= 0.5:                                   # matches viewer's (new) interests
+            reason += 0.5
+        cats = o.get("categories") or []
+        if cats and min(cat_recent.get(c, 0) for c in cats) <= 1:  # sparse category right now
+            reason += 0.4
+        if o.get("scientific_value", 0) >= 80:           # exceptional value stays relevant
+            reason += 0.3
+        return min(0.5, 0.12 + reason * 0.2)
+
+    # Respect what the viewer already saw (>=3s). Re-propose only for real reasons:
+    # the content was updated, or enough time has passed and it's relevant again.
+    def seen_factor(o) -> float:
+        last = seen_map.get(o["id"])
+        if not last:
+            return 1.0
+        try:
+            upd = datetime.fromisoformat(o.get("updated_at") or o["created_at"])
+        except Exception:
+            upd = None
+        if upd and upd > last:
+            return 0.6          # content changed / new data → allow again, mild penalty
+        days_since = (now - last).total_seconds() / 86400.0
+        if days_since >= 14:
+            return 0.3          # long time since → may reappear if still relevant
+        return -1.0             # seen recently & unchanged → drop from the feed
+
+    # Deterministic, slowly-rotating jitter so near-equal items get fresh chances
+    # in different sessions (the algorithm keeps hunting the best moment to show).
+    day_bucket = int(now.timestamp() // 3600 // 6)  # changes every 6 hours
+    def rotation_jitter(o) -> float:
+        h = hashlib.md5(f"{o['id']}:{day_bucket}".encode()).hexdigest()
+        return (int(h[:6], 16) / 0xFFFFFF) * 0.06  # up to +0.06
+
+    # Anti-invasive cap: an Observe repeatedly proposed but ignored (never seen)
+    # is muted for that user after IMPRESSION_CAP shows — unless something
+    # significant changes (content updated, or the viewer's interests now match).
+    def impression_factor(o, aff: float) -> float:
+        im = impr_map.get(o["id"])
+        if not im or im["shown"] < IMPRESSION_CAP:
+            return 1.0
+        try:
+            upd = datetime.fromisoformat(o.get("updated_at") or o["created_at"])
+        except Exception:
+            upd = None
+        if (upd and upd > im["first"]) or aff >= 0.5:
+            return 0.7          # significant change / new interest → give it another chance
+        return -1.0             # ignored too many times → not relevant for this user
 
     def smart_score(o):
         sv = o.get("scientific_value", 0) / 100.0
         pop = (o.get("observed", 0) + o.get("discovery", 0) * 1.5 + o.get("learned", 0)) / 20.0
-        pop = min(pop, 1.0)
+        pop = min(pop, 1.0)   # engagement ON THE CONTENT only — never author popularity
         rare = 0.0
         cats = o.get("categories", [])
         for c in ("ISS", "Aurore", "Via Lattea"):
@@ -557,11 +699,18 @@ async def feed(
         prox = 0.0
         if "_dist" in o:
             prox = max(0.0, 1.0 - o["_dist"] / max(radius_km, 1))
-        # Personalised affinity: how well this matches the viewer's interests.
         aff = 0.0
         if interest and o.get("user_id") != (viewer or {}).get("id"):
             aff = min(1.0, sum(interest.get(c, 0.0) for c in cats))
-        return sv * 0.34 + aff * 0.22 + rare * 0.16 + recency(o) * 0.16 + pop * 0.1 + prox * 0.02
+        sf = seen_factor(o)
+        if sf < 0:
+            return -1.0  # already seen recently & unchanged → excluded below
+        imf = impression_factor(o, aff)
+        if imf < 0:
+            return -1.0  # ignored past the cap → muted for this viewer
+        base = (sv * 0.36 + aff * 0.20 + rare * 0.16 + fresh_boost(o) * 0.14
+                + recency(o) * 0.10 + pop * 0.04)
+        return base * window_mult(o, aff) * sf * imf + rotation_jitter(o)
 
     if sort == "recent":
         docs.sort(key=lambda o: o.get("created_at", ""), reverse=True)
@@ -569,10 +718,36 @@ async def feed(
         docs.sort(key=lambda o: o.get(sort, 0), reverse=True)
     elif sort == "scientific":
         docs.sort(key=lambda o: o.get("scientific_value", 0), reverse=True)
-    else:  # smart
-        docs.sort(key=smart_score, reverse=True)
+    else:  # smart — dynamic, seen-aware, second-chance ranking
+        scored = [(o, smart_score(o)) for o in docs]
+        scored = [(o, s) for (o, s) in scored if s >= 0]  # drop seen-recently-unchanged
+        scored.sort(key=lambda t: t[1], reverse=True)
+        docs = [o for (o, _s) in scored]
 
     docs = docs[:limit]
+    # Record impressions for the smart feed (one per 6h bucket per item) so the
+    # anti-invasive cap can mute Observes that keep getting ignored. Items the
+    # viewer already saw are not counted as fresh impressions.
+    if viewer and sort == "smart" and docs:
+        ops = []
+        for o in docs:
+            oid = o["id"]
+            if oid in seen_map:
+                continue
+            im = impr_map.get(oid)
+            if im and im.get("bucket") == day_bucket:
+                continue  # already counted this bucket
+            ops.append(UpdateOne(
+                {"user_id": viewer["id"], "obs_id": oid},
+                {"$inc": {"shown": 1}, "$set": {"last_bucket": day_bucket, "last_shown_at": now.isoformat()},
+                 "$setOnInsert": {"first_shown_at": now.isoformat()}},
+                upsert=True,
+            ))
+        if ops:
+            try:
+                await db.obs_impressions.bulk_write(ops, ordered=False)
+            except Exception:
+                pass
     my: dict = {}
     saved: set = set()
     if viewer:

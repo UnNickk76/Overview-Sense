@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { StyleSheet, Text, View, ScrollView, ActivityIndicator, Pressable, RefreshControl, Modal, useWindowDimensions } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { StyleSheet, Text, View, ScrollView, FlatList, ViewToken, ActivityIndicator, Pressable, RefreshControl, Modal, useWindowDimensions } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
@@ -66,6 +66,31 @@ export default function Feed() {
 
   useEffect(() => { load(); }, [load]);
 
+  // ---- "Seen ≥3s" tracking: report observations the viewer actually dwelled on
+  // (>=3s, >=60% visible) so the backend won't uselessly re-propose them. ----
+  const userRef = useRef(user);
+  useEffect(() => { userRef.current = user; }, [user]);
+  const seenBuffer = useRef<Set<string>>(new Set());
+  const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flushSeen = useCallback(() => {
+    const ids = Array.from(seenBuffer.current);
+    seenBuffer.current.clear();
+    if (!ids.length || !userRef.current) return;
+    socialApi.markSeen(ids.map((id) => ({ id, dwell_ms: 3000 }))).catch(() => {});
+  }, []);
+  useEffect(() => () => { if (flushTimer.current) clearTimeout(flushTimer.current); flushSeen(); }, [flushSeen]);
+  const viewabilityPairs = useRef([{
+    viewabilityConfig: { itemVisiblePercentThreshold: 60, minimumViewTime: 3000 },
+    onViewableItemsChanged: ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      for (const vt of viewableItems) {
+        const id = (vt.item as FeedObservation | undefined)?.id;
+        if (vt.isViewable && id) seenBuffer.current.add(id);
+      }
+      if (flushTimer.current) clearTimeout(flushTimer.current);
+      flushTimer.current = setTimeout(flushSeen, 1500);
+    },
+  }]);
+
   return (
     <SpaceBackground>
       {/* Top bar — Observe: the social flow of real observations */}
@@ -97,33 +122,41 @@ export default function Feed() {
       {/* SnapSense™ — 24h ephemeral stories */}
       <SnapSenseBar />
 
-      <ScrollView
-        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: insets.bottom + 110, gap: spacing.lg }}
+      <FlatList
+        data={items}
+        keyExtractor={(o) => o.id}
+        renderItem={({ item }) => <ObservationCard obs={item} />}
+        ItemSeparatorComponent={() => <View style={{ height: spacing.lg }} />}
+        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: insets.bottom + 110 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.brand} />}
-      >
-        {scope === "smart" && !category ? (
-          <Pressable testID="observe-world-entry" style={styles.worldBanner} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/observe-world" as never); }}>
-            <View style={styles.worldIcon}><Ionicons name="earth" size={22} color={colors.brand} /></View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.worldTitle}>Observe World™</Text>
-              <Text style={styles.worldSub}>Il museo vivente della realtà — niente like, solo valore</Text>
+        viewabilityConfigCallbackPairs={viewabilityPairs.current}
+        ListHeaderComponent={
+          scope === "smart" && !category ? (
+            <View style={{ gap: spacing.lg, marginBottom: spacing.lg }}>
+              <Pressable testID="observe-world-entry" style={styles.worldBanner} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/observe-world" as never); }}>
+                <View style={styles.worldIcon}><Ionicons name="earth" size={22} color={colors.brand} /></View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.worldTitle}>Observe World™</Text>
+                  <Text style={styles.worldSub}>Il museo vivente della realtà — niente like, solo valore</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceSecondary} />
+              </Pressable>
+              <VerifiedEvents />
             </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceSecondary} />
-          </Pressable>
-        ) : null}
-        {scope === "smart" && !category ? <VerifiedEvents /> : null}
-        {loading && items.length === 0 ? (
-          <ActivityIndicator color={colors.brand} style={{ marginTop: spacing["2xl"] }} />
-        ) : items.length === 0 ? (
-          <View style={styles.emptyWrap}>
-            <Ionicons name="planet-outline" size={40} color={colors.onSurfaceSecondary} />
-            <Text style={styles.empty}>Ancora nessun Sense qui. Tocca “Make a Sense” e sii il primo a mostrare al mondo cosa stai osservando.</Text>
-          </View>
-        ) : (
-          items.map((o) => <ObservationCard key={o.id} obs={o} />)
-        )}
-      </ScrollView>
+          ) : null
+        }
+        ListEmptyComponent={
+          loading ? (
+            <ActivityIndicator color={colors.brand} style={{ marginTop: spacing["2xl"] }} />
+          ) : (
+            <View style={styles.emptyWrap}>
+              <Ionicons name="planet-outline" size={40} color={colors.onSurfaceSecondary} />
+              <Text style={styles.empty}>Ancora nessun Sense qui. Tocca “Make a Sense” e sii il primo a mostrare al mondo cosa stai osservando.</Text>
+            </View>
+          )
+        }
+      />
 
       <BottomNav active="feed" />
 

@@ -10,6 +10,7 @@ Two features that reject traditional social popularity metrics:
   Verified) instead of like counts.
 """
 import uuid
+import hashlib
 from datetime import datetime, timezone
 from typing import Optional, List
 
@@ -329,10 +330,49 @@ WORLD_SECTIONS = [
 MIN_WORLD_SCORE = 25  # museum admission threshold
 
 
-async def _rank_docs(q: dict, limit: int, viewer: Optional[dict]) -> List[dict]:
+async def _rank_docs(q: dict, limit: int, viewer: Optional[dict], featured: bool = False) -> List[dict]:
     docs = await db.observations.find({**q, "has_image": True}, {"_id": 0}).sort("created_at", -1).limit(400).to_list(400)
     docs = [o for o in docs if reality_score(o) >= MIN_WORLD_SCORE]
-    docs.sort(key=reality_score, reverse=True)
+
+    if not featured:
+        # Category sections: a deterministic museum ranked purely by Reality Score.
+        docs.sort(key=reality_score, reverse=True)
+    else:
+        # "In evidenza": still 100% content-value (Reality Score), but DYNAMIC so a
+        # great Observe buried on a crowded day gets fresh chances on later days.
+        # Fresh-start fairness gives brand-new qualifying content an equal debut,
+        # and already-seen items are gently de-prioritised (never removed — the
+        # museum always keeps everything). NO author-popularity signal, ever.
+        now = datetime.now(timezone.utc)
+        bucket = int(now.timestamp() // 3600 // 6)  # rotates every 6h
+        seen: dict = {}
+        if viewer:
+            async for v in db.obs_views.find({"user_id": viewer["id"]}, {"_id": 0, "obs_id": 1}).limit(6000):
+                seen[v["obs_id"]] = True
+            for coll in (db.interactions, db.saves, db.reposts):
+                async for e in coll.find({"user_id": viewer["id"]}, {"_id": 0, "obs_id": 1}).limit(6000):
+                    seen[e["obs_id"]] = True
+
+        def _fresh(o) -> float:
+            try:
+                hrs = (now - datetime.fromisoformat(o["created_at"])).total_seconds() / 3600.0
+            except Exception:
+                return 0.0
+            return max(0.0, 1.0 - max(hrs, 0.0) / 48.0)  # equal debut in first ~48h
+
+        def _jitter(o) -> float:
+            hsh = hashlib.md5(f"{o['id']}:{bucket}".encode()).hexdigest()
+            return (int(hsh[:6], 16) / 0xFFFFFF) * 0.10  # rotation, up to +0.10
+
+        def featured_score(o) -> float:
+            rs = reality_score(o) / 100.0
+            s = rs * 0.80 + _fresh(o) * 0.20 + _jitter(o)
+            if seen.get(o["id"]):
+                s *= 0.55  # already seen → let unseen value surface first
+            return s
+
+        docs.sort(key=featured_score, reverse=True)
+
     docs = docs[:limit]
     my: dict = {}
     if viewer and docs:
@@ -354,7 +394,7 @@ async def observe_world(viewer: Optional[dict] = Depends(get_optional_user)):
     sections = []
     for sec in WORLD_SECTIONS:
         if sec["key"] == "featured":
-            items = await _rank_docs({}, 12, viewer)
+            items = await _rank_docs({}, 12, viewer, featured=True)
         else:
             items = await _rank_docs({"categories": sec["key"]}, 12, viewer)
         if items:
@@ -366,7 +406,7 @@ async def observe_world(viewer: Optional[dict] = Depends(get_optional_user)):
 @world_router.get("/observe-world/section/{key}")
 async def observe_world_section(key: str, viewer: Optional[dict] = Depends(get_optional_user)):
     if key == "featured":
-        items = await _rank_docs({}, 60, viewer)
+        items = await _rank_docs({}, 60, viewer, featured=True)
         title = "In evidenza"
     else:
         items = await _rank_docs({"categories": key}, 60, viewer)

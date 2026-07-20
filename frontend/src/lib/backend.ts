@@ -188,6 +188,8 @@ export const socialApi = {
   profile: (id: string) => apiFetch<Profile>(`/users/${id}`),
   activity: () => apiFetch<{ items: ActivityEvent[]; count: number }>("/activity"),
   userObservations: (id: string) => apiFetch<{ items: FeedObservation[] }>(`/users/${id}/observations`),
+  markSeen: (items: { id: string; dwell_ms: number }[]) =>
+    apiFetch<{ ok: boolean; recorded: number }>("/observations/seen", { method: "POST", body: JSON.stringify({ items }) }),
   follow: (id: string) => apiFetch<{ following: boolean }>(`/users/${id}/follow`, { method: "POST" }),
   unfollow: (id: string) => apiFetch<{ following: boolean }>(`/users/${id}/follow`, { method: "DELETE" }),
   connections: () => apiFetch<{ items: { id: string; nickname: string; display_name?: string; avatar?: string | null; relation: "mutual" | "oviewer" | "observer" }[] }>("/users/me/connections"),
