@@ -11,6 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "sense.invisible.overview",
+      "associatedDomains": ["applinks:invisible-sense.preview.emergentagent.com"],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "Compute the real sky and forces around you",
@@ -30,6 +31,14 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [{ "scheme": "https", "host": "invisible-sense.preview.emergentagent.com", "pathPrefix": "/api/go" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",

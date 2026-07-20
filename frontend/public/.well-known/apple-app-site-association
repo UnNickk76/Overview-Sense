@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["853F5S8843.sense.invisible.overview"],
+        "appID": "853F5S8843.sense.invisible.overview",
+        "components": [
+          { "/": "/api/go/*", "comment": "Smart Observation deep-link (QR target)" },
+          { "/": "/observation-detail*", "comment": "Observation detail" }
+        ],
+        "paths": ["/api/go/*", "/observation-detail*"]
+      }
+    ]
+  }
+}
