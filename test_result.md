@@ -169,4 +169,6 @@ test_plan:
 
 agent_communication:
     -agent: "main"
-    -message: "Reverted associatedDomains from app.json to fix EAS iOS build. Please regression-test backend core flows (auth, feed + /api/social/seen, /api/go/{id}) and confirm app still boots without config errors. This is a config-only change; ensure nothing broke."
+    -message: "Reverted associatedDomains from app.json to fix EAS iOS build. Backend regression PASSED (12/12)."
+    -agent: "main"
+    -message: "Sense Vision overlay fixes (device-only, NOT testable on web/Expo Go): (1) Fixed inverted vertical axis — cameraAlt sign was negated; centralized in project.cameraAltFromAccel and corrected in all 7 usages. (2) Recognized objects now render on the final photo by default (reveal defaults true). (3) Unified preview + final on ONE engine/dataset: new src/lib/senseFrame.buildOverlay + src/components/SenseSkyOverlay used by both app/sense-vision.tsx (live 4:5 WYSIWYG frame) and app/observation.tsx (final). frameObjects now includes stars; zoom/FOV frozen at capture (ObsData.zoom) and applied in both projections. App bundles clean (2242 modules), lint clean, no new tsc errors. Requires TestFlight/Dev build to validate on-device."

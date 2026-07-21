@@ -4,11 +4,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, fonts, spacing, type } from "@/src/theme";
 
 export interface CameraProHandle {
-  capture: () => Promise<{ uri: string; base64?: string } | null>;
+  capture: () => Promise<{ uri: string; base64?: string; zoom?: number } | null>;
 }
 
 // Web / Expo Go fallback: the pro camera (VisionCamera) requires a native build.
-export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBottom?: number; onChromeChange?: (m: "full" | "dim" | "hidden") => void }>((_props, ref) => {
+export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBottom?: number; onChromeChange?: (m: "full" | "dim" | "hidden") => void; onZoomChange?: (z: number) => void; liveSky?: boolean }>((_props, ref) => {
   useImperativeHandle(ref, () => ({ capture: async () => null }), []);
   return (
     <View style={styles.wrap}>

@@ -1,5 +1,13 @@
 export const FOV_H = 62; // approx phone camera horizontal FOV (deg)
 
+// Camera look-direction elevation (deg) from the accelerometer gravity vector.
+// +90° = pointing straight up (zenith), 0° = horizon, -90° = straight down.
+// NOTE the sign: raising the phone must INCREASE the elevation so overlays move
+// DOWN on screen (WYSIWYG). A negated version inverted the vertical axis.
+export function cameraAltFromAccel(a: { x: number; y: number; z: number }): number {
+  return Math.atan2(a.z, Math.hypot(a.x, a.y)) * (180 / Math.PI);
+}
+
 export function angDiff(a: number, b: number): number {
   let x = a - b;
   while (x > 180) x -= 360;

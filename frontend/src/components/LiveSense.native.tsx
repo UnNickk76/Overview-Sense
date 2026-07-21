@@ -5,7 +5,7 @@ import { Image } from "expo-image";
 import { useObserver, useNow } from "@/src/hooks/useObserver";
 import { useHeading, useAccelerometer } from "@/src/hooks/useSensors";
 import { computeSky, SkyObject } from "@/src/lib/skyObjects";
-import { project, angDiff, FOV_H } from "@/src/lib/project";
+import { project, angDiff, FOV_H, cameraAltFromAccel } from "@/src/lib/project";
 import { celestialThumb, wikiThumb } from "@/src/lib/liveThumbs";
 import { useLiveSense, isCategoryActive, activeCategories } from "@/src/lib/liveSense";
 import { aiApi, LiveRecognition } from "@/src/lib/backend";
@@ -13,7 +13,7 @@ import { colors, fonts, type } from "@/src/theme";
 
 type SnapFn = () => Promise<string | null>;
 
-interface Props { zoomFactor?: number; active: boolean; snapshot?: SnapFn; facing?: "back" | "front" }
+interface Props { zoomFactor?: number; active: boolean; snapshot?: SnapFn; facing?: "back" | "front"; sky?: boolean }
 
 // Live Sense™ — OverView's single universal recognition engine embedded in the
 // camera. It has two honest sources under one experience:
@@ -21,9 +21,9 @@ interface Props { zoomFactor?: number; active: boolean; snapshot?: SnapFn; facin
 //  • Live Sense™ (AI): terrestrial/general subjects, shown only when reliable.
 // For the user there is only one thing: point the camera, OverView tells you what
 // you're observing. Beyond View: nothing is ever invented.
-export function LiveSense({ zoomFactor = 1, active, snapshot, facing = "back" }: Props) {
+export function LiveSense({ zoomFactor = 1, active, snapshot, facing = "back", sky = true }: Props) {
   const settings = useLiveSense();
-  const skyOn = active && settings.on && isCategoryActive("astronomy", settings);
+  const skyOn = sky && active && settings.on && isCategoryActive("astronomy", settings);
   const aiCats = active && settings.on
     ? activeCategories(settings).filter((c) => c !== "astronomy")
     : [];
@@ -55,7 +55,7 @@ function LiveSkyEngine({ zoomFactor, facing }: { zoomFactor: number; facing: "ba
   const camAz = facing === "front" ? (heading + 180) % 360 : heading;
   const mirror = facing === "front";
   const cameraAlt = useMemo(
-    () => -Math.atan2(accel.z, Math.hypot(accel.x, accel.y)) * (180 / Math.PI),
+    () => cameraAltFromAccel(accel),
     [accel.x, accel.y, accel.z],
   );
 
@@ -181,7 +181,7 @@ function LiveAIEngine({ snapshot, categories }: { snapshot: SnapFn; categories: 
   const tick = useNow(1200);
 
   const pitch = useMemo(
-    () => -Math.atan2(accel.z, Math.hypot(accel.x, accel.y)) * (180 / Math.PI),
+    () => cameraAltFromAccel(accel),
     [accel.x, accel.y, accel.z],
   );
 

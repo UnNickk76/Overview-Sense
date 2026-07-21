@@ -19,6 +19,7 @@ import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { useObserver, useNow } from "@/src/hooks/useObserver";
 import { useHeading, useAccelerometer } from "@/src/hooks/useSensors";
 import { computeSky } from "@/src/lib/skyObjects";
+import { cameraAltFromAccel } from "@/src/lib/project";
 import { computeSatellites, loadSatrecs, hasSatrecs, SatPos } from "@/src/lib/satellites";
 import { api } from "@/src/lib/api";
 import {
@@ -67,7 +68,7 @@ export default function OverviewGuide() {
   }, []);
 
   const pitch = useMemo(
-    () => -Math.atan2(accel.z, Math.hypot(accel.x, accel.y)) * (180 / Math.PI),
+    () => cameraAltFromAccel(accel),
     [accel.x, accel.y, accel.z],
   );
 

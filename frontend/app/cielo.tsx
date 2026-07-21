@@ -15,7 +15,7 @@ import { useObserver, useNow } from "@/src/hooks/useObserver";
 import { useHeading, useAccelerometer } from "@/src/hooks/useSensors";
 import { computeSky, SkyObject } from "@/src/lib/skyObjects";
 import { compassPoint, nf } from "@/src/lib/format";
-import { project, FOV_H } from "@/src/lib/project";
+import { project, FOV_H, cameraAltFromAccel } from "@/src/lib/project";
 import { pitchVisibility, combineVisibility, sceneToMode, skyBucket, SKY_THRESHOLD, SENSE_MODES, AUTO_MODES, type Scene, type SenseModeKey } from "@/src/lib/skyVisibility";
 import { aiApi } from "@/src/lib/backend";
 import { api, Weather, SpaceWeather } from "@/src/lib/api";
@@ -56,7 +56,7 @@ export default function Cielo() {
   }, [obs.status, obs.lat, obs.lon]);
 
   const cameraAlt = useMemo(
-    () => -Math.atan2(accel.z, Math.hypot(accel.x, accel.y)) * (180 / Math.PI),
+    () => cameraAltFromAccel(accel),
     [accel.x, accel.y, accel.z],
   );
 

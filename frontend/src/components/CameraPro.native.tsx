@@ -55,7 +55,7 @@ Reanimated.addWhitelistedNativeProps({ zoom: true, exposure: true });
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 export interface CameraProHandle {
-  capture: () => Promise<{ uri: string; base64?: string } | null>;
+  capture: () => Promise<{ uri: string; base64?: string; zoom?: number } | null>;
 }
 
 // Real, non-inventive enhancement: unsharp mask + local contrast, exported by
@@ -169,7 +169,7 @@ async function downscaleToBase64(path: string, edge: number): Promise<string | n
 
 export type ChromeMode = "full" | "dim" | "hidden";
 
-export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBottom?: number; onChromeChange?: (m: ChromeMode) => void }>(({ enhance = true, hudBottom = 150, onChromeChange }, ref) => {
+export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBottom?: number; onChromeChange?: (m: ChromeMode) => void; onZoomChange?: (z: number) => void; liveSky?: boolean }>(({ enhance = true, hudBottom = 150, onChromeChange, onZoomChange, liveSky = true }, ref) => {
   // Full physical optical range: ultra-wide → wide → tele. The virtual multi-cam
   // device auto-switches lenses for the widest field of view and Super Macro on
   // supported iPhones (Beyond View: only real optics, never fabricated detail).
@@ -269,19 +269,21 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
     zoom.value = neutral;
     setZoomFactor(1);
     setZoomLabel("1.0×");
+    onZoomChange?.(1);
     setMacro(false);
   }, [facing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const showZoom = useCallback((z: number) => {
     setZoomLabel(`${(z / neutral).toFixed(1)}×`);
     setZoomFactor(z / neutral);
+    onZoomChange?.(z / neutral);
     // Large lens/zoom change → drop the stale focus point so continuous AF/AE resumes.
     if (Math.abs(z - lastZoomRef.current) > neutral * 0.5) {
       lastZoomRef.current = z;
       setFocusPt(null);
     }
     setMacro(isMacro(z));
-  }, [neutral, isMacro]);
+  }, [neutral, isMacro, onZoomChange]);
 
   const setPreset = useCallback((z: number) => {
     Haptics.selectionAsync();
@@ -290,9 +292,10 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
     lastZoomRef.current = z;
     setZoomLabel(`${(z / neutral).toFixed(1)}×`);
     setZoomFactor(z / neutral);
+    onZoomChange?.(z / neutral);
     setFocusPt(null);
     setMacro(isMacro(z));
-  }, [zoom, neutral, isMacro, wake]);
+  }, [zoom, neutral, isMacro, wake, onZoomChange]);
 
   const doFocus = useCallback((x: number, y: number) => {
     if (lock) return;
@@ -366,7 +369,7 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
         const finalUri = useSkyBoost ? await enhanceImage(baseUri.replace("file://", ""), zf) : baseUri;
         let base64: string | undefined;
         try { base64 = await FileSystem.readAsStringAsync(finalUri.replace("file://", ""), { encoding: FileSystem.EncodingType.Base64 }); } catch { /* ignore */ }
-        return { uri: finalUri, base64 };
+        return { uri: finalUri, base64, zoom: zf };
       } catch { return null; }
     },
   }), [enhance, zoom, neutral, facing]);
@@ -411,7 +414,7 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
             <SenseRadar zoom={zoomFactor} />
           </Reanimated.View>
         ) : null}
-        <LiveSense zoomFactor={zoomFactor} active={hasPerm && !!device} snapshot={snapshotBase64} facing={facing} />
+        <LiveSense zoomFactor={zoomFactor} active={hasPerm && !!device} snapshot={snapshotBase64} facing={facing} sky={liveSky} />
         <Reanimated.View pointerEvents="box-none" style={[styles.hud, { bottom: hudBottom }, chromeStyle]}>
           <GestureDetector gesture={wheelPan}>
             <View style={styles.presetZone}>

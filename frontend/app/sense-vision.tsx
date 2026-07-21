@@ -26,6 +26,9 @@ import type { ObsData } from "@/src/lib/gallery";
 import { SenseMark } from "@/src/components/SenseMark";
 import { OverviewShortcut } from "@/src/components/OverviewShortcut";
 import { getPulseTask } from "@/src/lib/pulseTasks";
+import { FOV_H, cameraAltFromAccel } from "@/src/lib/project";
+import { buildOverlay } from "@/src/lib/senseFrame";
+import { SenseSkyOverlay } from "@/src/components/SenseSkyOverlay";
 
 // The "Invisible Fields" engine, presented to the user as Sense Layers.
 type Layer = { key: string; label: string; tint: string; color: string };
@@ -65,6 +68,7 @@ export default function SenseVision() {
   const [stage, setStage] = useState<"init" | "scan" | "ready">("init");
   const [created, setCreated] = useState(false);
   const [review, setReview] = useState<{ uri: string; data: ObsData } | null>(null);
+  const [zoom, setZoom] = useState(1);
   const chromeOpacity = useSharedValue(1);
   const chromeStyle = useAnimatedStyle(() => ({ opacity: chromeOpacity.value }));
   const onChromeChange = React.useCallback((m: "full" | "dim" | "hidden") => {
@@ -93,7 +97,7 @@ export default function SenseVision() {
   }, [perm?.granted]);
 
   const cameraAlt = useMemo(
-    () => -Math.atan2(accel.z, Math.hypot(accel.x, accel.y)) * (180 / Math.PI),
+    () => cameraAltFromAccel(accel),
     [accel.x, accel.y, accel.z],
   );
 
@@ -101,6 +105,29 @@ export default function SenseVision() {
     if (obs.status !== "granted" || !satsReady.current) return [];
     return computeSatellites(now, obs.lat, obs.lon, (obs.altitude ?? 0) / 1000);
   }, [now, obs.lat, obs.lon, obs.status, obs.altitude]);
+
+  // WYSIWYG capture frame: a 4:5 box matching EXACTLY the saved photo card
+  // (observation.tsx uses cardH = cardW * 1.25). The celestial overlay is drawn
+  // inside this box with the SAME projection (FOV / zoom) the final render uses,
+  // so what is framed here is exactly what the saved image will show.
+  const frameW = width;
+  const frameH = width * 1.25;
+  const frameTop = Math.max(insets.top + 44, (height - frameH) / 2);
+  const fovH = FOV_H / Math.max(1, zoom);
+
+  // The SAME dataset that will be frozen on capture — built live from real sensors
+  // + astronomy. Object az/alt depend only on time + location, so we rebuild it on
+  // the 1s clock, not on every fast sensor tick (heading/cameraAlt only re-project).
+  const previewData = useMemo(() => {
+    if (obs.status !== "granted") return null;
+    return buildObservation(now, obs.lat, obs.lon, obs.altitude, heading, cameraAlt, sats, weather, space);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [now, obs.status, obs.lat, obs.lon, obs.altitude, sats, weather, space]);
+
+  const overlayData = useMemo(() => {
+    if (!previewData) return null;
+    return buildOverlay(previewData, heading, cameraAlt, frameW, frameH, fovH);
+  }, [previewData, heading, cameraAlt, frameW, frameH, fovH]);
 
   const fieldIntensity = Math.min(1, mag.magnitude / 80);
   const layerColor = layer.key === "solar" ? "#FF9F0A" : layer.color === "#FFFFFF" ? colors.brand : layer.color;
@@ -143,6 +170,8 @@ export default function SenseVision() {
         }
         data.senseLayer = layer.label;
         data.magnetic = { magnitude: mag.magnitude };
+        // Freeze the REAL zoom/FOV so the saved photo projects overlays identically.
+        data.zoom = zoom;
         // Viewpoint origin: enables the universal "Go There" (enter this place from above).
         data.from = "sense-vision";
         // Attach the Pulse™ challenge (curated task) if this capture answers one.
@@ -213,7 +242,7 @@ export default function SenseVision() {
 
   return (
     <View style={styles.root}>
-      <CameraPro ref={cameraRef} enhance={enhance} hudBottom={insets.bottom + 220} onChromeChange={onChromeChange} />
+      <CameraPro ref={cameraRef} enhance={enhance} hudBottom={insets.bottom + 220} onChromeChange={onChromeChange} onZoomChange={setZoom} liveSky={false} />
       <View style={[StyleSheet.absoluteFill, { backgroundColor: layer.tint }]} pointerEvents="none" />
 
       {/* Real-data Sense visualization overlay (Invisible Fields engine) */}
@@ -243,6 +272,19 @@ export default function SenseVision() {
           </Svg>
         </Animated.View>
       </View>
+
+      {/* WYSIWYG capture frame — a 4:5 box that mirrors EXACTLY the saved photo.
+          The celestial overlay here is the same engine + dataset the final render uses. */}
+      {stage === "ready" && !review ? (
+        <View pointerEvents="none" style={[styles.captureFrame, { top: frameTop, width: frameW, height: frameH }]}>
+          {overlayData ? <SenseSkyOverlay data={overlayData} w={frameW} h={frameH} legendOn showConstNames /> : null}
+          <View style={[styles.frameCorner, styles.frameTL]} />
+          <View style={[styles.frameCorner, styles.frameTR]} />
+          <View style={[styles.frameCorner, styles.frameBL]} />
+          <View style={[styles.frameCorner, styles.frameBR]} />
+          <View style={styles.frameRatioTag}><Text style={styles.frameRatioText}>4:5 · WYSIWYG</Text></View>
+        </View>
+      ) : null}
 
       {/* Boot animation */}
       {stage !== "ready" ? (
@@ -374,6 +416,14 @@ export default function SenseVision() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#000" },
   vizCenter: { alignItems: "center", justifyContent: "center" },
+  captureFrame: { position: "absolute", left: 0, borderColor: "rgba(212,175,55,0.30)", borderWidth: StyleSheet.hairlineWidth },
+  frameCorner: { position: "absolute", width: 20, height: 20, borderColor: colors.brand },
+  frameTL: { top: -1, left: -1, borderTopWidth: 2, borderLeftWidth: 2 },
+  frameTR: { top: -1, right: -1, borderTopWidth: 2, borderRightWidth: 2 },
+  frameBL: { bottom: -1, left: -1, borderBottomWidth: 2, borderLeftWidth: 2 },
+  frameBR: { bottom: -1, right: -1, borderBottomWidth: 2, borderRightWidth: 2 },
+  frameRatioTag: { position: "absolute", top: 6, alignSelf: "center", backgroundColor: "rgba(10,12,16,0.55)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
+  frameRatioText: { color: "rgba(240,235,210,0.9)", fontFamily: fonts.mono, fontSize: type.sm - 3, letterSpacing: 0.5 },
   permCenter: { flex: 1, alignItems: "center", paddingHorizontal: spacing.xl, gap: spacing.md, justifyContent: "center" },
   permTitle: { color: colors.onSurface, fontFamily: fonts.bold, fontSize: type["2xl"], textAlign: "center", marginTop: spacing.md, letterSpacing: 0.5 },
   permText: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.base, textAlign: "center", lineHeight: 21 },

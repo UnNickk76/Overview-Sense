@@ -1,7 +1,7 @@
-import { project, angDiff } from "./project";
+import { project, angDiff, FOV_H } from "./project";
 import type { ObsData } from "./gallery";
 
-export type FramedKind = "Pianeta" | "Satellite" | "Luna" | "Sole" | "Centro Galattico";
+export type FramedKind = "Pianeta" | "Satellite" | "Luna" | "Sole" | "Centro Galattico" | "Stella";
 
 export interface FramedObject {
   name: string;                 // stored name (key for legend hide/show)
@@ -31,12 +31,12 @@ function separation(objAz: number, objAlt: number, camAz: number, camAlt: number
   return Math.acos(Math.max(-1, Math.min(1, c))) / D2R;
 }
 
-export function frameObjects(dd: ObsData | undefined, camAz: number, camAlt: number, w: number, h: number) {
+export function frameObjects(dd: ObsData | undefined, camAz: number, camAlt: number, w: number, h: number, fovH: number = FOV_H) {
   const list: FramedObject[] = [];
   if (!dd) return { recognized: [] as FramedObject[], nearby: [] as FramedObject[], all: list };
 
   const add = (name: string, kind: FramedKind, az: number, alt: number) => {
-    const pt = project(az, alt, camAz, camAlt, w, h);
+    const pt = project(az, alt, camAz, camAlt, w, h, fovH);
     // Recognized only if it falls in the frame AND is above the horizon (otherwise the
     // ground occludes it — it's really "in your direction", not captured).
     const inFrame = pt !== null && alt >= 0;
@@ -47,6 +47,7 @@ export function frameObjects(dd: ObsData | undefined, camAz: number, camAlt: num
   };
 
   (dd.planets ?? []).forEach((p) => add(p.name, "Pianeta", p.az, p.alt));
+  (dd.stars ?? []).forEach((s) => add(s.name, "Stella", s.az, s.alt));
   if (dd.iss) add("ISS", "Satellite", dd.iss.az, dd.iss.alt);
   (dd.satellites ?? []).forEach((s) => add(s.name, "Satellite", s.az, s.alt));
   if (dd.moon) add("Luna", "Luna", dd.moon.az, dd.moon.alt);
@@ -54,7 +55,7 @@ export function frameObjects(dd: ObsData | undefined, camAz: number, camAlt: num
   if (dd.galacticCenter) add("Centro Galattico", "Centro Galattico", dd.galacticCenter.az, dd.galacticCenter.alt);
 
   const recognized = list.filter((o) => o.inFrame);
-  const nearby = list.filter((o) => !o.inFrame).sort((a, b) => a.sep - b.sep);
+  const nearby = list.filter((o) => !o.inFrame).sort((a, b) => a.sep - b.sep).slice(0, 12);
   return { recognized, nearby, all: list };
 }
 

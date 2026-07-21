@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import type { ObsData } from "@/src/lib/gallery";
 import { frameObjects, directionPhrase, statusPhrase, arrowRotation, FramedObject } from "@/src/lib/skyFraming";
+import { FOV_H } from "@/src/lib/project";
 import { celestialThumb } from "@/src/lib/liveThumbs";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 
@@ -15,6 +16,7 @@ interface Props {
   camAlt: number;
   cardW: number;
   cardH: number;
+  zoom?: number;
   hiddenObj: Set<string>;
   canEdit?: boolean;
   legendOn?: boolean;
@@ -24,21 +26,21 @@ interface Props {
 }
 
 const kindIcon = (k: FramedObject["kind"]): keyof typeof Ionicons.glyphMap =>
-  k === "Satellite" ? "hardware-chip" : k === "Luna" ? "moon" : k === "Sole" ? "sunny" : "planet";
+  k === "Satellite" ? "hardware-chip" : k === "Luna" ? "moon" : k === "Sole" ? "sunny" : k === "Stella" ? "star" : "planet";
 
 const sourceLine = (o: FramedObject) =>
   o.kind === "Satellite"
     ? "Fonte: TLE NORAD · posizione calcolata da OverView™"
     : "Fonte: effemeridi · calcolata da OverView™ dai dati reali dello scatto";
 
-export function SenseRecognized({ dd, camAz, camAlt, cardW, cardH, hiddenObj, canEdit, legendOn, saving, onToggleObj, onToggleNames }: Props) {
+export function SenseRecognized({ dd, camAz, camAlt, cardW, cardH, zoom = 1, hiddenObj, canEdit, legendOn, saving, onToggleObj, onToggleNames }: Props) {
   const router = useRouter();
   const [nearOpen, setNearOpen] = useState(false);
   const [sel, setSel] = useState<FramedObject | null>(null);
 
   const { recognized, nearby } = useMemo(
-    () => frameObjects(dd, camAz, camAlt, cardW, cardH),
-    [dd, camAz, camAlt, cardW, cardH],
+    () => frameObjects(dd, camAz, camAlt, cardW, cardH, FOV_H / Math.max(1, zoom)),
+    [dd, camAz, camAlt, cardW, cardH, zoom],
   );
 
   if (recognized.length === 0 && nearby.length === 0) return null;

@@ -17,6 +17,7 @@ import { colors, fonts, spacing, type } from "@/src/theme";
 import { useObserver, useNow } from "@/src/hooks/useObserver";
 import { useHeading, useAccelerometer, useMagnetometer } from "@/src/hooks/useSensors";
 import { compassPoint, nf } from "@/src/lib/format";
+import { cameraAltFromAccel } from "@/src/lib/project";
 import { api, Weather, SpaceWeather } from "@/src/lib/api";
 import { loadSatrecs, computeSatellites, SatPos } from "@/src/lib/satellites";
 import { buildObservation } from "@/src/lib/observationData";
@@ -54,7 +55,7 @@ export default function VisualAssistant() {
   }, [obs.status, obs.lat, obs.lon]);
 
   const cameraAlt = useMemo(
-    () => -Math.atan2(accel.z, Math.hypot(accel.x, accel.y)) * (180 / Math.PI),
+    () => cameraAltFromAccel(accel),
     [accel.x, accel.y, accel.z],
   );
   const sats = useMemo<SatPos[]>(() => {

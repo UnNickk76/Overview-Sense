@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View, Pressable, ScrollView, useWindowDimensions, ActivityIndicator, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import Svg, { Line, Circle, Text as SvgText, G, Polygon } from "react-native-svg";
 import ViewShot, { captureRef } from "react-native-view-shot";
 import QRCode from "react-native-qrcode-svg";
 import * as MediaLibrary from "expo-media-library";
@@ -13,10 +12,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
-import { getObservation, observationCode, Observation, ObsPoint } from "@/src/lib/gallery";
-import { CONSTELLATION_LINES, activeConstellations, type Constellation } from "@/src/lib/constellations";
+import { getObservation, observationCode, Observation } from "@/src/lib/gallery";
+import { type Constellation } from "@/src/lib/constellations";
 import { ConstellationSheet } from "@/src/components/ConstellationSheet";
-import { project } from "@/src/lib/project";
+import { FOV_H } from "@/src/lib/project";
+import { buildOverlay } from "@/src/lib/senseFrame";
+import { SenseSkyOverlay } from "@/src/components/SenseSkyOverlay";
 import { nf, compassPoint } from "@/src/lib/format";
 import { socialApi, aiApi } from "@/src/lib/backend";
 import { ApiError } from "@/src/lib/client";
@@ -44,7 +45,7 @@ export default function ObservationView() {
   const { user } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [obs, setObs] = useState<Observation | null>(null);
-  const [reveal, setReveal] = useState(false);
+  const [reveal, setReveal] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
   const [published, setPublished] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
@@ -91,38 +92,15 @@ export default function ObservationView() {
   const d = obs?.data;
   const camAz = d?.cameraAz ?? 0;
   const camAlt = d?.cameraAlt ?? 0;
+  const zoom = d?.zoom ?? 1;
 
+  // Single, frozen rendering pass: same engine + same dataset as the live preview.
+  // The final photo NEVER recomputes astronomy — it projects the stored snapshot
+  // with the camera orientation and REAL FOV (zoom) captured at the shutter.
   const overlay = useMemo(() => {
     if (!d) return null;
-    const p = (az: number, alt: number) => project(az, alt, camAz, camAlt, cardW, cardH);
-    const starPts = new Map<string, { x: number; y: number }>();
-    (d.stars ?? []).forEach((s) => { const pt = p(s.az, s.alt); if (pt) starPts.set(s.name, pt); });
-    const lines = CONSTELLATION_LINES
-      .map(([a, b]) => ({ a: starPts.get(a), b: starPts.get(b) }))
-      .filter((l) => l.a && l.b) as { a: { x: number; y: number }; b: { x: number; y: number } }[];
-    const mk = (arr: ObsPoint[] | undefined) =>
-      (arr ?? []).map((o) => ({ ...o, pt: o.alt >= 0 ? p(o.az, o.alt) : null })).filter((o) => o.pt) as (ObsPoint & { pt: { x: number; y: number } })[];
-    const activeC = activeConstellations(new Set(starPts.keys()));
-    const figures = activeC.map((c) => {
-      const pts = c.figure.map((n) => starPts.get(n)).filter(Boolean) as { x: number; y: number }[];
-      const memberPts = c.stars.map((n) => starPts.get(n)).filter(Boolean) as { x: number; y: number }[];
-      const cx = memberPts.reduce((a, m) => a + m.x, 0) / Math.max(1, memberPts.length);
-      const cy = memberPts.reduce((a, m) => a + m.y, 0) / Math.max(1, memberPts.length);
-      return { c, poly: pts.length >= 3 ? pts.map((pt) => `${pt.x},${pt.y}`).join(" ") : null, cx, cy };
-    });
-    return {
-      stars: Array.from(starPts.values()),
-      lines,
-      inFrameConstellations: activeC.map((c) => c.name),
-      figures,
-      planets: mk(d.planets),
-      satellites: mk(d.satellites),
-      iss: d.iss && d.iss.alt >= 0 ? { ...d.iss, pt: p(d.iss.az, d.iss.alt) } : null,
-      sun: d.sun ? p(d.sun.az, d.sun.alt) : null,
-      moon: d.moon && d.moon.alt >= 0 ? p(d.moon.az, d.moon.alt) : null,
-      gc: d.galacticCenter ? p(d.galacticCenter.az, d.galacticCenter.alt) : null,
-    };
-  }, [d, camAz, camAlt, cardW, cardH]);
+    return buildOverlay(d, camAz, camAlt, cardW, cardH, FOV_H / Math.max(1, zoom));
+  }, [d, camAz, camAlt, cardW, cardH, zoom]);
 
   const toggleObj = (name: string) => {
     Haptics.selectionAsync();
@@ -285,56 +263,7 @@ export default function ObservationView() {
             overlay={
               <>
                 {reveal && overlay ? (
-                  <Svg width={cardW} height={cardH} style={StyleSheet.absoluteFill}>
-                    {overlay.figures.map((f) => f.poly ? (
-                      <Polygon key={`fig${f.c.key}`} points={f.poly} fill="#7FC0FF" opacity={0.1} />
-                    ) : null)}
-                    {overlay.lines.map((l, i) => (
-                      <Line key={`l${i}`} x1={l.a.x} y1={l.a.y} x2={l.b.x} y2={l.b.y} stroke="#7FC0FF" strokeWidth={1.3} opacity={0.75} />
-                    ))}
-                    {overlay.stars.map((s, i) => (
-                      <Circle key={`st${i}`} cx={s.x} cy={s.y} r={2.2} fill="#EAF2FF" />
-                    ))}
-                    {overlay.planets.filter((pl) => !hiddenObj.has(pl.name)).map((pl, i) => (
-                      <G key={`pl${i}`}>
-                        <Circle cx={pl.pt.x} cy={pl.pt.y} r={13} fill="#D4AF37" opacity={0.14} />
-                        <Circle cx={pl.pt.x} cy={pl.pt.y} r={7} stroke="#D4AF37" strokeWidth={1.2} fill="none" opacity={0.85} />
-                        <Circle cx={pl.pt.x} cy={pl.pt.y} r={2.4} fill="#D4AF37" />
-                        {legendOn ? (
-                          <>
-                            <Line x1={pl.pt.x} y1={pl.pt.y - 13} x2={pl.pt.x} y2={pl.pt.y - 27} stroke="#D4AF37" strokeWidth={1} opacity={0.65} />
-                            <SvgText x={pl.pt.x} y={pl.pt.y - 31} fill="#F0DC9A" fontSize={11} fontWeight="600" textAnchor="middle">{pl.name}</SvgText>
-                          </>
-                        ) : null}
-                      </G>
-                    ))}
-                    {overlay.satellites.filter((s) => !hiddenObj.has(s.name)).map((s, i) => (
-                      <G key={`sat${i}`}>
-                        <Circle cx={s.pt.x} cy={s.pt.y} r={11} fill="#0A84FF" opacity={0.16} />
-                        <Circle cx={s.pt.x} cy={s.pt.y} r={2.2} fill="#8FD0FF" />
-                        {legendOn ? (
-                          <>
-                            <Line x1={s.pt.x} y1={s.pt.y - 11} x2={s.pt.x} y2={s.pt.y - 24} stroke="#8FD0FF" strokeWidth={1} opacity={0.6} />
-                            <SvgText x={s.pt.x} y={s.pt.y - 28} fill="#8FD0FF" fontSize={9.5} textAnchor="middle">{s.name}</SvgText>
-                          </>
-                        ) : null}
-                      </G>
-                    ))}
-                    {overlay.iss?.pt && !hiddenObj.has("ISS") ? (
-                      <G>
-                        <Circle cx={overlay.iss.pt.x} cy={overlay.iss.pt.y} r={13} fill="#D4AF37" opacity={0.16} />
-                        <Circle cx={overlay.iss.pt.x} cy={overlay.iss.pt.y} r={7} fill="none" stroke="#D4AF37" strokeWidth={2} />
-                        {legendOn ? (
-                          <>
-                            <Line x1={overlay.iss.pt.x} y1={overlay.iss.pt.y - 13} x2={overlay.iss.pt.x} y2={overlay.iss.pt.y - 27} stroke="#D4AF37" strokeWidth={1} opacity={0.7} />
-                            <SvgText x={overlay.iss.pt.x} y={overlay.iss.pt.y - 31} fill="#F0DC9A" fontSize={11} fontWeight="700" textAnchor="middle">ISS</SvgText>
-                          </>
-                        ) : null}
-                      </G>
-                    ) : null}
-                    {overlay.moon && !hiddenObj.has("Luna") ? <SvgText x={overlay.moon.x} y={overlay.moon.y} fill="#fff" fontSize={16}>☾</SvgText> : null}
-                    {overlay.gc ? <SvgText x={overlay.gc.x - 20} y={overlay.gc.y} fill="#F0C674" fontSize={10}>◄ Via Lattea</SvgText> : null}
-                  </Svg>
+                  <SenseSkyOverlay data={overlay} w={cardW} h={cardH} legendOn={legendOn} hiddenObj={hiddenObj} />
                 ) : null}
 
                 {reveal && overlay ? overlay.figures.map((f) => (
@@ -388,7 +317,7 @@ export default function ObservationView() {
 
         {/* Sky legend — editable: choose which objects are highlighted, toggle names */}
         {d ? (
-          <SenseRecognized dd={d} camAz={camAz} camAlt={camAlt} cardW={cardW} cardH={cardH}
+          <SenseRecognized dd={d} camAz={camAz} camAlt={camAlt} cardW={cardW} cardH={cardH} zoom={zoom}
             hiddenObj={hiddenObj} canEdit legendOn={legendOn}
             onToggleObj={toggleObj} onToggleNames={() => { Haptics.selectionAsync(); setLegendOn((v) => !v); }} />
         ) : null}
