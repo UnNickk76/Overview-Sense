@@ -1,0 +1,35 @@
+{
+  "summary": "REGRESSION run after config-only change (removal of 'associatedDomains' from /app/frontend/app.json). Backend: 12/12 new regression tests pass (100%). Verified — seed user explorer@overview.app / overview123 login + /auth/me, register→login flow, POST /api/observations/seen (auth required, records views on dwell>=3s, ignores <3s), GET /api/feed items list + 'recent' sort ordering + Content-First guarantee (feed items do NOT expose author_followers / followers_count / author_account_age_days / author_popularity fields), GET /api/go/{obs_id} returns HTML with overview:// deep-link, /observation-detail?id= fallback, apple-itunes-app meta and iOS/Android store fallbacks, /.well-known/apple-app-site-association is served with the correct appID (853F5S8843.sense.invisible.overview) and declares /api/go/* + /observation-detail* as universal-link paths. Frontend: Expo web preview boots at 375x667 mobile viewport — title 'Overview', splash rendered with the OVERVIEW · THE INVISIBLE SENSE motto, no red-screen overlay, ZERO console errors. Bundler compiled 2257 modules successfully. Note: source-code inspection of social.py:689-713 confirms the smart_score() only uses per-content signals (scientific_value, per-observation observed/discovery/learned counts, rarity, freshness, recency, viewer affinity, seen-memory, rotation jitter) — NEVER author follower count nor account age.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_regression_appjson.py",
+    "/app/test_reports/pytest/pytest_regression_iter3.xml"
+  ],
+  "action_items": [
+    "None from this regression run. Optional (carried over from iteration_2): Replace router.back() with router.replace('/home') in /app/frontend/app/login.tsx:30 and /app/frontend/app/register.tsx:33.",
+    "Housekeeping (non-blocking): 'expo@54.0.35' expected '~54.0.36' warning is spammed in expo.err.log — run `yarn expo install --check` at some point."
+  ],
+  "critical_code_review_comments": [
+    "app.json: 'associatedDomains' removal is safe. iOS 'infoPlist' + 'bundleIdentifier' remain intact, Android 'intentFilters' still handles the /api/go https deep-link path, and the server-side /.well-known/apple-app-site-association JSON continues to advertise the app's universal-link paths (so once the Associated Domains capability is re-added to the provisioning profile, a clean revert is enough — no server change needed).",
+    "server.py:390-432 /api/go/{obs_id} correctly Sanitises caption (strips quotes and <>), builds the overview:// scheme URL, and falls back to the store on mobile / web-URL on desktop.",
+    "social.py:486-503 mark_observations_seen upserts into obs_views only when dwell_ms>=3000, matching the explicit contract 'Author popularity is NEVER involved'.",
+    "social.py:689-713 smart_score confirmed Content-First: 'pop' is derived from THE OBSERVATION's own observed/discovery/learned counters, not from the author's followers or account age.",
+    "AASA is served by the ingress at /.well-known/apple-app-site-association with the correct 853F5S8843.sense.invisible.overview appID and /api/go/* + /observation-detail* paths — perfect match for Universal Links once the iOS capability is re-added."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_regression_appjson.py (new — 12 regression tests)",
+    "/app/test_reports/iteration_3.json (new)",
+    "/app/test_reports/pytest/pytest_regression_iter3.xml (new — pytest JUnit)"
+  ],
+  "success_rate": { "backend": "100% (12/12 new + prior 31/31 still valid)", "frontend": "100% smoke (app boots, no errors, mobile viewport OK)" },
+  "seed_data_creation": "1 TEST_ observation created by explorer@overview.app for QR/AASA/seen tests + 1 TEST_ viewer user + 1 TEST_ registration probe. All prefixed with TEST_ or reg_/view_ for easy cleanup.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Regression file lives at /app/backend/tests/test_regression_appjson.py. Run `EXPO_PUBLIC_BACKEND_URL=https://invisible-sense.preview.emergentagent.com pytest backend/tests/test_regression_appjson.py -v` to re-verify. Seed user login (explorer@overview.app / overview123), POST /api/observations/seen, GET /api/go/{id}, and /.well-known/apple-app-site-association are all healthy. App.json 'associatedDomains' removal caused NO backend or frontend regression."
+}

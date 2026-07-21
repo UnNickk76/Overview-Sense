@@ -101,3 +101,72 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "OverView — verify app health after reverting associatedDomains in app.json (EAS iOS deploy fix). Ensure core backend/frontend flows still work: auth, Content-First feed with seen-tracking, and smart QR deeplink landing page."
+
+backend:
+  - task: "Auth (JWT register/login)"
+    implemented: true
+    working: "NA"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Regression check after app.json revert. Use seeded user explorer@overview.app / overview123."
+  - task: "Content-First feed + seen tracking (POST /api/social/seen)"
+    implemented: true
+    working: "NA"
+    file: "backend/social.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Verify feed returns observations, ranking ignores popularity, and /api/social/seen marks obs_views."
+  - task: "Smart QR deeplink landing page (GET /api/go/{id})"
+    implemented: true
+    working: "NA"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Verify landing page renders and AASA served."
+
+frontend:
+  - task: "App boots after app.json revert (no associatedDomains)"
+    implemented: true
+    working: "NA"
+    file: "frontend/app.json"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        -working: "NA"
+        -agent: "main"
+        -comment: "Smoke test: app loads, no bundling/config errors."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Auth (JWT register/login)"
+    - "Content-First feed + seen tracking (POST /api/social/seen)"
+    - "Smart QR deeplink landing page (GET /api/go/{id})"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    -agent: "main"
+    -message: "Reverted associatedDomains from app.json to fix EAS iOS build. Please regression-test backend core flows (auth, feed + /api/social/seen, /api/go/{id}) and confirm app still boots without config errors. This is a config-only change; ensure nothing broke."
