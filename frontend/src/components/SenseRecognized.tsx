@@ -20,9 +20,11 @@ interface Props {
   hiddenObj: Set<string>;
   canEdit?: boolean;
   legendOn?: boolean;
+  overlayOn?: boolean;
   saving?: boolean;
   onToggleObj?: (name: string) => void;
   onToggleNames?: () => void;
+  onToggleOverlay?: () => void;
 }
 
 const kindIcon = (k: FramedObject["kind"]): keyof typeof Ionicons.glyphMap =>
@@ -33,7 +35,7 @@ const sourceLine = (o: FramedObject) =>
     ? "Fonte: TLE NORAD · posizione calcolata da OverView™"
     : "Fonte: effemeridi · calcolata da OverView™ dai dati reali dello scatto";
 
-export function SenseRecognized({ dd, camAz, camAlt, cardW, cardH, zoom = 1, hiddenObj, canEdit, legendOn, saving, onToggleObj, onToggleNames }: Props) {
+export function SenseRecognized({ dd, camAz, camAlt, cardW, cardH, zoom = 1, hiddenObj, canEdit, legendOn, overlayOn, saving, onToggleObj, onToggleNames, onToggleOverlay }: Props) {
   const router = useRouter();
   const [nearOpen, setNearOpen] = useState(false);
   const [sel, setSel] = useState<FramedObject | null>(null);
@@ -57,7 +59,11 @@ export function SenseRecognized({ dd, camAz, camAlt, cardW, cardH, zoom = 1, hid
             {canEdit ? (
               <View style={styles.headRight}>
                 {saving ? <ActivityIndicator size="small" color={colors.brand} /> : null}
-                <Pressable testID="legend-names-toggle" style={[styles.namesToggle, legendOn && styles.namesToggleOn]} onPress={onToggleNames}>
+                <Pressable testID="legend-overlay-toggle" style={[styles.namesToggle, overlayOn && styles.namesToggleOn]} onPress={onToggleOverlay}>
+                  <Ionicons name={overlayOn ? "eye" : "eye-off"} size={13} color={overlayOn ? colors.onBrand : colors.brand} />
+                  <Text style={[styles.namesToggleText, overlayOn && { color: colors.onBrand }]}>Overlay</Text>
+                </Pressable>
+                <Pressable testID="legend-names-toggle" style={[styles.namesToggle, legendOn && styles.namesToggleOn, !overlayOn && styles.namesToggleDisabled]} onPress={overlayOn ? onToggleNames : undefined} disabled={!overlayOn}>
                   <Ionicons name={legendOn ? "pricetag" : "pricetag-outline"} size={13} color={legendOn ? colors.onBrand : colors.brand} />
                   <Text style={[styles.namesToggleText, legendOn && { color: colors.onBrand }]}>Nomi</Text>
                 </Pressable>
@@ -65,7 +71,7 @@ export function SenseRecognized({ dd, camAz, camAlt, cardW, cardH, zoom = 1, hid
             ) : null}
           </View>
           {canEdit ? (
-            <Text style={styles.hint}>Tocca il nome per la scheda; tocca l&apos;occhio per mostrare o nascondere sulla foto.</Text>
+            <Text style={styles.hint}>Overlay = punti e linee · Nomi = etichette. Tocca l&apos;occhio di un oggetto per mostrarlo o nasconderlo sulla foto.</Text>
           ) : null}
           <View style={styles.chips}>
             {recognized.map((o) => {
@@ -197,6 +203,7 @@ const styles = StyleSheet.create({
   hint: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 2, marginTop: 4, lineHeight: 15 },
   namesToggle: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
   namesToggleOn: { backgroundColor: colors.brand },
+  namesToggleDisabled: { opacity: 0.4 },
   namesToggleText: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.sm - 2 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.sm },
   chip: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.surfaceTertiary, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 7, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },

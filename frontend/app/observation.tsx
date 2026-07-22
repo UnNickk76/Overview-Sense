@@ -263,10 +263,10 @@ export default function ObservationView() {
             overlay={
               <>
                 {reveal && overlay ? (
-                  <SenseSkyOverlay data={overlay} w={cardW} h={cardH} legendOn={legendOn} hiddenObj={hiddenObj} />
+                  <SenseSkyOverlay data={overlay} w={cardW} h={cardH} legendOn={legendOn} hiddenObj={hiddenObj} animate animKey={obs.id} />
                 ) : null}
 
-                {reveal && overlay ? overlay.figures.map((f) => (
+                {reveal && legendOn && overlay ? overlay.figures.map((f) => (
                   <Pressable key={`cn${f.c.key}`} testID={`obs-const-${f.c.key}`}
                     onPress={() => { Haptics.selectionAsync(); setConstSel(f.c); }}
                     style={[styles.constName, { left: f.cx - 70, top: Math.max(6, f.cy - 44) }]}>
@@ -318,7 +318,8 @@ export default function ObservationView() {
         {/* Sky legend — editable: choose which objects are highlighted, toggle names */}
         {d ? (
           <SenseRecognized dd={d} camAz={camAz} camAlt={camAlt} cardW={cardW} cardH={cardH} zoom={zoom}
-            hiddenObj={hiddenObj} canEdit legendOn={legendOn}
+            hiddenObj={hiddenObj} canEdit legendOn={legendOn} overlayOn={reveal}
+            onToggleOverlay={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setLayersVisible(true); setReveal((r) => !r); }}
             onToggleObj={toggleObj} onToggleNames={() => { Haptics.selectionAsync(); setLegendOn((v) => !v); }} />
         ) : null}
 

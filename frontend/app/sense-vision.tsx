@@ -277,7 +277,7 @@ export default function SenseVision() {
           The celestial overlay here is the same engine + dataset the final render uses. */}
       {stage === "ready" && !review ? (
         <View pointerEvents="none" style={[styles.captureFrame, { top: frameTop, width: frameW, height: frameH }]}>
-          {overlayData ? <SenseSkyOverlay data={overlayData} w={frameW} h={frameH} legendOn showConstNames /> : null}
+          {overlayData ? <SenseSkyOverlay data={overlayData} w={frameW} h={frameH} legendOn showConstNames animate animKey="preview" /> : null}
           <View style={[styles.frameCorner, styles.frameTL]} />
           <View style={[styles.frameCorner, styles.frameTR]} />
           <View style={[styles.frameCorner, styles.frameBL]} />
