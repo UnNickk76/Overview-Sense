@@ -17,7 +17,7 @@ export type OverlayInput = Pick<
 >;
 
 export interface SkyOverlay {
-  stars: Pt[];
+  stars: (Pt & { name: string })[];
   lines: { a: Pt; b: Pt }[];
   figures: { c: Constellation; poly: string | null; cx: number; cy: number }[];
   inFrameConstellations: string[];
@@ -64,7 +64,7 @@ export function buildOverlay(
   });
 
   return {
-    stars: Array.from(starPts.values()),
+    stars: Array.from(starPts, ([name, pt]) => ({ name, x: pt.x, y: pt.y })),
     lines,
     inFrameConstellations: activeC.map((c) => c.name),
     figures,

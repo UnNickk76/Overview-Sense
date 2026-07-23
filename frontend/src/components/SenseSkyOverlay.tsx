@@ -46,6 +46,7 @@ export function SenseSkyOverlay({ data, w, h, legendOn = true, hiddenObj, showCo
 
   const planets = data.planets.filter((p) => !hidden.has(p.name));
   const sats = data.satellites.filter((s) => !hidden.has(s.name));
+  const stars = data.stars.filter((s) => !hidden.has(s.name));
   const issShown = data.iss?.pt && !hidden.has("ISS") ? data.iss : null;
   const moonShown = data.moon && !hidden.has("Luna") ? data.moon : null;
 
@@ -54,6 +55,7 @@ export function SenseSkyOverlay({ data, w, h, legendOn = true, hiddenObj, showCo
     ...planets.map((p) => ({ x: p.pt.x, y: p.pt.y, c: "#D4AF37" })),
     ...(issShown?.pt ? [{ x: issShown.pt.x, y: issShown.pt.y, c: "#D4AF37" }] : []),
     ...sats.map((s) => ({ x: s.pt.x, y: s.pt.y, c: "#8FD0FF" })),
+    ...stars.map((s) => ({ x: s.x, y: s.y, c: "#BFE0FF" })),
     ...(moonShown ? [{ x: moonShown.x, y: moonShown.y, c: "#FFFFFF" }] : []),
   ];
 
@@ -73,10 +75,13 @@ export function SenseSkyOverlay({ data, w, h, legendOn = true, hiddenObj, showCo
         ))}
       </AG>
 
-      {/* Stars light up first */}
+      {/* Stars light up first — each a real reference point */}
       <AG opacity={oStars}>
-        {data.stars.map((s, i) => (
-          <Circle key={`st${i}`} cx={s.x} cy={s.y} r={2.2} fill="#EAF2FF" />
+        {stars.map((s, i) => (
+          <G key={`st${i}`}>
+            <Circle cx={s.x} cy={s.y} r={6} fill="none" stroke="#BFE0FF" strokeWidth={0.8} opacity={0.35} />
+            <Circle cx={s.x} cy={s.y} r={2.4} fill="#EAF2FF" />
+          </G>
         ))}
       </AG>
 
@@ -112,6 +117,12 @@ export function SenseSkyOverlay({ data, w, h, legendOn = true, hiddenObj, showCo
       {/* Names — appear last */}
       {legendOn ? (
         <AG opacity={oLabels}>
+          {stars.map((s, i) => (
+            <G key={`stl${i}`}>
+              <Line x1={s.x} y1={s.y - 8} x2={s.x} y2={s.y - 18} stroke="#BFE0FF" strokeWidth={0.8} opacity={0.5} />
+              <SvgText x={s.x} y={s.y - 21} fill="#DCEBFF" fontSize={9} textAnchor="middle">{s.name}</SvgText>
+            </G>
+          ))}
           {planets.map((pl, i) => (
             <G key={`pll${i}`}>
               <Line x1={pl.pt.x} y1={pl.pt.y - 13} x2={pl.pt.x} y2={pl.pt.y - 27} stroke="#D4AF37" strokeWidth={1} opacity={0.65} />
