@@ -18,6 +18,7 @@ import { ConstellationSheet } from "@/src/components/ConstellationSheet";
 import { FOV_H } from "@/src/lib/project";
 import { buildOverlay } from "@/src/lib/senseFrame";
 import { SenseSkyOverlay } from "@/src/components/SenseSkyOverlay";
+import { SenseGeoOverlay } from "@/src/components/SenseGeoOverlay";
 import { nf, compassPoint } from "@/src/lib/format";
 import { socialApi, aiApi } from "@/src/lib/backend";
 import { ApiError } from "@/src/lib/client";
@@ -264,6 +265,9 @@ export default function ObservationView() {
               <>
                 {reveal && overlay ? (
                   <SenseSkyOverlay data={overlay} w={cardW} h={cardH} legendOn={legendOn} hiddenObj={hiddenObj} animate animKey={obs.id} />
+                ) : null}
+                {reveal && d?.places?.length ? (
+                  <SenseGeoOverlay places={d.places} camAz={camAz} camAlt={camAlt} w={cardW} h={cardH} fovH={FOV_H / Math.max(1, zoom)} legendOn={legendOn} hiddenObj={hiddenObj} animate animKey={obs.id} />
                 ) : null}
 
                 {reveal && legendOn && overlay ? overlay.figures.map((f) => (

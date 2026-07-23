@@ -28,10 +28,12 @@ interface Props {
 }
 
 const kindIcon = (k: FramedObject["kind"]): keyof typeof Ionicons.glyphMap =>
-  k === "Satellite" ? "hardware-chip" : k === "Luna" ? "moon" : k === "Sole" ? "sunny" : k === "Stella" ? "star" : "planet";
+  k === "Satellite" ? "hardware-chip" : k === "Luna" ? "moon" : k === "Sole" ? "sunny" : k === "Stella" ? "star" : k === "Luogo" ? "location" : "planet";
 
 const sourceLine = (o: FramedObject) =>
-  o.kind === "Satellite"
+  o.kind === "Luogo"
+    ? "Fonte: OpenStreetMap · posizione, distanza ed elevazione reali"
+    : o.kind === "Satellite"
     ? "Fonte: TLE NORAD · posizione calcolata da OverView™"
     : "Fonte: effemeridi · calcolata da OverView™ dai dati reali dello scatto";
 

@@ -21,6 +21,12 @@ export interface ObsData {
   senseLayer?: string;
   // Real optical/digital zoom factor frozen at capture (WYSIWYG projection).
   zoom?: number;
+  // Frozen terrestrial features (Sense Vision "Luoghi") in the observed direction.
+  places?: {
+    name: string; category: string; categoryLabel: string;
+    lat: number; lon: number; distanceKm: number; az: number; alt: number;
+    ele: number | null; score: number;
+  }[];
   // AI Visual Assistant explanation attached to the Senshot (real data only).
   aiNote?: string;
   // Origin screen — enables the universal "Go There" viewpoint recreation.

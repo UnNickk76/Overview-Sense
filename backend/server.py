@@ -27,6 +27,7 @@ from community import community_router, ensure_community_indexes
 from push import push_router
 from music import music_router
 from sense_world import world_router, ensure_world_indexes
+from geo_places import geo_router
 
 ROOT_DIR = Path(__file__).parent
 
@@ -446,6 +447,7 @@ app.include_router(community_router)
 app.include_router(push_router)
 app.include_router(music_router)
 app.include_router(world_router)
+app.include_router(geo_router)
 
 app.add_middleware(
     CORSMiddleware,

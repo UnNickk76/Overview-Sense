@@ -1,7 +1,7 @@
 import { project, angDiff, FOV_H } from "./project";
 import type { ObsData } from "./gallery";
 
-export type FramedKind = "Pianeta" | "Satellite" | "Luna" | "Sole" | "Centro Galattico" | "Stella";
+export type FramedKind = "Pianeta" | "Satellite" | "Luna" | "Sole" | "Centro Galattico" | "Stella" | "Luogo";
 
 export interface FramedObject {
   name: string;                 // stored name (key for legend hide/show)
@@ -37,9 +37,10 @@ export function frameObjects(dd: ObsData | undefined, camAz: number, camAlt: num
 
   const add = (name: string, kind: FramedKind, az: number, alt: number) => {
     const pt = project(az, alt, camAz, camAlt, w, h, fovH);
-    // Recognized only if it falls in the frame AND is above the horizon (otherwise the
-    // ground occludes it — it's really "in your direction", not captured).
-    const inFrame = pt !== null && alt >= 0;
+    // Celestial objects below the horizon are occluded by the ground → not "captured".
+    // Terrestrial features ("Luogo") sit on the ground, so they're recognized whenever
+    // they fall inside the frame regardless of their (near-horizon) elevation angle.
+    const inFrame = pt !== null && (kind === "Luogo" || alt >= 0);
     list.push({
       name, label: label(name), kind, az, alt, pt, inFrame,
       dAz: angDiff(az, camAz), dAlt: alt - camAlt, sep: separation(az, alt, camAz, camAlt),
@@ -53,6 +54,7 @@ export function frameObjects(dd: ObsData | undefined, camAz: number, camAlt: num
   if (dd.moon) add("Luna", "Luna", dd.moon.az, dd.moon.alt);
   if (dd.sun) add("Sole", "Sole", dd.sun.az, dd.sun.alt);
   if (dd.galacticCenter) add("Centro Galattico", "Centro Galattico", dd.galacticCenter.az, dd.galacticCenter.alt);
+  (dd.places ?? []).forEach((p) => add(p.name, "Luogo", p.az, p.alt));
 
   const recognized = list.filter((o) => o.inFrame);
   const nearby = list.filter((o) => !o.inFrame).sort((a, b) => a.sep - b.sep).slice(0, 12);

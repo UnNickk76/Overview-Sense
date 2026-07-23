@@ -989,3 +989,26 @@ mai una ricostruzione artificiale della scena" (coerente con Beyond View).
 - Nota tecnica: dipende da `react-native-vision-camera` + formati/HDR nativi; molte capacità non emulabili su web.
   Valutare API camera (photoQualityBalance, enableHdr, low-light-boost, formato con exposure range più ampio).
 
+
+---
+
+## Sense Vision™ — WYSIWYG Overlay Engine + Geographic Layer (2026-07)
+
+### Motore overlay unificato (WYSIWYG)
+- `src/lib/senseFrame.buildOverlay` + `src/components/SenseSkyOverlay` = UNICO motore/renderer condiviso
+  tra anteprima live (`sense-vision.tsx`) e foto finale (`observation.tsx`). Nessun secondo calcolo astronomico.
+- Anteprima mostra un riquadro **4:5 reale** (uguale alla card salvata) con stessa proiezione (camAz/camAlt + FOV/zoom).
+- **Freeze** allo scatto: `ObsData.zoom` (FOV) + posizioni astronomiche già congelate + `ObsData.places`.
+- Fix pitch: `project.cameraAltFromAccel` (segno corretto; alzando la fotocamera gli oggetti scendono).
+- Stelle riconosciute = veri marker (alone + punto + nome), rispettano toggle Overlay/Nomi/occhio.
+- Toggle indipendenti: **Overlay** (grafica) e **Nomi** (etichette).
+- **WOW reveal**: stelle→impulso→linee→nomi; pianeti/luoghi→impulso→alone→nome (~600ms).
+
+### Layer Geografico "Luoghi" (rivela ciò che esiste, non AI immagine)
+- Backend `GET /api/geo/places` (`backend/geo_places.py`): OpenStreetMap/Overpass. Calcola azimut + angolo di
+  elevazione REALE (curvatura terrestre + rifrazione) da GPS+coordinate. Categorie: città, montagne, vulcani,
+  monumenti, castelli, torri, fari, isole, acqua, aeroporti, stadi, cattedrali. Cache 2 livelli (memoria + Mongo `geo_cache` 30g).
+- Frontend: `src/lib/places.ts`, `src/components/SenseGeoOverlay.tsx` (identità teal), toggle "Luoghi" + raggio (15/60/200km)
+  in `sense-vision.tsx`; render in `observation.tsx`; incluso in `frameObjects`/Riconosciuti (kind "Luogo", no occlusione orizzonte).
+- CAVEAT: Overpass pubblico è rate-limited/variabile da IP datacenter; la cache mitiga in produzione. Overlay = device-only.
+- FUTURO: fonte dati keyed (Mapbox/GeoNames) se serve maggiore affidabilità; elevazione terreno via DEM per profili montani.

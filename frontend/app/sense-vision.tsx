@@ -29,6 +29,8 @@ import { getPulseTask } from "@/src/lib/pulseTasks";
 import { FOV_H, cameraAltFromAccel } from "@/src/lib/project";
 import { buildOverlay } from "@/src/lib/senseFrame";
 import { SenseSkyOverlay } from "@/src/components/SenseSkyOverlay";
+import { SenseGeoOverlay } from "@/src/components/SenseGeoOverlay";
+import { fetchPlaces, PlaceItem, PlaceRadius } from "@/src/lib/places";
 
 // The "Invisible Fields" engine, presented to the user as Sense Layers.
 type Layer = { key: string; label: string; tint: string; color: string };
@@ -69,6 +71,12 @@ export default function SenseVision() {
   const [created, setCreated] = useState(false);
   const [review, setReview] = useState<{ uri: string; data: ObsData } | null>(null);
   const [zoom, setZoom] = useState(1);
+  // Sense Vision "Luoghi" — real geographic features in the observed direction.
+  const [placesOn, setPlacesOn] = useState(false);
+  const [placeRadius, setPlaceRadius] = useState<PlaceRadius>(60);
+  const [places, setPlaces] = useState<PlaceItem[]>([]);
+  const [placesLoading, setPlacesLoading] = useState(false);
+  const placesKey = useRef<string>("");
   const chromeOpacity = useSharedValue(1);
   const chromeStyle = useAnimatedStyle(() => ({ opacity: chromeOpacity.value }));
   const onChromeChange = React.useCallback((m: "full" | "dim" | "hidden") => {
@@ -105,6 +113,19 @@ export default function SenseVision() {
     if (obs.status !== "granted" || !satsReady.current) return [];
     return computeSatellites(now, obs.lat, obs.lon, (obs.altitude ?? 0) / 1000);
   }, [now, obs.lat, obs.lon, obs.status, obs.altitude]);
+
+  // Fetch terrestrial features when the layer is on (backend caches → instant repeats).
+  useEffect(() => {
+    if (!placesOn || obs.status !== "granted") return;
+    const key = `${obs.lat.toFixed(2)},${obs.lon.toFixed(2)},${placeRadius}`;
+    if (key === placesKey.current) return;
+    placesKey.current = key;
+    setPlacesLoading(true);
+    fetchPlaces(obs.lat, obs.lon, placeRadius, obs.altitude ?? 0)
+      .then((p) => setPlaces(p))
+      .catch(() => setPlaces([]))
+      .finally(() => setPlacesLoading(false));
+  }, [placesOn, placeRadius, obs.status, obs.lat, obs.lon, obs.altitude]);
 
   // WYSIWYG capture frame: a 4:5 box matching EXACTLY the saved photo card
   // (observation.tsx uses cardH = cardW * 1.25). The celestial overlay is drawn
@@ -172,6 +193,8 @@ export default function SenseVision() {
         data.magnetic = { magnitude: mag.magnitude };
         // Freeze the REAL zoom/FOV so the saved photo projects overlays identically.
         data.zoom = zoom;
+        // Freeze terrestrial features so the saved photo shows exactly what was framed.
+        if (placesOn && places.length) data.places = places;
         // Viewpoint origin: enables the universal "Go There" (enter this place from above).
         data.from = "sense-vision";
         // Attach the Pulse™ challenge (curated task) if this capture answers one.
@@ -278,6 +301,7 @@ export default function SenseVision() {
       {stage === "ready" && !review ? (
         <View pointerEvents="none" style={[styles.captureFrame, { top: frameTop, width: frameW, height: frameH }]}>
           {overlayData ? <SenseSkyOverlay data={overlayData} w={frameW} h={frameH} legendOn showConstNames animate animKey="preview" /> : null}
+          {placesOn ? <SenseGeoOverlay places={places} camAz={heading} camAlt={cameraAlt} w={frameW} h={frameH} fovH={fovH} animate animKey={`geo-${placesKey.current}`} /> : null}
           <View style={[styles.frameCorner, styles.frameTL]} />
           <View style={[styles.frameCorner, styles.frameTR]} />
           <View style={[styles.frameCorner, styles.frameBL]} />
@@ -333,6 +357,23 @@ export default function SenseVision() {
             <Ionicons name="sparkles" size={13} color={enhance ? colors.onBrand : "#fff"} />
             <Text style={[styles.enhanceText, enhance && { color: colors.onBrand }]}>Osserva meglio</Text>
           </Pressable>
+        </Animated.View>
+      ) : null}
+
+      {/* "Luoghi" — reveal real geographic features in the observed direction */}
+      {stage === "ready" && !review ? (
+        <Animated.View pointerEvents="box-none" style={[styles.geoPill, { top: insets.top + 148 }, chromeStyle]}>
+          <Pressable testID="sense-places" hitSlop={8} style={[styles.enhanceInner, placesOn && styles.geoOn]} onPress={() => { Haptics.selectionAsync(); setPlacesOn((p) => !p); }}>
+            <Ionicons name="location" size={13} color={placesOn ? "#04201B" : "#63E6C7"} />
+            <Text style={[styles.enhanceText, { color: placesOn ? "#04201B" : "#63E6C7" }]}>Luoghi</Text>
+            {placesOn && placesLoading ? <Ionicons name="sync" size={12} color="#04201B" /> : null}
+          </Pressable>
+          {placesOn ? (
+            <Pressable testID="sense-places-radius" hitSlop={8} style={styles.geoRadius}
+              onPress={() => { Haptics.selectionAsync(); setPlaceRadius((r) => (r === 15 ? 60 : r === 60 ? 200 : 15)); }}>
+              <Text style={styles.geoRadiusText}>{placeRadius} km</Text>
+            </Pressable>
+          ) : null}
         </Animated.View>
       ) : null}
 
@@ -438,6 +479,10 @@ const styles = StyleSheet.create({
   enhancePill: { position: "absolute", right: spacing.lg, flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.3)" },
   enhanceInner: { flexDirection: "row", alignItems: "center", gap: 5 },
   enhanceText: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.sm - 2, letterSpacing: 0.3 },
+  geoPill: { position: "absolute", right: spacing.lg, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(4,32,27,0.55)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(99,230,199,0.5)" },
+  geoOn: { backgroundColor: "#63E6C7", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, marginHorizontal: -4 },
+  geoRadius: { backgroundColor: "rgba(99,230,199,0.16)", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  geoRadiusText: { color: "#63E6C7", fontFamily: fonts.mono, fontSize: type.sm - 3, letterSpacing: 0.3 },
   hudMeta: { color: "#fff", fontFamily: fonts.mono, fontSize: type.sm - 1, opacity: 0.85 },
   pivotRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
   pivotActive: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(10,16,26,0.6)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 8, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
