@@ -1,0 +1,40 @@
+{
+  "summary": "Backend-only regression targeting the 'Pubblicazione non riuscita' bug on POST /api/observations. Result: 11/11 tests PASS (100%). The publish flow is fully healthy end-to-end. Verified: (1) POST /api/auth/login with explorer@overview.app / overview123 returns a bearer access_token; (2) POST /api/observations with the exact frontend payload {media_type:'image', source:'reality', description, hashtags, image_base64:<tiny valid JPEG>, data:{lat,lon,planets:[],stars:[],places:[{Roma...}]}} returns 200 with a valid 'id', persists media (image_url=/api/media/{id}), preserves lat/lon/hashtags and data.places verbatim; (3) PERSISTENCE — GET /api/observations/{id} returns the same doc WITH data.places[0].name=='Roma' AND the created Observe appears in GET /api/feed?sort=recent&limit=100; (4) 3 back-to-back publishes all return 200 with 3 distinct ids — no intermittent 500s; (5) AUTH ENFORCEMENT — POST /api/observations WITHOUT Authorization → 401 (not 500), with a bogus Bearer → 401; (6) VALIDATION — invalid hashtags type → 422, invalid base64 image → 400 ('Immagine non valida'), empty body → 200 (all CreateObs fields optional by design), never 500. Backend logs stayed clean during the run. The generic Italian error 'Pubblicazione non riuscita' shown to users was a CLIENT-SIDE catch-all; the backend endpoint is stable and returns explicit, appropriate 4xx codes on bad input — main agent's client-side improvement is warranted.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_publish_observation.py",
+    "/app/test_reports/pytest/pytest_publish_iter4.xml"
+  ],
+  "action_items": [
+    "None on the backend — publish endpoint is healthy and returns clear 4xx codes on bad input. The 'Pubblicazione non riuscita' toast comes from the frontend catch-all; keep the client-side error surfacing that pulls FastAPI's `detail` field on 4xx (as main agent already improved in /app/frontend/src/lib/publishError.ts) so users see the specific reason (e.g. 'Immagine non valida' → 400, moderation → 422, auth → 401)."
+  ],
+  "critical_code_review_comments": [
+    "social.py:362-437 create_observation is idempotent per request, validates image_base64 with a try/except (→ 400 'Immagine non valida'), routes user photos through moderate_image_safe which fails OPEN on LLM errors — legitimate publishes cannot be blocked by an AI outage. Good.",
+    "social.py:345-359 CreateObs pydantic model: all fields optional with sensible defaults (media_type='image', source='reality') — empty body {} returns 200. This is intentional but worth noting: it means the API tolerates an 'empty' Observe, so the frontend must guarantee at least an image or caption before POSTing. Not a bug, just a contract note.",
+    "auth.py:238-... get_current_user with HTTPBearer(auto_error=False) correctly raises 401 (not 403) for missing/invalid tokens on protected routes — matches the request spec.",
+    "social.py:388 derive_categories + compute_scientific_value work with the exact 'places' payload (they ignore unknown keys), so adding new place metadata client-side is safe and does not break the create path."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_publish_observation.py (new — 11 tests covering the publish bug scope)",
+    "/app/test_reports/pytest/pytest_publish_iter4.xml (new — pytest JUnit)",
+    "/app/test_reports/iteration_4.json (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (11/11 publish-flow tests)",
+    "frontend": "not tested (request scoped backend-only; publish-composer is device-gated)"
+  },
+  "seed_data_creation": "4 TEST_ observations created by explorer@overview.app during the run (1 primary + 3 repeated-publish stability). All captions prefixed with 'TEST publish observation' for easy Mongo cleanup.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Publish regression file: /app/backend/tests/test_publish_observation.py. Re-run with: `EXPO_PUBLIC_BACKEND_URL=https://invisible-sense.preview.emergentagent.com pytest backend/tests/test_publish_observation.py -v`. The tiny JPEG base64 helper (JPEG_1PX_B64) is a real 1x1 white JPEG (verified via SOI/EOI markers) — safe to reuse for any image-upload endpoint smoke test. Seed user login (explorer@overview.app / overview123) still valid.",
+  "rca_of_issue": "Reported bug 'Pubblicazione non riuscita' was NOT reproducible against the current backend — POST /api/observations returns 200 for the exact payload the user sends. The generic Italian error was a frontend catch-all in publish-composer.tsx that surfaced ANY thrown error (network, moderation, validation, auth) with the same string. Backend already returns explicit `detail` messages ('Immagine non valida' 400, moderation 422, auth 401, pydantic 422). Recommended mitigation (already applied by main agent in publishError.ts / client.ts): parse the FastAPI `detail` field on non-2xx and show it to the user instead of the generic label."
+}

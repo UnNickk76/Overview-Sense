@@ -17,7 +17,7 @@ import { MusicPicker } from "@/src/components/MusicPicker";
 import { getObservation, Observation } from "@/src/lib/gallery";
 import { socialApi } from "@/src/lib/backend";
 import type { GeoPrecision } from "@/src/lib/backend";
-import { ApiError } from "@/src/lib/client";
+import { publishErrorMessage } from "@/src/lib/publishError";
 import { useAuth } from "@/src/context/AuthContext";
 import { assessPrivacy, recordPlace } from "@/src/lib/placeHistory";
 import { communityApi, DiscoverPerson } from "@/src/lib/community";
@@ -91,11 +91,18 @@ export default function PublishComposer() {
     if (!obs || !obs.data || !user) { if (!user) router.push("/login" as never); return; }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setPublishing(true); setErr(null);
+    let manipulated;
     try {
-      const manipulated = await ImageManipulator.manipulateAsync(
+      manipulated = await ImageManipulator.manipulateAsync(
         editedUri || obs.uri, [{ resize: { width: 1280 } }],
         { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true },
       );
+    } catch {
+      setErr("Impossibile elaborare l'immagine dello scatto. Riprova o ripeti lo scatto.");
+      setPublishing(false);
+      return;
+    }
+    try {
       let pulseTask = obs.data.pulse;
       if (asPulse && !pulseTask) {
         const t = pulseForNow();
@@ -117,7 +124,7 @@ export default function PublishComposer() {
       });
       router.replace(`/observation-detail?id=${created.id}` as never);
     } catch (e) {
-      setErr(e instanceof ApiError && e.status === 422 ? e.message : "Pubblicazione non riuscita");
+      setErr(publishErrorMessage(e));
     } finally { setPublishing(false); }
   };
 

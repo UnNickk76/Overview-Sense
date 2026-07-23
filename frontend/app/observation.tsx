@@ -21,7 +21,7 @@ import { SenseSkyOverlay } from "@/src/components/SenseSkyOverlay";
 import { SenseGeoOverlay } from "@/src/components/SenseGeoOverlay";
 import { nf, compassPoint } from "@/src/lib/format";
 import { socialApi, aiApi } from "@/src/lib/backend";
-import { ApiError } from "@/src/lib/client";
+import { publishErrorMessage } from "@/src/lib/publishError";
 import { useAuth } from "@/src/context/AuthContext";
 import { BrandName } from "@/src/components/Brand";
 import { pulseForNow } from "@/src/lib/pulseTasks";
@@ -159,11 +159,18 @@ export default function ObservationView() {
     if (!user) { router.push("/login" as never); return; }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setPublishing(true);
+    let manipulated;
     try {
-      const manipulated = await ImageManipulator.manipulateAsync(
+      manipulated = await ImageManipulator.manipulateAsync(
         obs.uri, [{ resize: { width: 1280 } }],
         { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true },
       );
+    } catch {
+      setStatus("Impossibile elaborare l'immagine dello scatto. Riprova.");
+      setPublishing(false);
+      return;
+    }
+    try {
       let pulseTask = obs.data.pulse;
       if (asPulse && !pulseTask) {
         const t = pulseForNow();
@@ -179,10 +186,7 @@ export default function ObservationView() {
       setPubOpen(false);
       setPublished(created.id);
     } catch (e) {
-      const msg = e instanceof ApiError && e.status === 422
-        ? e.message
-        : "Pubblicazione non riuscita";
-      setStatus(msg);
+      setStatus(publishErrorMessage(e));
       setPubOpen(false);
     } finally { setPublishing(false); }
   };
@@ -363,12 +367,6 @@ export default function ObservationView() {
           </View>
         ) : null}
 
-        <View style={styles.actions}>
-          <Pressable testID="reveal-toggle" style={[styles.revealBtn, reveal && styles.revealActive]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setLayersVisible(true); setReveal((r) => !r); }}>
-            <Ionicons name={reveal ? "eye" : "eye-outline"} size={18} color={reveal ? colors.onBrand : colors.onSurface} />
-            <Text style={[styles.revealText, reveal && { color: colors.onBrand }]}>What You Couldn&apos;t See</Text>
-          </Pressable>
-        </View>
         <View style={styles.qrToggleRow}>
           <View style={styles.qrToggleLeft}>
             <Ionicons name="qr-code-outline" size={16} color={colors.onSurfaceSecondary} />
@@ -607,9 +605,6 @@ const styles = StyleSheet.create({
   qrBox: { padding: 2, backgroundColor: "#fff", borderRadius: 5 },
   gestureHint: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 2, textAlign: "center", opacity: 0.65, marginTop: -spacing.xs },
   actions: { flexDirection: "row", gap: spacing.md },
-  revealBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.tertiary, borderRadius: 16, paddingVertical: spacing.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.borderStrong },
-  revealActive: { backgroundColor: colors.brand, borderColor: colors.brand },
-  revealText: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
   actBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.tertiary, borderRadius: 16, paddingVertical: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   actText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.base },
   qrToggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: spacing.sm, paddingHorizontal: spacing.xs, marginBottom: spacing.xs },

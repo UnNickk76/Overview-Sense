@@ -12,13 +12,20 @@ export function mediaUrl(imageUrl?: string | null): string | null {
   return imageUrl ? `${BASE}${imageUrl}` : null;
 }
 
-export async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
+export async function apiFetch<T>(path: string, opts: RequestInit = {}, timeoutMs = 60000): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(opts.headers as Record<string, string> | undefined),
   };
   if (authToken) headers.Authorization = `Bearer ${authToken}`;
-  const res = await fetch(`${BASE}/api${path}`, { ...opts, headers });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/api${path}`, { ...opts, headers, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;
     try { const j = await res.json(); detail = j.detail || detail; } catch { /* ignore */ }
