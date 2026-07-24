@@ -96,7 +96,8 @@ export default function PublishComposer() {
 
     // A saved Sense must ALWAYS be publishable → robust image load that never
     // hard-fails while the file exists (falls back to a raw file read).
-    const image_base64 = (await senseImageBase64(editedUri || obs.uri)) ?? undefined;
+    const src = editedUri || obs.uri;
+    const image_base64 = (await senseImageBase64(src)) ?? undefined;
 
     let pulseTask = obs.data.pulse;
     if (asPulse && !pulseTask) {
@@ -118,6 +119,19 @@ export default function PublishComposer() {
       pulse_task: asPulse || obs.data.pulse ? pulseTask : undefined,
     };
 
+    // ZERO DATA-LOSS: an image Sense is NEVER published without its media. If the
+    // image isn't ready yet, queue it (with the local URI) and retry automatically.
+    if (!image_base64) {
+      await enqueuePublish(payload, { imageUri: src });
+      setPublishing(false);
+      Alert.alert(
+        "In preparazione",
+        "La tua Sense è al sicuro: verrà pubblicata automaticamente appena l'immagine è pronta.",
+        [{ text: "OK", onPress: () => router.replace("/feed" as never) }],
+      );
+      return;
+    }
+
     try {
       const created = await socialApi.createObservation(payload);
       router.replace(`/observation-detail?id=${created.id}` as never);
@@ -129,11 +143,11 @@ export default function PublishComposer() {
         setPublishing(false);
         return;
       }
-      await enqueuePublish(payload);
+      await enqueuePublish(payload, { imageUri: src });
       Alert.alert(
         "Messa in coda",
         "Connessione o server non disponibili al momento. La tua Sense è al sicuro e verrà pubblicata automaticamente appena possibile.",
-        [{ text: "OK", onPress: () => router.replace("/(tabs)/feed" as never) }],
+        [{ text: "OK", onPress: () => router.replace("/feed" as never) }],
       );
     } finally { setPublishing(false); }
   };

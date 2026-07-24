@@ -10,7 +10,7 @@ import * as ImageManipulator from "expo-image-manipulator";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from "react-native-reanimated";
-import { snapSenseApi, pulseApi, dmApi, SnapGroup, FeedObservation, mediaUrl } from "@/src/lib/backend";
+import { snapSenseApi, pulseApi, dmApi, socialApi, SnapGroup, SnapItem, FeedObservation, mediaUrl } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -43,21 +43,34 @@ function Ring({ group, isOwn, onPress }: { group: SnapGroup; isOwn: boolean; onP
   );
 }
 
-function PulseRing({ obs, glow, onPress }: { obs: FeedObservation; glow: ReturnType<typeof useAnimatedStyle>; onPress: () => void }) {
-  const img = mediaUrl(obs.image_url);
-  return (
-    <Pressable testID={`pulse-ring-${obs.id}`} style={styles.ringItem} onPress={onPress}>
-      <View style={styles.ringPulseWrap}>
-        <Animated.View style={[styles.ringPulseGlow, glow]} pointerEvents="none" />
-        <View style={styles.ringPulse}>
-          {img ? <Image source={{ uri: img }} style={styles.avatar} contentFit="cover" transition={120} />
-            : <View style={[styles.avatar, styles.avatarEmpty]}><Ionicons name="flash" size={22} color={colors.brand} /></View>}
-        </View>
-        <View style={styles.pulseFlash}><Ionicons name="flash" size={10} color={colors.onBrand} /></View>
-      </View>
-      <Text style={styles.ringName} numberOfLines={1}>{obs.nickname}</Text>
-    </Pressable>
-  );
+// Merge SnapSenses + published Pulses into ONE group per user (Instagram-style):
+// a single ring, sequential playback, no consecutive duplicates in Home.
+function mergeGroups(snaps: SnapGroup[], pulses: FeedObservation[], uid?: string): SnapGroup[] {
+  const map = new Map<string, SnapGroup>();
+  for (const g of snaps) map.set(g.user_id, { ...g, items: [...g.items] });
+  for (const p of pulses) {
+    const item: SnapItem = {
+      id: p.id, kind: "pulse", media_type: "image",
+      image_url: p.image_url ?? null, caption: p.caption ?? null,
+      bg_color: null, source: p.source ?? null, created_at: p.created_at, seen: false,
+    };
+    let g = map.get(p.user_id);
+    if (!g) {
+      g = { user_id: p.user_id, nickname: p.nickname, avatar_url: p.avatar ?? null, items: [], latest_at: p.created_at, has_unseen: true };
+      map.set(p.user_id, g);
+    }
+    if (!g.items.some((it) => it.id === p.id)) g.items.push(item);
+  }
+  const arr = Array.from(map.values());
+  for (const g of arr) g.items.sort((a, b) => a.created_at.localeCompare(b.created_at));
+  arr.sort((a, b) => {
+    if (a.user_id === uid) return -1;
+    if (b.user_id === uid) return 1;
+    const la = a.items[a.items.length - 1]?.created_at ?? a.latest_at;
+    const lb = b.items[b.items.length - 1]?.created_at ?? b.latest_at;
+    return lb.localeCompare(la);
+  });
+  return arr;
 }
 
 export function SnapSenseBar() {
@@ -65,7 +78,7 @@ export function SnapSenseBar() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const [groups, setGroups] = useState<SnapGroup[]>([]);
+  const [snapGroups, setSnapGroups] = useState<SnapGroup[]>([]);
   const [pulses, setPulses] = useState<FeedObservation[]>([]);
   const [viewer, setViewer] = useState<{ g: number; i: number } | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -89,12 +102,13 @@ export function SnapSenseBar() {
   const glowStyle = useAnimatedStyle(() => ({ opacity: 0.35 + glow.value * 0.5, transform: [{ scale: 1 + glow.value * 0.06 }] }));
 
   const load = useCallback(() => {
-    snapSenseApi.list().then((r) => setGroups(r.groups)).catch(() => {});
-    pulseApi.feed().then((r) => setPulses(r.items.slice(0, 12))).catch(() => {});
+    snapSenseApi.list().then((r) => setSnapGroups(r.groups)).catch(() => {});
+    pulseApi.feed().then((r) => setPulses(r.items.slice(0, 40))).catch(() => {});
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const ownGroup = user ? groups.find((g) => g.user_id === user.id) : undefined;
+  // Single source of truth for rings + viewer: one merged group per user.
+  const groups = React.useMemo(() => mergeGroups(snapGroups, pulses, user?.id), [snapGroups, pulses, user?.id]);
 
   // ---- Viewer auto-advance ----
   const advance = useCallback(() => {
@@ -113,8 +127,8 @@ export function SnapSenseBar() {
     const g = groups[viewer.g];
     const item = g?.items[viewer.i];
     if (!item) return;
-    // mark seen (best-effort)
-    if (user && g.user_id !== user.id) { snapSenseApi.seen(item.id).catch(() => {}); }
+    // mark seen (best-effort) — only for SnapSense items (Pulses are observations)
+    if (user && g.user_id !== user.id && item.kind !== "pulse") { snapSenseApi.seen(item.id).catch(() => {}); }
     setProg(0);
     const duration = item.media_type === "image" ? 10000 : 7000;
     const step = 50;
@@ -197,7 +211,10 @@ export function SnapSenseBar() {
     if (!viewer) return;
     const item = groups[viewer.g]?.items[viewer.i];
     if (!item) return;
-    try { await snapSenseApi.remove(item.id); } catch { /* ignore */ }
+    try {
+      if (item.kind === "pulse") await socialApi.deleteObservation(item.id);
+      else await snapSenseApi.remove(item.id);
+    } catch { /* ignore */ }
     setViewer(null); load();
   };
 
@@ -223,19 +240,11 @@ export function SnapSenseBar() {
     setReactOpen(false);
     const label = type === "observed" ? "Osservato" : type === "discovery" ? "Scoperta" : "Imparato";
     flash(`${label} ✓`);
-    try { await snapSenseApi.react(curItem.id, type); } catch { /* ignore */ }
+    try {
+      if (curItem.kind === "pulse") await socialApi.interact(curItem.id, type);
+      else await snapSenseApi.react(curItem.id, type);
+    } catch { /* ignore */ }
   };
-
-  // Interleave user SnapSenses with published Pulses — one natural flow.
-  const orderedGroups = ownGroup
-    ? [ownGroup, ...groups.filter((g) => g.user_id !== user?.id)]
-    : groups.filter((g) => g.user_id !== user?.id);
-  const sequence: Array<{ type: "snap"; group: SnapGroup } | { type: "pulse"; obs: FeedObservation }> = [];
-  const maxLen = Math.max(orderedGroups.length, pulses.length);
-  for (let i = 0; i < maxLen; i++) {
-    if (orderedGroups[i]) sequence.push({ type: "snap", group: orderedGroups[i] });
-    if (pulses[i]) sequence.push({ type: "pulse", obs: pulses[i] });
-  }
 
   return (
     <View style={styles.wrap}>
@@ -260,12 +269,10 @@ export function SnapSenseBar() {
           <Text style={[styles.ringName, { color: colors.brand }]} numberOfLines={1}>Pulse</Text>
         </Pressable>
 
-        {sequence.map((s) =>
-          s.type === "snap"
-            ? <Ring key={`s-${s.group.user_id}`} group={s.group} isOwn={s.group.user_id === user?.id} onPress={() => openGroup(groups.indexOf(s.group))} />
-            : <PulseRing key={`p-${s.obs.id}`} obs={s.obs} glow={glowStyle}
-                onPress={() => { Haptics.selectionAsync(); router.push(`/pulse-view?id=${s.obs.id}` as never); }} />
-        )}
+        {/* One ring per user (SnapSenses + Pulses merged) — no duplicates */}
+        {groups.map((g, idx) => (
+          <Ring key={`u-${g.user_id}`} group={g} isOwn={g.user_id === user?.id} onPress={() => openGroup(idx)} />
+        ))}
       </ScrollView>
 
       {/* ---- Viewer ---- */}

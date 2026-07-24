@@ -385,6 +385,14 @@ async def create_observation(req: CreateObs, user: dict = Depends(get_current_us
         await db.media.insert_one({"id": oid, "content_type": "image/jpeg", "data": raw})
         has_image = True
 
+    # ZERO DATA-LOSS SAFETY NET: an image observation must never persist without
+    # its media (prevents empty posts / Pulses without an image).
+    if req.media_type == "image" and not has_image:
+        raise HTTPException(
+            status_code=400,
+            detail="Immagine mancante: una Sense non può essere pubblicata senza immagine.",
+        )
+
     primary, cats = derive_categories(data, req.source)
     caption = (req.description if req.description is not None else req.caption) or ""
     hashtags = [h.strip().lstrip("#") for h in (req.hashtags or []) if h and h.strip()][:15]
@@ -788,6 +796,7 @@ class UpdateObs(BaseModel):
     caption: Optional[str] = None
     legend_hidden: Optional[List[str]] = None
     legend_on: Optional[bool] = None
+    sense_layers: Optional[List[str]] = None
     geo_precision: Optional[str] = None
 
 
@@ -803,6 +812,8 @@ async def update_observation(obs_id: str, req: UpdateObs, user: dict = Depends(g
         data["legendHidden"] = req.legend_hidden
     if req.legend_on is not None:
         data["legendOn"] = req.legend_on
+    if req.sense_layers is not None:
+        data["senseLayers"] = req.sense_layers
     if req.geo_precision is not None:
         if req.geo_precision not in GEO_LEVELS:
             raise HTTPException(status_code=400, detail="Livello di posizione non valido")

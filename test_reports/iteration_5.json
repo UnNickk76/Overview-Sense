@@ -1,0 +1,42 @@
+{
+  "summary": "Full architectural revision of the Observe/publish unification — 8/8 backend regression tests PASS and the frontend unified viewer + Instagram-style story bar behave as designed. Backend (POST /api/observations): (a) image without image_base64 → 400 'Immagine mancante' (zero data-loss safety net), (b) image with valid tiny JPEG → 200 + id + image_url=/api/media/{id}, (c) is_pulse=true without image → 400 (no Pulse without media), (d) is_pulse=true with image → 200. PATCH /api/observations/{id}: author persists sense_layers/legend_on/legend_hidden — GET reflects data.senseLayers / data.legendOn / data.legendHidden verbatim; non-author PATCH → 403. GET /api/pulse/feed returns only is_pulse=true items. Frontend /observation-detail?id=<published>: unified SenseDetail rendered — 'SENSE CREATED · The Invisible Sense' hero (1), author row (explorer + OverView Score), watermarked image, 'SENSE VISION · rivela la parte invisibile' visual layer bar (1), Dati dell'osservazione section (1), Explain this Observation button (1), master 'Mostra tutti / Nascondi tutti' Sense Layers toggle testID=toggle-all-layers (1), comment-input + comment-send (1 each). PERSONAL actions correctly ABSENT on the Observe wrapper: 'Salva in Foto'=0, 'Esporta Discovery Card'=0, 'Pubblica questo SenseShot'=0. Frontend /feed loads without crash — no red screen; SnapSense/Pulse story bar shows exactly one ring per user ('explorer' appears exactly once despite multiple pulses+snaps for that user), confirming mergeGroups Map-keyed-by-user_id correctly Instagram-groups. No react-native/expo deprecations detected in the touched files.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_observe_unify.py",
+    "/app/test_reports/pytest/pytest_observe_unify_iter5.xml"
+  ],
+  "action_items": [
+    "None. The Observe/publish unification is complete and stable. Ready to ship.",
+    "Optional polish (not blocking): the social buttons 'Collezione' and 'Invia / Condividi' on /observation-detail are only rendered when `user` is set (auth guard). Because the web preview visited the page as an anonymous viewer, those two testable social CTAs did not appear in the DOM. The InteractionBar and ActionBar do render for everyone (visible in the screenshot). This is intentional — leaving as-is. Note for the next agent: log in via /login before asserting on 'obs-add-collection' or 'obs-share' testIDs."
+  ],
+  "critical_code_review_comments": [
+    "social.py:388-394 correctly enforces the ZERO DATA-LOSS invariant server-side: an image observation without media returns 400 BEFORE any DB insert. Prevents empty posts / Pulses without an image even if the client bypasses its own guard.",
+    "social.py:795-826 UpdateObs.sense_layers / legend_on / legend_hidden are persisted under data.senseLayers / data.legendOn / data.legendHidden (camelCase) — matches the SenseDisplayConfig contract consumed by SenseDetail.tsx and observation-detail.tsx (persistConfig). 403 for non-author is enforced at line 808.",
+    "observation-detail.tsx wraps SenseDetail with headerSlot=authorRow, renderActions=socialBlock (InteractionBar + ActionBar + Collezione + Invia/Condividi) — NONE of the personal-only strings ('Salva in Foto', 'Esporta Discovery Card', 'Pubblica questo SenseShot') exist in this file; they live only in observation.tsx (Gallery). Correct separation.",
+    "SnapSenseBar.tsx:48-73 mergeGroups uses a Map keyed by user_id — one entry per user, deduping items by id inside the group and pushing current user first. Guarantees the Instagram-style 'one ring per user' rule end-to-end.",
+    "SenseDetail.tsx:267 master 'Mostra tutti / Nascondi tutti' toggle exists with testID='toggle-all-layers' and calls persist(...) so the state is retained per author on the backend — matches the 'general show/hide all Sense Layers' requirement."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_observe_unify.py (new — 8 pytest tests)",
+    "/app/test_reports/pytest/pytest_observe_unify_iter5.xml (new — JUnit)",
+    "/app/test_reports/iteration_5.json (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (8/8 tests)",
+    "frontend": "100% (unified viewer + story bar both verified via mobile-viewport Playwright)"
+  },
+  "seed_data_creation": "5 TEST_ observations by explorer@overview.app (safety-net + PATCH target + 2 pulses + 1 pulse-feed sanity) + 1 ephemeral TEST_other_* user (registered to prove 403 on non-author PATCH). All test data prefixed with 'TEST' — safe to cleanup by dropping observations where caption starts with 'TEST'.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Re-run backend: `EXPO_PUBLIC_BACKEND_URL=https://invisible-sense.preview.emergentagent.com pytest backend/tests/test_observe_unify.py -v`. To also assert on /observation-detail social CTAs (obs-add-collection, obs-share), first authenticate via /login (seed: explorer@overview.app / overview123) — those buttons are gated behind an auth check by design. To grab a valid image observation id: GET /api/feed?sort=recent&limit=20 and pick any item where image_url is non-null (first several are typically explorer's).",
+  "rca_of_issue": "n/a — this iteration was a review of a completed architectural change (Observe/publish unification + Instagram-style Pulse grouping). All requested invariants are enforced server-side and mirrored in the unified SenseDetail viewer. No bugs found."
+}

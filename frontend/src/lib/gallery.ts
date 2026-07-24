@@ -36,6 +36,9 @@ export interface ObsData {
   // Sky legend: which recognized objects are hidden, and whether names are shown.
   legendHidden?: string[];
   legendOn?: boolean;
+  // Owner's active Sense Layers at publish time → initial state shown to everyone
+  // in Observe (each viewer can then change it without altering the original).
+  senseLayers?: string[];
   // Go There™ location privacy chosen by the author (default exact for legacy).
   geoPrecision?: "none" | "area" | "approx" | "exact";
 }
@@ -109,6 +112,19 @@ export async function saveAudioObservation(sourceUri: string, label: string): Pr
   const obs: Observation = { id, seq, kind: "audio", uri, label, ts: Date.now() };
   await writeList([obs, ...(await readList())]);
   return obs;
+}
+
+// Persist the owner's display config on a stored Sense (Overlay/Names/Sense Layers)
+// so it survives reopening and becomes the initial state when published.
+export async function updateObservationConfig(
+  id: string,
+  cfg: { legendHidden?: string[]; legendOn?: boolean; senseLayers?: string[] },
+): Promise<void> {
+  const list = await readList();
+  const next = list.map((o) => (o.id === id && o.data
+    ? { ...o, data: { ...o.data, ...cfg } }
+    : o));
+  await writeList(next);
 }
 
 export async function removeObservation(id: string): Promise<void> {

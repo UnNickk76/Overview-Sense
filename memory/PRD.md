@@ -1012,3 +1012,31 @@ mai una ricostruzione artificiale della scena" (coerente con Beyond View).
   in `sense-vision.tsx`; render in `observation.tsx`; incluso in `frameObjects`/Riconosciuti (kind "Luogo", no occlusione orizzonte).
 - CAVEAT: Overpass pubblico è rate-limited/variabile da IP datacenter; la cache mitiga in produzione. Overlay = device-only.
 - FUTURO: fonte dati keyed (Mapbox/GeoNames) se serve maggiore affidabilità; elevazione terreno via DEM per profili montani.
+
+---
+
+## SESSIONE (fork) — Revisione completa Observe: pipeline blindata + viewer unificato + Pulse storie
+
+Richiesta utente: stop ai fix isolati, revisione architetturale di Observe. Galleria = archivio personale; Observe = stessa identica scheda in versione social (cambiano solo le azioni finali). Zero data-loss.
+
+### Fase 1 — Pipeline di pubblicazione blindata (FATTO, verificato curl)
+- `src/lib/pendingPublish.ts`: la coda ora salva la URI locale dell'immagine e la RILEGGE ad ogni flush → una Sense-immagine non viene MAI pubblicata senza media né persa.
+- `publish-composer.tsx` + `observation.tsx`: se `image_base64` non è pronto → NON si invia; si accoda con `imageUri` e retry automatico. (Fix anche route errata `/(tabs)/feed` → `/feed`.)
+- Backend `social.create_observation`: rete di sicurezza → `media_type=="image"` senza media valido ⇒ HTTP 400 (niente post/Pulse vuoti). Verificato: imageless→400, con img→200.
+
+### Fase 2 — Viewer UNIFICATO (FATTO)
+- NUOVO `src/components/SenseDetail.tsx`: motore condiviso (immagine+overlay Sky/Geo+Nomi+Riconosciuti+Sense Layer+Explain+Dati+watermark+gesture Pure/Reality). Usato SIA da Galleria SIA da Observe.
+- `observation.tsx` (Galleria) = wrapper con azioni PERSONALI (Condividi, Salva in Foto, Esporta Discovery Card, Pubblica, QR toggle).
+- `observation-detail.tsx` (Observe) = stesso `SenseDetail` con SOLO azioni social (InteractionBar reazioni, ActionBar commenti/repost/save/share ShareHub, Collezione, Invia/Condividi). Rimosse Salva in Foto / Esporta Discovery Card / Pubblica.
+- Config del proprietario (Overlay/Nomi/Sense Layer attivi) salvata: Galleria→`updateObservationConfig` (locale), Observe autore→PATCH `sense_layers/legend_*`; diventa stato iniziale per tutti, ogni osservatore la modifica senza toccare l'originale.
+- Nuovo campo `ObsData.senseLayers`; backend `UpdateObs.sense_layers`. Verificato: PATCH persiste `data.senseLayers`.
+
+### Fase 3 — Toggle generale Sense Layer (FATTO, dentro SenseDetail)
+- Pulsante "Mostra tutti / Nascondi tutti" oltre ai singoli toggle.
+
+### Fase 4 — Pulse come Storie Instagram (FATTO)
+- `SnapSenseBar.tsx`: `mergeGroups()` unisce SnapSense + Pulse in UN solo gruppo per utente (un cerchio, riproduzione in sequenza, progress bar per item, nessun duplicato). Guardie per item Pulse: seen skip, delete via `socialApi.deleteObservation`, react via `socialApi.interact`.
+
+Principio modulare confermato: ogni nuova funzione va in `SenseDetail` → disponibile in Galleria e Observe senza duplicare codice.
+
+Device-only: cattura Sense Vision + Galleria (file locali). Da testare col testing_agent: backend pipeline + rendering Observe unificato.
