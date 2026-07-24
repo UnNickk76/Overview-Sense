@@ -7,7 +7,6 @@ import QRCode from "react-native-qrcode-svg";
 import * as MediaLibrary from "expo-media-library";
 import * as Sharing from "expo-sharing";
 import * as Haptics from "expo-haptics";
-import * as ImageManipulator from "expo-image-manipulator";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
@@ -22,6 +21,9 @@ import { SenseGeoOverlay } from "@/src/components/SenseGeoOverlay";
 import { nf, compassPoint } from "@/src/lib/format";
 import { socialApi, aiApi } from "@/src/lib/backend";
 import { publishErrorMessage } from "@/src/lib/publishError";
+import { ApiError } from "@/src/lib/client";
+import { senseImageBase64 } from "@/src/lib/imageUpload";
+import { enqueuePublish } from "@/src/lib/pendingPublish";
 import { useAuth } from "@/src/context/AuthContext";
 import { BrandName } from "@/src/components/Brand";
 import { pulseForNow } from "@/src/lib/pulseTasks";
@@ -159,35 +161,33 @@ export default function ObservationView() {
     if (!user) { router.push("/login" as never); return; }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setPublishing(true);
-    let manipulated;
-    try {
-      manipulated = await ImageManipulator.manipulateAsync(
-        obs.uri, [{ resize: { width: 1280 } }],
-        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-      );
-    } catch {
-      setStatus("Impossibile elaborare l'immagine dello scatto. Riprova.");
-      setPublishing(false);
-      return;
+
+    const image_base64 = (await senseImageBase64(obs.uri)) ?? undefined;
+    let pulseTask = obs.data.pulse;
+    if (asPulse && !pulseTask) {
+      const t = pulseForNow();
+      pulseTask = { id: t.id, title: t.title, theme: t.theme, prompt: t.prompt };
     }
+    const data = { ...obs.data, legendHidden: Array.from(hiddenObj), legendOn, geoPrecision: geoPrec };
+    const payload = {
+      media_type: "image", source: "reality",
+      caption: "", image_base64, data,
+      is_pulse: asPulse || !!obs.data.pulse,
+      pulse_task: asPulse || obs.data.pulse ? pulseTask : undefined,
+    };
     try {
-      let pulseTask = obs.data.pulse;
-      if (asPulse && !pulseTask) {
-        const t = pulseForNow();
-        pulseTask = { id: t.id, title: t.title, theme: t.theme, prompt: t.prompt };
-      }
-      const data = { ...obs.data, legendHidden: Array.from(hiddenObj), legendOn, geoPrecision: geoPrec };
-      const created = await socialApi.createObservation({
-        media_type: "image", source: "reality",
-        caption: "", image_base64: manipulated.base64 ?? undefined, data,
-        is_pulse: asPulse || !!obs.data.pulse,
-        pulse_task: asPulse || obs.data.pulse ? pulseTask : undefined,
-      });
+      const created = await socialApi.createObservation(payload);
       setPubOpen(false);
       setPublished(created.id);
     } catch (e) {
-      setStatus(publishErrorMessage(e));
-      setPubOpen(false);
+      if (e instanceof ApiError && (e.status === 400 || e.status === 422)) {
+        setStatus(publishErrorMessage(e));
+        setPubOpen(false);
+      } else {
+        await enqueuePublish(payload);
+        setStatus("Rete/server non disponibili — Sense messa in coda, verrà pubblicata appena possibile.");
+        setPubOpen(false);
+      }
     } finally { setPublishing(false); }
   };
 

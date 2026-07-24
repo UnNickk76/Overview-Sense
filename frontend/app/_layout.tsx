@@ -1,7 +1,7 @@
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
-import { LogBox } from "react-native";
+import { LogBox, AppState } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -13,6 +13,7 @@ import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { AuthProvider } from "@/src/context/AuthContext";
 import { LangProvider } from "@/src/context/LangContext";
 import { PushBridge } from "@/src/components/PushBridge";
+import { flushPendingPublishes } from "@/src/lib/pendingPublish";
 
 LogBox.ignoreAllLogs(true);
 SplashScreen.preventAutoHideAsync();
@@ -33,6 +34,16 @@ export default function RootLayout() {
   useEffect(() => {
     if (ready) SplashScreen.hideAsync();
   }, [ready]);
+
+  // Auto-publish any Sense queued while offline — on launch and each time the app
+  // returns to the foreground. The user must never lose content.
+  useEffect(() => {
+    flushPendingPublishes().catch(() => {});
+    const sub = AppState.addEventListener("change", (s) => {
+      if (s === "active") flushPendingPublishes().catch(() => {});
+    });
+    return () => sub.remove();
+  }, []);
 
   if (!ready) return null;
 

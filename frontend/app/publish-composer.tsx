@@ -1,14 +1,13 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   StyleSheet, Text, View, Pressable, ScrollView, TextInput,
-  ActivityIndicator, KeyboardAvoidingView, Platform, useWindowDimensions,
+  ActivityIndicator, KeyboardAvoidingView, Platform, useWindowDimensions, Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import * as ImageManipulator from "expo-image-manipulator";
 import * as Location from "expo-location";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { SenseCanvas, layerToVisual } from "@/src/components/SenseCanvas";
@@ -18,6 +17,9 @@ import { getObservation, Observation } from "@/src/lib/gallery";
 import { socialApi } from "@/src/lib/backend";
 import type { GeoPrecision } from "@/src/lib/backend";
 import { publishErrorMessage } from "@/src/lib/publishError";
+import { ApiError } from "@/src/lib/client";
+import { senseImageBase64 } from "@/src/lib/imageUpload";
+import { enqueuePublish } from "@/src/lib/pendingPublish";
 import { useAuth } from "@/src/context/AuthContext";
 import { assessPrivacy, recordPlace } from "@/src/lib/placeHistory";
 import { communityApi, DiscoverPerson } from "@/src/lib/community";
@@ -91,40 +93,48 @@ export default function PublishComposer() {
     if (!obs || !obs.data || !user) { if (!user) router.push("/login" as never); return; }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setPublishing(true); setErr(null);
-    let manipulated;
-    try {
-      manipulated = await ImageManipulator.manipulateAsync(
-        editedUri || obs.uri, [{ resize: { width: 1280 } }],
-        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-      );
-    } catch {
-      setErr("Impossibile elaborare l'immagine dello scatto. Riprova o ripeti lo scatto.");
-      setPublishing(false);
-      return;
+
+    // A saved Sense must ALWAYS be publishable → robust image load that never
+    // hard-fails while the file exists (falls back to a raw file read).
+    const image_base64 = (await senseImageBase64(editedUri || obs.uri)) ?? undefined;
+
+    let pulseTask = obs.data.pulse;
+    if (asPulse && !pulseTask) {
+      const t = pulseForNow();
+      pulseTask = { id: t.id, title: t.title, theme: t.theme, prompt: t.prompt };
     }
+    const data = { ...obs.data, geoPrecision: geoPrec };
+    const payload = {
+      media_type: "image", source: "reality",
+      title: title.trim() || undefined,
+      description: desc.trim(),
+      hashtags: parseTags(),
+      music: music ? { ...music } : undefined,
+      tagged_users: tagged,
+      voice: voice ? { media_id: voice.media_id, duration: voice.duration } : undefined,
+      image_base64,
+      data,
+      is_pulse: asPulse || !!obs.data.pulse,
+      pulse_task: asPulse || obs.data.pulse ? pulseTask : undefined,
+    };
+
     try {
-      let pulseTask = obs.data.pulse;
-      if (asPulse && !pulseTask) {
-        const t = pulseForNow();
-        pulseTask = { id: t.id, title: t.title, theme: t.theme, prompt: t.prompt };
-      }
-      const data = { ...obs.data, geoPrecision: geoPrec };
-      const created = await socialApi.createObservation({
-        media_type: "image", source: "reality",
-        title: title.trim() || undefined,
-        description: desc.trim(),
-        hashtags: parseTags(),
-        music: music ? { ...music } : undefined,
-        tagged_users: tagged,
-        voice: voice ? { media_id: voice.media_id, duration: voice.duration } : undefined,
-        image_base64: manipulated.base64 ?? undefined,
-        data,
-        is_pulse: asPulse || !!obs.data.pulse,
-        pulse_task: asPulse || obs.data.pulse ? pulseTask : undefined,
-      });
+      const created = await socialApi.createObservation(payload);
       router.replace(`/observation-detail?id=${created.id}` as never);
     } catch (e) {
-      setErr(publishErrorMessage(e));
+      // Permanent problems (bad data / moderation) → tell the user. Anything else
+      // (offline / server / timeout / auth) → queue it so no content is ever lost.
+      if (e instanceof ApiError && (e.status === 400 || e.status === 422)) {
+        setErr(publishErrorMessage(e));
+        setPublishing(false);
+        return;
+      }
+      await enqueuePublish(payload);
+      Alert.alert(
+        "Messa in coda",
+        "Connessione o server non disponibili al momento. La tua Sense è al sicuro e verrà pubblicata automaticamente appena possibile.",
+        [{ text: "OK", onPress: () => router.replace("/(tabs)/feed" as never) }],
+      );
     } finally { setPublishing(false); }
   };
 
