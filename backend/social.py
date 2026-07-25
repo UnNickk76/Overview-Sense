@@ -707,6 +707,10 @@ async def feed(
         return -1.0             # ignored too many times → not relevant for this user
 
     def smart_score(o):
+        # You ALWAYS see your own published Senses in Observe — never hidden by the
+        # "already seen" / impression logic (you just published & opened it).
+        if viewer and o.get("user_id") == viewer.get("id"):
+            return 2.0 + recency(o) * 0.5 + rotation_jitter(o)
         sv = o.get("scientific_value", 0) / 100.0
         pop = (o.get("observed", 0) + o.get("discovery", 0) * 1.5 + o.get("learned", 0)) / 20.0
         pop = min(pop, 1.0)   # engagement ON THE CONTENT only — never author popularity
@@ -740,9 +744,14 @@ async def feed(
         docs.sort(key=lambda o: o.get("scientific_value", 0), reverse=True)
     else:  # smart — dynamic, seen-aware, second-chance ranking
         scored = [(o, smart_score(o)) for o in docs]
-        scored = [(o, s) for (o, s) in scored if s >= 0]  # drop seen-recently-unchanged
-        scored.sort(key=lambda t: t[1], reverse=True)
-        docs = [o for (o, _s) in scored]
+        kept = [(o, s) for (o, s) in scored if s >= 0]  # drop seen-recently-unchanged
+        kept.sort(key=lambda t: t[1], reverse=True)
+        result = [o for (o, _s) in kept]
+        # Observe must NEVER look empty while real content exists: if the seen /
+        # impression logic filtered everything out, fall back to most-recent.
+        if not result and docs:
+            result = sorted(docs, key=lambda o: o.get("created_at", ""), reverse=True)
+        docs = result
 
     docs = docs[:limit]
     # Record impressions for the smart feed (one per 6h bucket per item) so the
