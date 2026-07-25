@@ -13,6 +13,7 @@ export interface AuthUser {
   display_name?: string;
   bio?: string;
   avatar?: string | null;
+  author_code?: string;
   links?: ProfileLink[];
   role?: string;
   protected?: boolean;
@@ -130,6 +131,8 @@ export const authApi = {
       method: "POST", body: JSON.stringify({ email, password }),
     }),
   me: () => apiFetch<AuthUser>("/auth/me"),
+  nicknameAvailable: (nickname: string) =>
+    apiFetch<{ available: boolean; reason?: string }>(`/auth/nickname-available?nickname=${encodeURIComponent(nickname)}`),
   updateProfile: (data: { bio?: string; nickname?: string; display_name?: string; links?: ProfileLink[] }) =>
     apiFetch<AuthUser>("/users/me", { method: "PATCH", body: JSON.stringify(data) }),
   changePassword: (current_password: string, new_password: string) =>
@@ -175,6 +178,10 @@ export const socialApi = {
     return apiFetch<{ items: FeedObservation[] }>(`/feed?${q.toString()}`);
   },
   observation: (id: string) => apiFetch<FeedObservation>(`/observations/${id}`),
+  search: (q: string, offset = 0, limit = 30) =>
+    apiFetch<{ items: FeedObservation[]; offset: number; has_more: boolean }>(
+      `/search?q=${encodeURIComponent(q)}&offset=${offset}&limit=${limit}`,
+    ),
   observationOfTheDay: () =>
     apiFetch<{ observation: FeedObservation | null }>("/observation-of-the-day"),
   cosmosImages: (q: string, limit = 10) =>

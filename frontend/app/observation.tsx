@@ -120,13 +120,7 @@ export default function ObservationView() {
       const t = pulseForNow();
       pulseTask = { id: t.id, title: t.title, theme: t.theme, prompt: t.prompt };
     }
-    const data = {
-      ...obs.data,
-      legendHidden: config?.legendHidden ?? obs.data.legendHidden,
-      legendOn: config?.legendOn ?? obs.data.legendOn,
-      senseLayers: config?.senseLayers ?? obs.data.senseLayers,
-      geoPrecision: geoPrec,
-    };
+    const data = { ...obs.data, legendHidden: config?.legendHidden ?? obs.data.legendHidden, legendOn: config?.legendOn ?? obs.data.legendOn, senseLayers: config?.senseLayers ?? obs.data.senseLayers, geoPrecision: geoPrec, senseCode: observationCode(obs.seq, user?.author_code) };
     const payload = {
       media_type: "image", source: "reality",
       caption: "", image_base64, data,
@@ -166,12 +160,12 @@ export default function ObservationView() {
 
   return (
     <SpaceBackground>
-      <ScreenHeader title={observationCode(obs.seq)} subtitle={dateStr} />
+      <ScreenHeader title={observationCode(obs.seq, user?.author_code)} subtitle={dateStr} />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"], gap: spacing.md }} showsVerticalScrollIndicator={false} testID="observation-view">
         <SenseDetail
           uri={obs.uri}
           data={d}
-          code={observationCode(obs.seq)}
+          code={observationCode(obs.seq, user?.author_code)}
           dateStr={dateStr}
           animKey={obs.id}
           qrValue={qrValue}

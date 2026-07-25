@@ -9,6 +9,7 @@ import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { useAuth } from "@/src/context/AuthContext";
 import { ApiError } from "@/src/lib/client";
+import { NicknameField } from "@/src/components/NicknameField";
 
 export default function Register() {
   const insets = useSafeAreaInsets();
@@ -16,6 +17,7 @@ export default function Register() {
   const { register } = useAuth();
   const [email, setEmail] = useState("");
   const [nickname, setNickname] = useState("");
+  const [nickOk, setNickOk] = useState(false);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -24,7 +26,7 @@ export default function Register() {
     if (busy) return;
     setError(null);
     if (!email.trim() || !nickname.trim() || !password) { setError("Compila tutti i campi."); return; }
-    if (nickname.trim().length < 3) { setError("Il nickname deve avere almeno 3 caratteri."); return; }
+    if (!nickOk) { setError("Scegli un nickname valido e disponibile."); return; }
     if (password.length < 6) { setError("La password deve avere almeno 6 caratteri."); return; }
     setBusy(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -48,8 +50,7 @@ export default function Register() {
 
         <View style={styles.field}>
           <Text style={styles.label}>Nickname</Text>
-          <TextInput testID="register-nickname" style={styles.input} value={nickname} onChangeText={setNickname}
-            autoCapitalize="none" placeholder="es. stargazer" placeholderTextColor={colors.onSurfaceSecondary} />
+          <NicknameField testID="register-nickname" value={nickname} onChange={setNickname} onStatus={setNickOk} />
         </View>
         <View style={styles.field}>
           <Text style={styles.label}>Email</Text>

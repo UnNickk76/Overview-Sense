@@ -6,6 +6,7 @@ completeness and the presence of notable phenomena (planets, ISS, rare events).
 """
 import uuid
 import math
+import re
 import hashlib
 import base64
 from datetime import datetime, timezone, timedelta
@@ -17,7 +18,7 @@ from pydantic import BaseModel
 from pymongo import UpdateOne
 
 from database import db
-from auth import get_current_user, get_optional_user
+from auth import get_current_user, get_optional_user, NICK_RE
 from feedback import get_creator
 from push import notify, send_push
 
@@ -309,6 +310,7 @@ def obs_public(o: dict, viewer_interactions: Optional[set] = None,
         "id": o["id"],
         "user_id": o["user_id"],
         "nickname": o.get("nickname"),
+        "author_code": o.get("author_code"),
         "avatar": o.get("avatar"),
         "media_type": o.get("media_type", "image"),
         "source": o.get("source", "reality"),
@@ -421,6 +423,7 @@ async def create_observation(req: CreateObs, user: dict = Depends(get_current_us
         "id": oid,
         "user_id": user["id"],
         "nickname": user["nickname"],
+        "author_code": user.get("author_code"),
         "avatar": user.get("avatar"),
         "media_type": req.media_type,
         "source": req.source,
@@ -852,6 +855,83 @@ async def delete_observation(obs_id: str, user: dict = Depends(get_current_user)
     return {"ok": True}
 
 
+_SEARCH_STOP = {
+    "mostrami", "mostra", "foto", "fotografate", "fotografato", "fotografia", "fotografie",
+    "immagini", "immagine", "sense", "senseshot", "osservazione", "osservazioni",
+    "di", "del", "della", "delle", "dei", "con", "senza", "le", "la", "il", "lo", "i", "gli",
+    "un", "una", "uno", "che", "sono", "visibili", "visibile", "pubblicate", "pubblicata",
+    "and", "the", "show", "me", "near", "around", "this", "week",
+}
+
+
+@social_router.get("/search")
+async def search_observations(
+    q: str = "",
+    offset: int = 0,
+    limit: int = 30,
+    viewer: Optional[dict] = Depends(get_optional_user),
+):
+    """Content-first discovery. Matches title/description/hashtags/author/place/
+    recognized objects/constellations/planets/sense-layer/category. Understands a
+    few natural-language hints (time window, 'vicino a <luogo>'). Ranked by
+    scientific value — never by author popularity."""
+    text = (q or "").strip()
+    low = text.lower()
+    limit = min(max(limit, 1), 60)
+    now = datetime.now(timezone.utc)
+
+    query: dict = {"has_image": True}
+    ands: list = []
+
+    # Time hints
+    if any(w in low for w in ["questa settimana", "this week", "ultima settimana", "settimana"]):
+        ands.append({"created_at": {"$gte": (now - timedelta(days=7)).isoformat()}})
+        low = re.sub(r"(questa\s+settimana|ultima\s+settimana|this\s+week|settimana)", " ", low)
+    elif any(w in low for w in ["oggi", "today"]):
+        ands.append({"created_at": {"$gte": (now - timedelta(days=1)).isoformat()}})
+        low = re.sub(r"(oggi|today)", " ", low)
+
+    # Location hint: "vicino a Roma", "near Rome"
+    mloc = re.search(r"(?:vicino a|vicino|near|presso|intorno a)\s+([a-zàèéìòùç' ]{2,})", low)
+    if mloc:
+        place = mloc.group(1).strip().split(" ")[0]
+        if len(place) >= 2:
+            ands.append({"data.places.name": {"$regex": re.escape(place), "$options": "i"}})
+            low = low.replace(mloc.group(0), " ")
+
+    tokens = [t for t in re.split(r"[^a-z0-9àèéìòùç]+", low) if len(t) >= 3 and t not in _SEARCH_STOP]
+    fields = [
+        "title", "caption", "category", "categories", "hashtags", "nickname", "author_code",
+        "data.senseLayer", "data.senseLayers", "data.constellations", "data.planets.name",
+        "data.places.name", "data.places.category", "data.subject", "data.aiNote", "data.label",
+    ]
+    for t in tokens[:6]:
+        rx = {"$regex": re.escape(t), "$options": "i"}
+        ands.append({"$or": [{f: rx} for f in fields]})
+
+    if ands:
+        query["$and"] = ands
+
+    docs = await (
+        db.observations.find(query, {"_id": 0})
+        .sort([("scientific_value", -1), ("created_at", -1)])
+        .skip(max(0, offset)).limit(limit).to_list(limit)
+    )
+
+    inter: dict = {}
+    saved: set = set()
+    if viewer and docs:
+        ids = [d["id"] for d in docs]
+        async for it in db.interactions.find({"user_id": viewer["id"], "obs_id": {"$in": ids}}, {"_id": 0, "obs_id": 1, "type": 1}):
+            inter.setdefault(it["obs_id"], set()).add(it["type"])
+        async for s in db.saves.find({"user_id": viewer["id"], "obs_id": {"$in": ids}}, {"_id": 0, "obs_id": 1}):
+            saved.add(s["obs_id"])
+
+    items = [obs_public(o, inter.get(o["id"]), o["id"] in saved) for o in docs]
+    return {"items": items, "offset": offset + len(items), "has_more": len(docs) >= limit}
+
+
+
 @social_router.get("/pulse/feed")
 async def pulse_feed(task_id: Optional[str] = None, limit: int = 60,
                      viewer: Optional[dict] = Depends(get_optional_user)):
@@ -1254,6 +1334,7 @@ async def get_profile(user_id: str, viewer: Optional[dict] = Depends(get_optiona
 
     return {
         "id": u["id"], "nickname": u["nickname"],
+        "author_code": u.get("author_code"),
         "display_name": u.get("display_name", ""),
         "bio": u.get("bio", ""),
         "avatar": u.get("avatar"), "created_at": u.get("created_at"),
@@ -1389,6 +1470,10 @@ async def update_me(req: ProfileUpdate, user: dict = Depends(get_current_user)):
         if user.get("protected") and req.nickname.strip() != user.get("nickname"):
             raise HTTPException(status_code=403, detail="Il nickname di questo account è protetto e non modificabile")
         nn = req.nickname.strip()
+        if len(nn) < 3 or len(nn) > 24:
+            raise HTTPException(status_code=400, detail="Il nickname deve avere tra 3 e 24 caratteri")
+        if not NICK_RE.match(nn):
+            raise HTTPException(status_code=400, detail="Il nickname può contenere solo lettere, numeri, . e _")
         exists = await db.users.find_one({"nickname_lower": nn.lower(), "id": {"$ne": user["id"]}})
         if exists:
             raise HTTPException(status_code=409, detail="Nickname già in uso")
@@ -1396,7 +1481,8 @@ async def update_me(req: ProfileUpdate, user: dict = Depends(get_current_user)):
         updates["nickname_lower"] = nn.lower()
     await db.users.update_one({"id": user["id"]}, {"$set": updates})
     u = await db.users.find_one({"id": user["id"]})
-    return {"id": u["id"], "nickname": u["nickname"], "display_name": u.get("display_name", ""),
+    return {"id": u["id"], "nickname": u["nickname"], "author_code": u.get("author_code"),
+            "display_name": u.get("display_name", ""),
             "bio": u.get("bio", ""), "avatar": u.get("avatar"), "links": u.get("links", [])}
 
 

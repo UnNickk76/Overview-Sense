@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 7 — Nickname availability, immutable author_code (uniqueness+backfill), /api/search, Search screen + registration NicknameField + 7-slot BottomNav: ALL PASS. Backend 14/14 pytest PASS (test_overview_iter7.py). Nickname availability: GET /api/auth/nickname-available?nickname=explorer -> {available:false}; random unused -> {available:true}; length<3 -> {available:false, reason:'length'}; invalid chars 'bad nick!' -> {available:false, reason:'chars'}. Author_code: POST /api/auth/register returns a 3-char author_code; two users whose nicknames both start with 'TES' get DIFFERENT codes (uniqueness verified via unique index + candidate rotation in auth.py:57-59, 232-244). Backfill: GET /api/auth/me for seeded explorer@overview.app returns author_code='EXP'. PATCH /api/users/me: renaming to a fresh available nickname -> 200 and author_code is UNCHANGED (immutability holds — social.py:1468-1481 does NOT touch author_code); renaming to 'explorer' -> 409; 'bad nick!' -> 400; 'ab' -> 400. /api/search: q='Luna' returns items/offset/has_more; q='' returns default Explore list; NLP hint q='osservazioni vicino Roma questa settimana' returns 200 with items list (time+place hints handled without error, social.py:887-900). Frontend (Expo web, mobile 390x844): /register uses NicknameField (testID 'register-nickname') and shows 'Nickname disponibile' for a random name, 'Nickname già utilizzato' for 'explorer', '3-24 caratteri: lettere, numeri, . e _' for 'ab'. /search: fixed search bar (search-input) + 7 suggestion chips (sugg-tramonti, sugg-Luna, etc.) + 5-column image grid confirmed (19 grid-<id> cells visible initially; 4 after typing 'Luna' — debounced filter works). Tapping grid-<id> opens the Modal with SenseQuickView (quickview-close + quickview-open-full visible). Tapping 'quickview-open-full' navigates to /observation-detail?id=<uuid> — full Observe card renders with header, SenseCanvas, SENSE VISION toolbar. quickview-close closes the modal (though multiple quickview-open-full nodes exist in DOM because SenseQuickView renders a Page per item in a horizontal FlatList — see minor note below). Bottom nav on /search shows all 7 slots: tab-home, tab-search, tab-pulse, tab-observe, tab-dm, tab-gallery, and tab-sense-vision as the elevated center button (BottomNav.tsx:31-38 + 99-104). No React Native red screen; no deprecated packages (expo-av / expo-barcode-scanner / expo-background-fetch) in touched files.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_overview_iter7.py",
+    "/app/test_reports/pytest/pytest_iter7.xml"
+  ],
+  "action_items": [
+    "None blocking — all seven review requirements verified: (a) nickname-available (taken/free/length/chars), (b) author_code returned by /register + uniqueness across similar-prefix nicknames, (c) backfill on seeded 'explorer' -> 'EXP', (d) PATCH /users/me nickname change keeps author_code immutable + 409/400 validation, (e) /api/search keyword+empty+NLP all 200 with items/offset/has_more, (f) /search web UI (fixed bar + chips + 5-col grid + debounced filter + QuickView -> /observation-detail), (g) /register NicknameField messages + 7-slot BottomNav with Sense Vision center.",
+    "Optional (non-blocking) polish: SenseQuickView renders a Page per item in a horizontal FlatList (SenseQuickView.tsx:44-46), so ALL items expose the same testID 'quickview-open-full' simultaneously. Only one is on-screen at a time (paged), but Playwright strict-mode locators need '.first'. Consider suffixing per item (e.g. quickview-open-full-<id>) if E1 wants a strict unique testID — functionally correct today."
+  ],
+  "critical_code_review_comments": [
+    "auth.py:32-59 uses a deterministic 3-char alphabet (A-Z0-9, 46,656 codes) with a candidate rotation. Combined with the unique sparse index on author_code (auth.py:180) and DuplicateKeyError retry in register (auth.py:232-244), uniqueness is guaranteed by the DB itself — race-safe.",
+    "auth.py:184-198 backfill_author_codes is idempotent: it uses a conditional update {author_code: {$exists: false}} so a re-run cannot overwrite an existing code. Correctly wires up on startup via ensure_auth_indexes.",
+    "social.py:1468-1481 update_me nickname branch enforces length (3-24), NICK_RE, and uniqueness via find_one on nickname_lower with id!=self, and only writes {nickname, nickname_lower} — author_code is NEVER touched. Immutability of author_code is structural (not just contractual). Good.",
+    "social.py:867-931 search_observations: correctly filters has_image=True, parses time/location NLP hints before tokenizing, limits to 6 tokens, uses regex-escaped $regex, and sorts by (scientific_value desc, created_at desc). offset/has_more contract satisfied.",
+    "BottomNav.tsx:31-38 declares 6 side items + the center tab-sense-vision = 7 tappable slots. left/right split (slice(0,3)/slice(3)) leaves an empty centerSlot in the flex row where the elevated Sense Vision button sits — layout is clean and Sense Vision is the signature center action as specified."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_overview_iter7.py (new — 14 pytest tests)",
+    "/app/test_reports/pytest/pytest_iter7.xml (new — JUnit)",
+    "/app/test_reports/iteration_7.json (new)"
+  ],
+  "success_rate": { "backend": "100% (14/14)", "frontend": "100% (register + search + quickview + navigation + 7-slot nav all verified)" },
+  "seed_data_creation": "3 test users created via POST /api/auth/register with fresh emails (test_<hex>@overview.app, nicknames TEST*/TEST_ren_*). Not deleted — safe to clean via db.users.delete_many({email_lower: /^test_/}) or {nickname_lower: /^test_/}. No observations were created in this iteration.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend base URL: https://invisible-sense.preview.emergentagent.com (frontend/.env EXPO_PUBLIC_BACKEND_URL). Reproduce with: pytest /app/backend/tests/test_overview_iter7.py -v. Seeded 'explorer' has author_code='EXP'. Registration returns access_token (not token) and user.author_code (3 chars). PATCH /api/users/me returns the updated user dict INCLUDING author_code — assert it is unchanged after a nickname change. /api/search response shape: {items:[], offset:int, has_more:bool}. On the Search screen (/search), SenseQuickView renders a Page per item in a horizontal FlatList, so testID 'quickview-open-full' appears N times in the DOM — always use .first in Playwright locators or add an -<id> suffix if the main agent tightens the testID.",
+  "rca_of_issue": "n/a — no regressions. The only observation is the shared testID inside SenseQuickView pager (see action_items) which is cosmetic for tests only, not a functional bug."
+}

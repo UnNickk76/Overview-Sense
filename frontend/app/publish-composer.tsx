@@ -13,7 +13,7 @@ import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { SenseCanvas, layerToVisual } from "@/src/components/SenseCanvas";
 import { GeoPrivacyPicker } from "@/src/components/GeoPrivacyPicker";
 import { MusicPicker } from "@/src/components/MusicPicker";
-import { getObservation, Observation } from "@/src/lib/gallery";
+import { getObservation, observationCode, Observation } from "@/src/lib/gallery";
 import { socialApi } from "@/src/lib/backend";
 import type { GeoPrecision } from "@/src/lib/backend";
 import { publishErrorMessage } from "@/src/lib/publishError";
@@ -110,7 +110,7 @@ export default function PublishComposer() {
       const t = pulseForNow();
       pulseTask = { id: t.id, title: t.title, theme: t.theme, prompt: t.prompt };
     }
-    const data = { ...obs.data, geoPrecision: geoPrec };
+    const data = { ...obs.data, geoPrecision: geoPrec, senseCode: observationCode(obs.seq, user.author_code) };
     const payload = {
       media_type: "image", source: "reality",
       title: title.trim() || undefined,

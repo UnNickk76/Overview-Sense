@@ -41,6 +41,9 @@ export interface ObsData {
   senseLayers?: string[];
   // Go There™ location privacy chosen by the author (default exact for legacy).
   geoPrecision?: "none" | "area" | "approx" | "exact";
+  // Full unique SenseShot id "#NEO-000000021" (author code + progressive number),
+  // frozen at publish so Observe shows the same id as the Gallery.
+  senseCode?: string;
 }
 
 export interface Observation {
@@ -82,8 +85,9 @@ export async function getObservation(id: string): Promise<Observation | null> {
   return (await readList()).find((o) => o.id === id) ?? null;
 }
 
-export function observationCode(seq: number): string {
-  return `#${String(seq).padStart(9, "0")}`;
+export function observationCode(seq: number, authorCode?: string): string {
+  const num = String(seq).padStart(9, "0");
+  return authorCode ? `#${authorCode}-${num}` : `#${num}`;
 }
 
 // Save a captured photo as a rich Observation (copies the file to app storage).

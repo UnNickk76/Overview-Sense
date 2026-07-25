@@ -271,7 +271,7 @@ export default function ObservationDetail() {
           <SenseDetail
             uri={uri}
             data={d}
-            code={obs.title || obs.category}
+            code={d.senseCode || obs.title || obs.category}
             dateStr={dateStr}
             animKey={obs.id}
             qrValue={observationAppUrl(obs.id)}

@@ -1052,3 +1052,15 @@ Problema reale: la pubblicazione su Observe finiva SEMPRE in coda ("In preparazi
 - **Conferma eliminazione** Pulse: overlay inline "Eliminare questo Pulse?" con Annulla/Elimina + stato loading, anti doppio-tap.
 Verificato testing_agent iter6: backend 6/6, frontend menu+conferma+one-ring OK.
 NOTA: la pubblicazione end-to-end (cattura reale) è device-only → validare su build TestFlight.
+
+---
+
+## SESSIONE (fork) — Identità autore + Search/Explore (iter8)
+
+Ordine utente rispettato (1 pubblicazione già risolta lato codice → 2-5 qui).
+2. **Nickname univoci**: indice unico `nickname_lower` (già presente) + endpoint `GET /api/auth/nickname-available` (case-insensitive, valida lunghezza/caratteri) + componente `NicknameField` (check real-time con debounce, "disponibile/già usato", suggerimenti) in register.tsx e edit-profile.tsx. Validazione formato anche nel PATCH /users/me.
+3. **Codice autore univoco/immutabile (3 char)**: `author_code` generato alla registrazione (derivato dal nickname, reso univoco via indice unico + retry su DuplicateKeyError), immutabile anche al cambio nickname, mai riusato. Backfill idempotente all'avvio (NeoMorpheus→NEO, explorer→EXP). Esposto in public_user / profilo / obs_public. Confermato dall'integration_expert: nessuna modifica a bcrypt/JWT.
+4. **Nuovo formato ID SenseShot** `#NEO-000000021`: `observationCode(seq, authorCode)`; salvato in `data.senseCode` alla pubblicazione così Observe mostra lo stesso ID della Galleria.
+5. **Search/Explore**: `GET /api/search?q=&offset=&limit=` (match su titolo/descrizione/hashtag/autore/luogo/oggetti/costellazioni/pianeti/senseLayer/categoria + hint linguistici: finestra temporale, "vicino a <luogo>"; ranking per valore scientifico, NON per popolarità). Nuova schermata `app/search.tsx`: barra fissa, chip suggerimenti, griglia 5 colonne, scroll infinito, pull-to-refresh, quick-view (`SenseQuickView`: foto + overlay/nomi con config del proprietario, swipe tra risultati, azioni social, "Apri scheda completa" / doppio tap → observation-detail). Bottom nav ora a **7 slot** (Home, Search, Pulse, Sense Vision centro, Observe, Messaggi, Galleria).
+
+Riuso totale: Search usa lo stesso modello dati, stessa anteprima e la stessa scheda completa (observation-detail = SenseDetail) di Observe.

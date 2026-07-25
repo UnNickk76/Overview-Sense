@@ -14,6 +14,7 @@ import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { authApi, mediaUrl } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
 import { ApiError } from "@/src/lib/client";
+import { NicknameField } from "@/src/components/NicknameField";
 
 export default function EditProfile() {
   const insets = useSafeAreaInsets();
@@ -21,6 +22,7 @@ export default function EditProfile() {
   const { user, setUser } = useAuth();
 
   const [nickname, setNickname] = useState(user?.nickname ?? "");
+  const [nickOk, setNickOk] = useState(true);
   const [displayName, setDisplayName] = useState(user?.display_name ?? "");
   const [bio, setBio] = useState(user?.bio ?? "");
   const [links, setLinks] = useState<{ label: string; url: string }[]>(
@@ -108,14 +110,16 @@ export default function EditProfile() {
   const saveProfile = async () => {
     if (savingProfile) return;
     setProfileMsg(null);
+    const changingNick = !isProtected && nickname.trim() !== user.nickname;
+    if (changingNick && !nickOk) { setProfileMsg("Scegli un nickname valido e disponibile."); return; }
     setSavingProfile(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       const cleanLinks = links.map((l) => ({ label: l.label.trim(), url: l.url.trim() })).filter((l) => l.url);
       const payload: { bio?: string; nickname?: string; display_name?: string; links?: { label: string; url: string }[] } = { bio, display_name: displayName, links: cleanLinks };
-      if (!isProtected && nickname.trim() !== user.nickname) payload.nickname = nickname.trim();
+      if (changingNick) payload.nickname = nickname.trim();
       const u = await authApi.updateProfile(payload);
-      setUser({ ...user, nickname: u.nickname, bio: u.bio ?? "", display_name: u.display_name ?? "", links: u.links ?? [] });
+      setUser({ ...user, nickname: u.nickname, author_code: u.author_code ?? user.author_code, bio: u.bio ?? "", display_name: u.display_name ?? "", links: u.links ?? [] });
       setProfileMsg("Profilo aggiornato ✓");
     } catch (e) {
       setProfileMsg(e instanceof ApiError ? e.message : "Salvataggio non riuscito.");
@@ -184,13 +188,18 @@ export default function EditProfile() {
           </View>
           <View style={styles.field}>
             <Text style={styles.label}>Nickname</Text>
-            <View style={[styles.inputRow, isProtected && styles.inputLocked]}>
-              <TextInput testID="edit-nickname" style={styles.inputFlex} value={nickname} onChangeText={setNickname}
-                editable={!isProtected} autoCapitalize="none"
-                placeholder="Il tuo nickname" placeholderTextColor={colors.onSurfaceSecondary} />
-              {isProtected ? <Ionicons name="lock-closed" size={16} color={colors.brand} /> : null}
-            </View>
+            {isProtected ? (
+              <View style={[styles.inputRow, styles.inputLocked]}>
+                <TextInput testID="edit-nickname" style={styles.inputFlex} value={nickname} editable={false}
+                  autoCapitalize="none" placeholderTextColor={colors.onSurfaceSecondary} />
+                <Ionicons name="lock-closed" size={16} color={colors.brand} />
+              </View>
+            ) : (
+              <NicknameField testID="edit-nickname" value={nickname} onChange={setNickname}
+                currentNickname={user.nickname} onStatus={setNickOk} />
+            )}
             {isProtected ? <Text style={styles.lockHint}>Account protetto · nickname ed email non modificabili</Text> : null}
+            {user.author_code ? <Text style={styles.lockHint}>Codice autore permanente: {user.author_code} · resta invariato anche se cambi nickname</Text> : null}
           </View>
           <View style={styles.field}>
             <Text style={styles.label}>Bio</Text>

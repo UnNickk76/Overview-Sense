@@ -11,11 +11,13 @@ import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { BottomNav } from "@/src/components/BottomNav";
 import { colors, fonts, spacing, type } from "@/src/theme";
 import { listObservations, removeObservation, observationCode, Observation } from "@/src/lib/gallery";
+import { useAuth } from "@/src/context/AuthContext";
 
 export default function Observations() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const router = useRouter();
+  const { user } = useAuth();
   const [items, setItems] = useState<Observation[]>([]);
   const player = useRef<AudioPlayer | null>(null);
 
@@ -60,7 +62,7 @@ export default function Observations() {
                 <Pressable key={o.id} testID={`obs-${o.id}`} style={[styles.imgCard, { width: cell }]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push(`/observation?id=${o.id}` as never); }}>
                   <Image source={{ uri: o.uri }} style={{ width: cell, height: cell }} contentFit="cover" />
                   <View style={styles.imgFooter}>
-                    <Text style={styles.imgLabel} numberOfLines={1}>{observationCode(o.seq)}</Text>
+                    <Text style={styles.imgLabel} numberOfLines={1}>{observationCode(o.seq, user?.author_code)}</Text>
                     <Pressable testID={`delete-${o.id}`} onPress={() => del(o.id)} hitSlop={8}>
                       <Ionicons name="trash" size={16} color={colors.error} />
                     </Pressable>

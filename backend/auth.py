@@ -24,6 +24,40 @@ bearer = HTTPBearer(auto_error=False)
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 NICK_RE = re.compile(r"^[a-zA-Z0-9_.]+$")
 
+# ---------------------------------------------------------------------------
+# Author code — permanent, immutable, globally-unique 3-char identity (e.g. NEO,
+# NE1). Derived from the nickname, made unique via a deterministic sequence + a
+# unique index safety net. Assigned once; NEVER changed even if nickname changes.
+# ---------------------------------------------------------------------------
+AUTHOR_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+_ABASE = len(AUTHOR_ALPHABET)
+_AMAX = _ABASE ** 3
+
+
+def _norm_seed(nickname: str) -> str:
+    s = re.sub(r"[^A-Z0-9]", "", (nickname or "").upper())
+    return (s[:3] or "AAA").ljust(3, "A")
+
+
+def _code_to_num(code: str) -> int:
+    n = 0
+    for ch in code:
+        n = n * _ABASE + AUTHOR_ALPHABET.index(ch)
+    return n
+
+
+def _num_to_code(n: int) -> str:
+    out = []
+    for _ in range(3):
+        out.append(AUTHOR_ALPHABET[n % _ABASE])
+        n //= _ABASE
+    return "".join(reversed(out))
+
+
+def author_candidate(nickname: str, attempt: int) -> str:
+    start = _code_to_num(_norm_seed(nickname))
+    return _num_to_code((start + attempt) % _AMAX)
+
 
 # ---------------------------------------------------------------------------
 # Password / token helpers
@@ -52,6 +86,7 @@ def public_user(doc: dict) -> dict:
         "display_name": doc.get("display_name", ""),
         "bio": doc.get("bio", ""),
         "avatar": doc.get("avatar"),
+        "author_code": doc.get("author_code"),
         "links": doc.get("links", []),
         "role": doc.get("role", "user"),
         "protected": doc.get("protected", False),
@@ -142,6 +177,25 @@ async def ensure_auth_indexes():
     await db.users.create_index("id", unique=True)
     await db.users.create_index("email_lower", unique=True)
     await db.users.create_index("nickname_lower", unique=True)
+    await db.users.create_index("author_code", unique=True, sparse=True)
+    await backfill_author_codes()
+
+
+async def backfill_author_codes():
+    """Idempotent: assign a unique author_code to any user missing one."""
+    cursor = db.users.find({"author_code": {"$exists": False}}, {"id": 1, "nickname": 1})
+    async for u in cursor:
+        for attempt in range(_AMAX):
+            code = author_candidate(u.get("nickname", ""), attempt)
+            try:
+                res = await db.users.update_one(
+                    {"id": u["id"], "author_code": {"$exists": False}},
+                    {"$set": {"author_code": code}},
+                )
+                if res.modified_count == 1:
+                    break
+            except DuplicateKeyError:
+                continue
 
 
 # ---------------------------------------------------------------------------
@@ -157,7 +211,7 @@ async def register(req: RegisterReq):
         raise HTTPException(status_code=400, detail="Il nickname può contenere solo lettere, numeri, . e _")
 
     now = datetime.now(timezone.utc).isoformat()
-    doc = {
+    base_doc = {
         "id": str(uuid.uuid4()),
         "email": email,
         "email_lower": email,
@@ -172,14 +226,37 @@ async def register(req: RegisterReq):
         "created_at": now,
         "updated_at": now,
     }
-    try:
-        await db.users.insert_one(doc)
-    except DuplicateKeyError as e:
-        field = "email" if "email" in str(e) else "nickname"
-        raise HTTPException(status_code=409,
-                            detail=f"{'Email' if field == 'email' else 'Nickname'} già in uso")
+    # Assign a globally-unique, immutable author_code. The unique index is the
+    # arbiter: on collision we advance to the next code and retry.
+    doc = None
+    for attempt in range(_AMAX):
+        candidate = dict(base_doc, author_code=author_candidate(nickname, attempt))
+        try:
+            await db.users.insert_one(candidate)
+            doc = candidate
+            break
+        except DuplicateKeyError as e:
+            key = str(getattr(e, "details", {}) or {})
+            if "author_code" in key or "author_code" in str(e):
+                continue  # code taken → next candidate
+            field = "email" if "email" in str(e) else "nickname"
+            raise HTTPException(status_code=409,
+                                detail=f"{'Email' if field == 'email' else 'Nickname'} già in uso")
+    if doc is None:
+        raise HTTPException(status_code=500, detail="Impossibile assegnare il codice autore")
     token = create_access_token(doc["id"])
     return {"access_token": token, "token_type": "bearer", "user": public_user(doc)}
+
+
+@auth_router.get("/nickname-available")
+async def nickname_available(nickname: str):
+    nick = (nickname or "").strip()
+    if len(nick) < 3 or len(nick) > 24:
+        return {"available": False, "reason": "length"}
+    if not NICK_RE.match(nick):
+        return {"available": False, "reason": "chars"}
+    exists = await db.users.find_one({"nickname_lower": nick.lower()}, {"_id": 1})
+    return {"available": exists is None}
 
 
 @auth_router.post("/login")
