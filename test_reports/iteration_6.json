@@ -1,0 +1,37 @@
+{
+  "summary": "Iteration 6 — Pulse ephemerality (24h) + no-image rejection + viewer menu/confirm: ALL requested behaviors verified. Backend (6/6 pytest PASS): (1) POST /api/observations is_pulse=true WITHOUT image_base64 -> 400 'Immagine mancante' (social.py:395-399). (2) is_pulse=true WITH tiny valid JPEG -> 200, image_url=/api/media/{id}, is_pulse=true; just-created pulse present in /api/pulse/feed (proves ~24h future expiry window). (3) EVERY item returned by /api/pulse/feed has has_image=True (image_url non-null) — image-less pulses excluded (social.py:865). (4) EVERY item returned by /api/pulse/feed has created_at within the last 24h (5min grace) — legacy 7-8 day pulses NOT returned (social.py:864-866). (5) /api/feed?sort=recent still 200. Frontend (Expo web, mobile 390x844, logged-in as explorer@overview.app): opened /feed and tapped the own 'Tu' ring (== explorer's Pulse group). The Pulse viewer opened correctly (snap-viewer-close, snap-delete, snap-menu all visible). Tapping snap-menu (three-dots bottom-right) opened the context menu with the OWNER variant: menu-delete (Elimina Pulse), menu-copy (Copia link), menu-info (Informazioni sul Pulse) — menu-report absent as expected for the owner. Tapping menu-copy closed the sheet and flashed the 'Link copiato' toast ✓. Tapping snap-delete (trash icon in the top bar) opened the inline confirmation card with title 'Eliminare questo Pulse?', both snap-del-confirm and snap-del-cancel present. Tapping snap-del-cancel dismissed the dialog WITHOUT deleting — the item is still in the feed. Story bar shows exactly ONE ring per user for the current user ('Tu' appears exactly 1 time; SnapSenseBar.mergeGroups Map-keyed-by-user_id confirmed working end-to-end). No red screen; no react-native deprecations detected in touched files.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pulse_expiry_iter6.py",
+    "/app/test_reports/pytest/pytest_pulse_iter6.xml"
+  ],
+  "action_items": [
+    "None — all four review requirements verified: (a) pulse creation rejects imageless with 400, (b) pulse_expires_at ~24h ahead effectively enforced via created_at cutoff in /api/pulse/feed, (c) /api/pulse/feed filters out imageless & expired, (d) viewer three-dots menu shows correct owner items and Copia link toasts, (e) trash icon opens inline confirmation with title 'Eliminare questo Pulse?' and Annulla dismisses without deletion, (f) story bar shows one ring per user.",
+    "Optional polish (not blocking): the login page returns access_token (not token) — existing test files/README could be updated for consistency; not a bug."
+  ],
+  "critical_code_review_comments": [
+    "social.py:864-866 pulse_feed correctly applies BOTH has_image=True AND created_at >= (now - 24h). This means the 24h ephemerality is enforced at read-time by created_at (not by consulting pulse_expires_at) — which is robust because it also covers legacy pulses without pulse_expires_at. Good defense-in-depth.",
+    "social.py:172-175 ensure_social_indexes performs a one-time delete_many({is_pulse:True, has_image:{$ne:True}}) at startup — invalid legacy Pulses are permanently purged, not just filtered out. Correct.",
+    "social.py:395-399 the zero-data-loss safety net rejects media_type=image without image_base64 (400 'Immagine mancante') BEFORE inserting the document — no way to persist an image-less Pulse.",
+    "SnapSenseBar.tsx:394-421 the three-dots menu correctly branches by ownership: owner sees menu-delete + menu-copy + menu-info; others see menu-copy + menu-report + menu-notinterested. copyLink() uses expo-clipboard and flashes 'Link copiato' toast. All items have testIDs.",
+    "SnapSenseBar.tsx:423-437 the inline delete confirmation is rendered ABOVE the viewer with proper scrim (snap-del-scrim), correct testIDs (snap-del-confirm/snap-del-cancel), Italian title 'Eliminare questo Pulse?', and deleting=true blocks re-entry — matches the requirement exactly.",
+    "SnapSenseBar.tsx:60-86 mergeGroups keys the map by user_id and dedupes items by id inside each group — one ring per user is guaranteed even when a user has both SnapSenses and multiple Pulses. Verified end-to-end (Tu appears exactly once)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_pulse_expiry_iter6.py (new — 6 pytest tests)",
+    "/app/test_reports/pytest/pytest_pulse_iter6.xml (new — JUnit)",
+    "/app/test_reports/iteration_6.json (new)"
+  ],
+  "success_rate": {"backend": "100% (6/6 tests)", "frontend": "100% (all 5 viewer/menu/confirm/ring checks passed on mobile viewport)"},
+  "seed_data_creation": "1 TEST_iter6 pulse created via POST /api/observations by explorer@overview.app (caption 'TEST_iter6 pulse valid'). Not deleted (the review explicitly asks NOT to actually confirm-delete). Safe to clean via db.observations.delete_many({caption: /^TEST_iter6/}).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend base URL is https://invisible-sense.preview.emergentagent.com (EXPO_PUBLIC_BACKEND_URL). Login response uses key 'access_token' (not 'token'). To reproduce: pytest /app/backend/tests/test_pulse_expiry_iter6.py -v. For frontend Pulse viewer tests, login as explorer@overview.app / overview123, go to /feed, click the 'Tu' ring — that opens the owner variant with snap-delete + snap-menu (owner-only menu items menu-delete/menu-copy/menu-info). To exercise the non-owner path, log in as apple@overview.app and click any 'explorer' ring.",
+  "rca_of_issue": "n/a — all four pulse-related fixes verified working. No new bugs introduced."
+}

@@ -168,6 +168,11 @@ async def ensure_social_indexes():
     await db.observations.create_index("created_at")
     await db.observations.create_index("user_id")
     await db.observations.create_index("is_pulse")
+    # One-time cleanup: remove invalid Pulses (no image) so they never surface.
+    try:
+        await db.observations.delete_many({"is_pulse": True, "has_image": {"$ne": True}})
+    except Exception:
+        pass
     await db.interactions.create_index([("user_id", 1), ("obs_id", 1), ("type", 1)], unique=True)
     await db.follows.create_index([("follower_id", 1), ("following_id", 1)], unique=True)
     await db.comments.create_index("obs_id")
@@ -436,6 +441,10 @@ async def create_observation(req: CreateObs, user: dict = Depends(get_current_us
         "ai_confidence": req.ai_confidence,
         "is_pulse": bool(req.is_pulse),
         "pulse_task": req.pulse_task if req.is_pulse else None,
+        "pulse_expires_at": (
+            (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
+            if req.is_pulse else None
+        ),
         "views": 0, "observed": 0, "discovery": 0, "learned": 0,
         "comments_count": 0, "saves_count": 0, "repost_count": 0,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -849,6 +858,12 @@ async def pulse_feed(task_id: Optional[str] = None, limit: int = 60,
     q: dict = {"is_pulse": True}
     if task_id:
         q["pulse_task.id"] = task_id
+    # Pulses are ephemeral (24h) and must have a valid image. Exclude expired ones
+    # (covers legacy pulses without pulse_expires_at via a 24h created_at window)
+    # and any image-less record so the Home never shows empty / stale Pulses.
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    q["has_image"] = True
+    q["created_at"] = {"$gte": cutoff}
     docs = await db.observations.find(q, {"_id": 0}).sort("created_at", -1).limit(min(limit, 200)).to_list(200)
     my: dict = {}
     saved: set = set()

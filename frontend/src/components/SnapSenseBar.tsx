@@ -8,14 +8,26 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as Haptics from "expo-haptics";
+import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from "react-native-reanimated";
 import { snapSenseApi, pulseApi, dmApi, socialApi, SnapGroup, SnapItem, FeedObservation, mediaUrl } from "@/src/lib/backend";
 import { useAuth } from "@/src/context/AuthContext";
+import { observationAppUrl } from "@/src/lib/deeplink";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const TEXT_BGS = ["#0d2947", "#3a1d5c", "#5c1d2e", "#1d5c3a", "#5c4a1d", "#1d3a5c"];
+
+function MenuItem({ testID, icon, label, destructive, onPress }: { testID: string; icon: keyof typeof import("@expo/vector-icons").Ionicons.glyphMap; label: string; destructive?: boolean; onPress: () => void }) {
+  return (
+    <Pressable testID={testID} style={styles.menuItem} onPress={onPress}>
+      <Ionicons name={icon} size={20} color={destructive ? colors.error : colors.onSurface} />
+      <Text style={[styles.menuItemTxt, destructive && { color: colors.error }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 
 function timeAgo(iso: string): string {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
@@ -81,6 +93,9 @@ export function SnapSenseBar() {
   const [snapGroups, setSnapGroups] = useState<SnapGroup[]>([]);
   const [pulses, setPulses] = useState<FeedObservation[]>([]);
   const [viewer, setViewer] = useState<{ g: number; i: number } | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDelOpen, setConfirmDelOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [text, setText] = useState("");
   const [bg, setBg] = useState(TEXT_BGS[0]);
@@ -211,12 +226,22 @@ export function SnapSenseBar() {
     if (!viewer) return;
     const item = groups[viewer.g]?.items[viewer.i];
     if (!item) return;
+    setDeleting(true);
     try {
       if (item.kind === "pulse") await socialApi.deleteObservation(item.id);
       else await snapSenseApi.remove(item.id);
-    } catch { /* ignore */ }
-    setViewer(null); load();
+    } catch { setDeleting(false); return; }
+    setDeleting(false); setConfirmDelOpen(false); setViewer(null); load();
   };
+
+  const curForMenu = viewer ? groups[viewer.g]?.items[viewer.i] : null;
+  const isOwnCur = viewer ? groups[viewer.g]?.user_id === user?.id : false;
+  const copyLink = async () => {
+    if (!curForMenu) return;
+    try { await Clipboard.setStringAsync(observationAppUrl(curForMenu.id)); } catch { /* ignore */ }
+    setMenuOpen(false); setPaused(false); flash("Link copiato");
+  };
+  const menuFlash = (t: string) => { setMenuOpen(false); setPaused(false); flash(t); };
 
   const curItem = viewer ? groups[viewer.g]?.items[viewer.i] : null;
   const curGroup = viewer ? groups[viewer.g] : null;
@@ -303,7 +328,7 @@ export function SnapSenseBar() {
                 <Text style={styles.vTime}>{timeAgo(curItem.created_at)}</Text>
                 <View style={{ flex: 1 }} />
                 {curGroup.user_id === user?.id ? (
-                  <Pressable testID="snap-delete" hitSlop={8} onPress={deleteCurrent} style={{ marginRight: spacing.md }}>
+                  <Pressable testID="snap-delete" hitSlop={8} onPress={() => { Haptics.selectionAsync(); setPaused(true); setConfirmDelOpen(true); }} style={{ marginRight: spacing.md }}>
                     <Ionicons name="trash-outline" size={22} color="#fff" />
                   </Pressable>
                 ) : null}
@@ -366,10 +391,50 @@ export function SnapSenseBar() {
                 <Pressable testID="snap-audio" style={styles.ctrlBtn} onPress={() => { Haptics.selectionAsync(); setAudioOn((v) => !v); }}>
                   <Ionicons name={audioOn ? "volume-high" : "volume-mute"} size={22} color="#fff" />
                 </Pressable>
-                <Pressable testID="snap-menu" style={styles.ctrlBtn} onPress={() => { Haptics.selectionAsync(); }}>
+                <Pressable testID="snap-menu" style={styles.ctrlBtn} onPress={() => { Haptics.selectionAsync(); setPaused(true); setMenuOpen(true); }}>
                   <Ionicons name="ellipsis-horizontal" size={24} color="#fff" />
                 </Pressable>
               </View>
+
+              {/* Context menu — three dots */}
+              {menuOpen ? (
+                <Pressable testID="snap-menu-scrim" style={styles.menuScrim} onPress={() => { setMenuOpen(false); setPaused(false); }}>
+                  <Pressable style={[styles.menuSheet, { paddingBottom: insets.bottom + spacing.lg }]} onPress={() => {}}>
+                    <View style={styles.menuHandle} />
+                    {isOwnCur ? (
+                      <>
+                        <MenuItem testID="menu-delete" icon="trash-outline" label="Elimina Pulse" destructive
+                          onPress={() => { setMenuOpen(false); setConfirmDelOpen(true); }} />
+                        <MenuItem testID="menu-copy" icon="link-outline" label="Copia link" onPress={copyLink} />
+                        <MenuItem testID="menu-info" icon="information-circle-outline" label="Informazioni sul Pulse"
+                          onPress={() => { setMenuOpen(false); setViewer(null); router.push(`/observation-detail?id=${curForMenu?.id}` as never); }} />
+                      </>
+                    ) : (
+                      <>
+                        <MenuItem testID="menu-copy" icon="link-outline" label="Copia link" onPress={copyLink} />
+                        <MenuItem testID="menu-report" icon="flag-outline" label="Segnala" onPress={() => menuFlash("Segnalazione inviata")} />
+                        <MenuItem testID="menu-notinterested" icon="eye-off-outline" label="Non mi interessa" onPress={() => menuFlash("Non ti mostreremo più contenuti simili")} />
+                      </>
+                    )}
+                  </Pressable>
+                </Pressable>
+              ) : null}
+              {/* Delete confirmation — inline overlay (reliable above the viewer) */}
+              {confirmDelOpen ? (
+                <Pressable testID="snap-del-scrim" style={styles.menuScrim} onPress={() => { if (!deleting) { setConfirmDelOpen(false); setPaused(false); } }}>
+                  <Pressable style={styles.confirmCard} onPress={() => {}}>
+                    <View style={styles.confirmIcon}><Ionicons name="trash" size={26} color={colors.error} /></View>
+                    <Text style={styles.confirmTitle}>Eliminare questo Pulse?</Text>
+                    <Text style={styles.confirmMsg}>Il Pulse verrà rimosso definitivamente e non sarà più visibile agli altri utenti.</Text>
+                    <Pressable testID="snap-del-confirm" style={[styles.confirmDelBtn, deleting && { opacity: 0.6 }]} onPress={deleteCurrent} disabled={deleting}>
+                      {deleting ? <ActivityIndicator color="#fff" /> : <Text style={styles.confirmDelTxt}>Elimina Pulse</Text>}
+                    </Pressable>
+                    <Pressable testID="snap-del-cancel" style={styles.confirmCancelBtn} onPress={() => { if (!deleting) { setConfirmDelOpen(false); setPaused(false); } }} disabled={deleting}>
+                      <Text style={styles.confirmCancelTxt}>Annulla</Text>
+                    </Pressable>
+                  </Pressable>
+                </Pressable>
+              ) : null}
             </>
           ) : null}
         </View>
@@ -441,6 +506,20 @@ const styles = StyleSheet.create({
   replyField: { flex: 1, height: 44, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.4)", justifyContent: "center", paddingHorizontal: spacing.md, backgroundColor: "rgba(0,0,0,0.25)" },
   replyPlaceholder: { color: "rgba(255,255,255,0.7)", fontFamily: fonts.regular, fontSize: type.base },
   ctrlBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  menuScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end", zIndex: 50 },
+  menuSheet: { backgroundColor: colors.surfaceSecondary, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
+  menuHandle: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: colors.borderStrong, marginBottom: spacing.md },
+  menuItem: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  menuItemTxt: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.base },
+  confirmCard: { position: "absolute", left: spacing.lg, right: spacing.lg, top: "32%", backgroundColor: colors.surfaceSecondary, borderRadius: 22, padding: spacing.xl, alignItems: "center", gap: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  confirmIcon: { width: 54, height: 54, borderRadius: 27, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,69,58,0.12)", marginBottom: spacing.xs },
+  confirmTitle: { color: colors.onSurface, fontFamily: fonts.bold, fontSize: type.lg, textAlign: "center" },
+  confirmMsg: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm, textAlign: "center", lineHeight: 19, marginBottom: spacing.sm },
+  confirmDelBtn: { alignSelf: "stretch", backgroundColor: colors.error, borderRadius: 14, paddingVertical: spacing.md, alignItems: "center" },
+  confirmDelTxt: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.base },
+  confirmCancelBtn: { alignSelf: "stretch", paddingVertical: spacing.md, alignItems: "center" },
+  confirmCancelTxt: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.base },
+
   reactRow: { position: "absolute", alignSelf: "center", flexDirection: "row", gap: spacing.lg, backgroundColor: "rgba(20,20,24,0.9)", borderRadius: 999, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.2)" },
   reactPick: { alignItems: "center", gap: 4 },
   reactPickTxt: { color: "#fff", fontFamily: fonts.medium, fontSize: type.sm - 2 },
