@@ -1040,3 +1040,15 @@ Richiesta utente: stop ai fix isolati, revisione architetturale di Observe. Gall
 Principio modulare confermato: ogni nuova funzione va in `SenseDetail` → disponibile in Galleria e Observe senza duplicare codice.
 
 Device-only: cattura Sense Vision + Galleria (file locali). Da testare col testing_agent: backend pipeline + rendering Observe unificato.
+
+---
+
+## SESSIONE (fork) — Fix critici pubblicazione + Pulse (iter 6)
+
+Problema reale: la pubblicazione su Observe finiva SEMPRE in coda ("In preparazione") perché `senseImageBase64` restituiva null sul device.
+- **Fix pubblicazione immediata:** `imageUpload.ts` ora legge l'immagine con 3 strategie robuste: (1) manipulate resize+compress, (2) **fetch(file://)->FileReader base64** (funziona ogni volta che l'immagine è visibile), (3) FileSystem raw. La coda resta SOLO fallback per rete/server assenti. La coda esistente si auto-svuota al foreground con il nuovo reader.
+- **Pulse effimeri (24h) end-to-end:** `create_observation` salva `pulse_expires_at=+24h`; `pulse_feed` filtra `created_at>=now-24h` e `has_image=True` → niente Pulse scaduti né vuoti. Cleanup all'avvio elimina i Pulse senza immagine.
+- **Menu tre puntini** nel viewer Pulse: menu contestuale funzionante (owner: Elimina/Copia link/Info; altri: Copia link/Segnala/Non mi interessa). Copia link reale via expo-clipboard.
+- **Conferma eliminazione** Pulse: overlay inline "Eliminare questo Pulse?" con Annulla/Elimina + stato loading, anti doppio-tap.
+Verificato testing_agent iter6: backend 6/6, frontend menu+conferma+one-ring OK.
+NOTA: la pubblicazione end-to-end (cattura reale) è device-only → validare su build TestFlight.
