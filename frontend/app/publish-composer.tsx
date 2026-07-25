@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   StyleSheet, Text, View, Pressable, ScrollView, TextInput,
-  ActivityIndicator, KeyboardAvoidingView, Platform, useWindowDimensions, Alert,
+  ActivityIndicator, KeyboardAvoidingView, Platform, useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -18,7 +18,7 @@ import { socialApi } from "@/src/lib/backend";
 import type { GeoPrecision } from "@/src/lib/backend";
 import { publishErrorMessage } from "@/src/lib/publishError";
 import { ApiError } from "@/src/lib/client";
-import { senseImageBase64 } from "@/src/lib/imageUpload";
+import { loadSenseImage } from "@/src/lib/imageUpload";
 import { enqueuePublish } from "@/src/lib/pendingPublish";
 import { useAuth } from "@/src/context/AuthContext";
 import { assessPrivacy, recordPlace } from "@/src/lib/placeHistory";
@@ -54,6 +54,7 @@ export default function PublishComposer() {
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [asPulse, setAsPulse] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [pubState, setPubState] = useState<"idle" | "uploading" | "error" | "queued">("idle");
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => { if (id) getObservation(id).then(setObs); }, [id]);
@@ -92,12 +93,17 @@ export default function PublishComposer() {
   const publish = async () => {
     if (!obs || !obs.data || !user) { if (!user) router.push("/login" as never); return; }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setPublishing(true); setErr(null);
+    setPublishing(true); setErr(null); setPubState("uploading");
 
-    // A saved Sense must ALWAYS be publishable → robust image load that never
-    // hard-fails while the file exists (falls back to a raw file read).
+    // 1) Read the image that is ALREADY in the Gallery. A displayable Sense is
+    // readable — if it isn't, we surface the concrete reason (no silent queue).
     const src = editedUri || obs.uri;
-    const image_base64 = (await senseImageBase64(src)) ?? undefined;
+    const loaded = await loadSenseImage(src);
+    if ("error" in loaded) {
+      setErr(`Impossibile leggere l'immagine dalla Galleria.\nDettaglio tecnico: ${loaded.error}`);
+      setPubState("error"); setPublishing(false);
+      return;
+    }
 
     let pulseTask = obs.data.pulse;
     if (asPulse && !pulseTask) {
@@ -113,43 +119,29 @@ export default function PublishComposer() {
       music: music ? { ...music } : undefined,
       tagged_users: tagged,
       voice: voice ? { media_id: voice.media_id, duration: voice.duration } : undefined,
-      image_base64,
+      image_base64: loaded.base64,
       data,
       is_pulse: asPulse || !!obs.data.pulse,
       pulse_task: asPulse || obs.data.pulse ? pulseTask : undefined,
     };
 
-    // ZERO DATA-LOSS: an image Sense is NEVER published without its media. If the
-    // image isn't ready yet, queue it (with the local URI) and retry automatically.
-    if (!image_base64) {
-      await enqueuePublish(payload, { imageUri: src });
-      setPublishing(false);
-      Alert.alert(
-        "In preparazione",
-        "La tua Sense è al sicuro: verrà pubblicata automaticamente appena l'immagine è pronta.",
-        [{ text: "OK", onPress: () => router.replace("/feed" as never) }],
-      );
-      return;
-    }
-
+    // 2) Publish immediately. Success is defined as the record existing on Observe.
     try {
       const created = await socialApi.createObservation(payload);
+      setPubState("idle"); setPublishing(false);
       router.replace(`/observation-detail?id=${created.id}` as never);
     } catch (e) {
-      // Permanent problems (bad data / moderation) → tell the user. Anything else
-      // (offline / server / timeout / auth) → queue it so no content is ever lost.
       if (e instanceof ApiError && (e.status === 400 || e.status === 422)) {
-        setErr(publishErrorMessage(e));
-        setPublishing(false);
+        // Bad data / moderation → explicit reason, user can fix & retry.
+        setErr(publishErrorMessage(e)); setPubState("error"); setPublishing(false);
         return;
       }
+      // Genuine network/server outage → save to queue AND show a real, actionable
+      // state (retryable), never a silent promise.
       await enqueuePublish(payload, { imageUri: src });
-      Alert.alert(
-        "Messa in coda",
-        "Connessione o server non disponibili al momento. La tua Sense è al sicuro e verrà pubblicata automaticamente appena possibile.",
-        [{ text: "OK", onPress: () => router.replace("/feed" as never) }],
-      );
-    } finally { setPublishing(false); }
+      setErr("Rete o server non disponibili adesso. La Sense è al sicuro in coda — premi «Riprova» per pubblicare ora.");
+      setPubState("queued"); setPublishing(false);
+    }
   };
 
   if (!obs) {
@@ -267,15 +259,23 @@ export default function PublishComposer() {
             <View style={[styles.switch, asPulse && styles.switchOn]}><View style={[styles.knob, asPulse && styles.knobOn]} /></View>
           </Pressable>
 
-          {err ? <Text style={styles.err}>{err}</Text> : null}
+          {err ? (
+            <View style={styles.errBox}>
+              <Ionicons name="alert-circle" size={16} color="#FF6B6B" />
+              <Text style={styles.err}>{err}</Text>
+            </View>
+          ) : null}
         </ScrollView>
 
         {/* Publish */}
         <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+          {pubState === "uploading" ? (
+            <Text style={styles.pubStatus}>Pubblicazione in corso…</Text>
+          ) : null}
           <Pressable testID="composer-publish" style={[styles.publish, publishing && { opacity: 0.6 }]} disabled={publishing} onPress={publish}>
             {publishing ? <ActivityIndicator color={colors.onBrand} /> : <>
-              <Ionicons name="planet" size={18} color={colors.onBrand} />
-              <Text style={styles.publishText}>Pubblica SenseShot</Text>
+              <Ionicons name={pubState === "error" || pubState === "queued" ? "refresh" : "planet"} size={18} color={colors.onBrand} />
+              <Text style={styles.publishText}>{pubState === "error" || pubState === "queued" ? "Riprova a pubblicare" : "Pubblica SenseShot"}</Text>
             </>}
           </Pressable>
         </View>
@@ -348,7 +348,9 @@ const styles = StyleSheet.create({
   switchOn: { backgroundColor: colors.brand },
   knob: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#fff" },
   knobOn: { alignSelf: "flex-end" },
-  err: { color: "#FF6B6B", fontFamily: fonts.medium, fontSize: type.sm, textAlign: "center" },
+  err: { color: "#FF6B6B", fontFamily: fonts.medium, fontSize: type.sm, flex: 1, lineHeight: 18 },
+  errBox: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: "rgba(255,107,107,0.10)", borderRadius: radius.md, padding: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,107,107,0.5)" },
+  pubStatus: { color: colors.brand, fontFamily: fonts.medium, fontSize: type.sm, textAlign: "center", marginBottom: spacing.sm },
   footer: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: spacing.lg, paddingTop: spacing.md, backgroundColor: "rgba(6,8,12,0.85)", borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   publish: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: 15 },
   publishText: { color: colors.onBrand, fontFamily: fonts.bold, fontSize: type.base, letterSpacing: 0.4 },
