@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from pymongo import UpdateOne
 
 from database import db
-from auth import get_current_user, get_optional_user, NICK_RE
+from auth import get_current_user, get_optional_user, get_active_user, NICK_RE
 from feedback import get_creator
 from push import notify, send_push
 
@@ -367,7 +367,7 @@ class CreateObs(BaseModel):
 
 
 @social_router.post("/observations")
-async def create_observation(req: CreateObs, user: dict = Depends(get_current_user)):
+async def create_observation(req: CreateObs, user: dict = Depends(get_active_user)):
     oid = str(uuid.uuid4())
     data = req.data or {}
     has_image = False
@@ -1202,7 +1202,7 @@ class InteractReq(BaseModel):
 
 
 @social_router.post("/observations/{obs_id}/interact")
-async def interact(obs_id: str, req: InteractReq, user: dict = Depends(get_current_user)):
+async def interact(obs_id: str, req: InteractReq, user: dict = Depends(get_active_user)):
     t = req.type
     if t not in INTERACTIONS:
         raise HTTPException(status_code=400, detail="Tipo non valido")
@@ -1241,7 +1241,7 @@ class CommentReq(BaseModel):
 
 
 @social_router.post("/observations/{obs_id}/comments")
-async def add_comment(obs_id: str, req: CommentReq, user: dict = Depends(get_current_user)):
+async def add_comment(obs_id: str, req: CommentReq, user: dict = Depends(get_active_user)):
     text = req.text.strip()
     if not text:
         raise HTTPException(status_code=400, detail="Commento vuoto")

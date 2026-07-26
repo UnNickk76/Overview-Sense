@@ -90,8 +90,25 @@ def public_user(doc: dict) -> dict:
         "links": doc.get("links", []),
         "role": doc.get("role", "user"),
         "protected": doc.get("protected", False),
+        "suspension": active_suspension(doc),
         "created_at": doc.get("created_at"),
     }
+
+
+def active_suspension(doc: dict):
+    """Return the suspension info if the user is currently suspended, else None.
+    Suspension is read-only (the user can still log in and browse)."""
+    s = doc.get("suspension")
+    if not s:
+        return None
+    until = s.get("until")
+    if until:
+        try:
+            if datetime.fromisoformat(until) <= datetime.now(timezone.utc):
+                return None  # expired
+        except Exception:
+            pass
+    return {"reason": s.get("reason", ""), "until": until, "created_at": s.get("created_at")}
 
 
 # ---------------------------------------------------------------------------
@@ -163,6 +180,7 @@ class RegisterReq(BaseModel):
     email: str
     nickname: str = Field(min_length=3, max_length=24)
     password: str = Field(min_length=6, max_length=128)
+    platform: Optional[str] = None
 
 
 class LoginReq(BaseModel):
@@ -225,6 +243,7 @@ async def register(req: RegisterReq):
         ],
         "created_at": now,
         "updated_at": now,
+        "platform": (req.platform or None),
     }
     # Assign a globally-unique, immutable author_code. The unique index is the
     # arbiter: on collision we advance to the next code and retry.
@@ -339,6 +358,18 @@ async def get_optional_user(creds: Optional[HTTPAuthorizationCredentials] = Depe
     except JWTError:
         return None
     return await db.users.find_one({"id": uid}) if uid else None
+
+
+async def get_active_user(user: dict = Depends(get_current_user)) -> dict:
+    """Guard for WRITE actions: a suspended user may browse but cannot act."""
+    s = active_suspension(user)
+    if s:
+        raise HTTPException(status_code=403, detail={
+            "code": "suspended", "reason": s["reason"], "until": s["until"],
+            "message": "Account sospeso: puoi navigare ma non pubblicare o interagire.",
+        })
+    return user
+
 
 
 @auth_router.get("/me")
