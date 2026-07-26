@@ -5,7 +5,8 @@ export function setAuthToken(t: string | null) { authToken = t; }
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) { super(message); this.status = status; }
+  code?: string;
+  constructor(status: number, message: string, code?: string) { super(message); this.status = status; this.code = code; }
 }
 
 export function mediaUrl(imageUrl?: string | null): string | null {
@@ -28,8 +29,18 @@ export async function apiFetch<T>(path: string, opts: RequestInit = {}, timeoutM
   }
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;
-    try { const j = await res.json(); detail = j.detail || detail; } catch { /* ignore */ }
-    throw new ApiError(res.status, detail);
+    let code: string | undefined;
+    try {
+      const j = await res.json();
+      // FastAPI detail may be a string or a structured object (e.g. suspension).
+      if (j.detail && typeof j.detail === "object") {
+        code = j.detail.code;
+        detail = j.detail.message || j.detail.reason || detail;
+      } else if (j.detail) {
+        detail = j.detail;
+      }
+    } catch { /* ignore */ }
+    throw new ApiError(res.status, detail, code);
   }
   if (res.status === 204) return undefined as T;
   return res.json();

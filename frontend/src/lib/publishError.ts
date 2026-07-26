@@ -4,6 +4,7 @@ import { ApiError } from "./client";
 // of a generic "Pubblicazione non riuscita".
 export function publishErrorMessage(e: unknown): string {
   if (e instanceof ApiError) {
+    if (e.code === "suspended") return e.message || "Account sospeso: puoi navigare ma non pubblicare o interagire.";
     if (e.status === 401 || e.status === 403) return "Sessione scaduta. Accedi di nuovo e riprova.";
     if (e.status === 413) return "Immagine troppo grande per la pubblicazione.";
     if (e.status === 422 || e.status === 400) return e.message || "Dati non validi per la pubblicazione.";

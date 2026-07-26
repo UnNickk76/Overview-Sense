@@ -8,10 +8,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from database import db
-from auth import get_current_user
+from auth import get_current_user, active_suspension
 from push import notify
 
 dm_router = APIRouter(prefix="/api")
+
+# The Creator (NeoMorpheus) is never exposed by name to normal users. Any DM with
+# the developer account is presented as an anonymous "Support" identity.
+SUPPORT_NICK = "Support"
+SUPPORT_NAME = "OverView Support"
 
 SHARE_KINDS = {"text", "image", "observation", "profile", "location", "link", "snapsense", "compare"}
 
@@ -67,9 +72,15 @@ def _preview(kind: str, text: str, share: Optional[dict]) -> str:
     return text[:80] if text else "Messaggio"
 
 
-async def _user_public(uid: str) -> dict:
-    u = await db.users.find_one({"id": uid}, {"_id": 0, "id": 1, "nickname": 1, "display_name": 1, "avatar": 1})
-    return u or {"id": uid, "nickname": "utente", "avatar": None}
+async def _user_public(uid: str, viewer: Optional[dict] = None) -> dict:
+    u = await db.users.find_one({"id": uid}, {"_id": 0, "id": 1, "nickname": 1, "display_name": 1, "avatar": 1, "role": 1})
+    if not u:
+        return {"id": uid, "nickname": "utente", "avatar": None}
+    # Mask the Creator behind a neutral "Support" identity for everyone else.
+    if u.get("role") == "developer" and (viewer is None or viewer.get("role") != "developer"):
+        return {"id": uid, "nickname": SUPPORT_NICK, "display_name": SUPPORT_NAME, "avatar": None, "is_support": True}
+    u.pop("role", None)
+    return u
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +106,7 @@ async def start_conversation(req: StartConv, user: dict = Depends(get_current_us
         }
         await db.conversations.insert_one(conv)
         conv.pop("_id", None)
-    other_u = await _user_public(other)
+    other_u = await _user_public(other, user)
     return {**conv, "other": other_u, "unread": 0}
 
 
@@ -104,7 +115,7 @@ async def list_conversations(user: dict = Depends(get_current_user)):
     out: List[dict] = []
     async for c in db.conversations.find({"participants": user["id"]}, {"_id": 0}).sort("last_at", -1).limit(100):
         other_id = next((p for p in c["participants"] if p != user["id"]), user["id"])
-        other_u = await _user_public(other_id)
+        other_u = await _user_public(other_id, user)
         unread = await db.dm_messages.count_documents(
             {"conv_id": c["id"], "sender_id": {"$ne": user["id"]}, "read_by": {"$ne": user["id"]}})
         out.append({**c, "other": other_u, "unread": unread})
@@ -157,7 +168,7 @@ async def send_message(conv_id: str, req: SendMsg, user: dict = Depends(get_curr
             "expired": expired,
         }
     elif kind == "profile":
-        share = await _user_public(share.get("user_id"))
+        share = await _user_public(share.get("user_id"), user)
     elif kind == "compare":
         obs = await db.observations.find_one({"id": share.get("obs_id")}, {"_id": 0})
         if not obs:
@@ -203,6 +214,49 @@ async def add_to_compare(mid: str, req: CompareAdd, user: dict = Depends(get_cur
     m = await db.dm_messages.find_one({"id": mid}, {"_id": 0})
     if not m or m.get("kind") != "compare":
         raise HTTPException(status_code=404, detail="Confronto non trovato")
+
+
+@dm_router.post("/support/clarification")
+async def support_clarification(user: dict = Depends(get_current_user)):
+    """Open (or reuse) a DM with the Creator, presented as 'Support'.
+    Seeds a message that always states the reason of the conversation
+    (the suspension motivation) so the context is explicit."""
+    dev = await db.users.find_one({"role": "developer"}, {"_id": 0, "id": 1})
+    if not dev:
+        raise HTTPException(status_code=503, detail="Supporto non disponibile")
+    if dev["id"] == user["id"]:
+        raise HTTPException(status_code=400, detail="Sei il Supporto")
+    key = _key(user["id"], dev["id"])
+    conv = await db.conversations.find_one({"key": key}, {"_id": 0})
+    if not conv:
+        conv = {
+            "id": str(uuid.uuid4()), "key": key,
+            "participants": sorted([user["id"], dev["id"]]),
+            "created_at": _now(), "last_at": _now(),
+            "last_message": "", "last_sender": None, "topic": "suspension",
+        }
+        await db.conversations.insert_one(conv)
+        conv.pop("_id", None)
+
+    s = active_suspension(user)
+    reason = (s or {}).get("reason") or "—"
+    note = f"📋 Richiesta di chiarimento sulla sospensione.\nMotivo indicato: {reason}"
+    last = await db.dm_messages.find_one({"conv_id": conv["id"]}, sort=[("created_at", -1)])
+    if not (last and last.get("sender_id") == user["id"] and last.get("text") == note):
+        msg = {
+            "id": str(uuid.uuid4()), "conv_id": conv["id"], "sender_id": user["id"],
+            "kind": "text", "text": note, "share": None,
+            "read_by": [user["id"]], "created_at": _now(),
+        }
+        await db.dm_messages.insert_one(msg)
+        await db.conversations.update_one({"id": conv["id"]}, {"$set": {
+            "last_at": msg["created_at"], "last_message": _preview("text", note, None), "last_sender": user["id"]}})
+        await notify(dev["id"], "support", "OverView Support",
+                     f"Nuova richiesta di chiarimento sospensione.", action_url=f"/dm?conv={conv['id']}")
+
+    return {"conv_id": conv["id"], "name": SUPPORT_NAME}
+
+
     c = await db.conversations.find_one({"id": m["conv_id"]}, {"_id": 0})
     if not c or user["id"] not in c["participants"]:
         raise HTTPException(status_code=404, detail="Non autorizzato")

@@ -1076,3 +1076,35 @@ Riuso totale: Search usa lo stesso modello dati, stessa anteprima e la stessa sc
 RIMASTI DA FARE (confermati con l'utente):
 - **#1 Creator Console operativa**: rendere ogni riquadro cliccabile → sezioni di dettaglio (Utenti: elenco+ricerca+sospendi/riattiva+contatori; Nuovi iscritti: elenco cronologico con piattaforma/ultimo accesso; SenseShot: elenco+filtri+apri; Feedback apribili; Bug con stati Nuovo/In lavorazione/Risolto/Chiuso; **System Health**: backend/db/storage/spazio/immagini/upload falliti/pubblicazioni fallite/code/errori/versione build).
 - **#2/#3 Storage esterno Cloudflare R2** (S3-compatibile): media fuori dal DB, con varianti Master/Detail/Feed/Thumbnail; Mongo conserva solo metadati/URL. RICHIEDE credenziali R2 dall'utente + integration_expert.
+
+---
+
+## SESSIONE (fork) — Creator Console operativa + Sospensione read-only (COMPLETATO E VERIFICATO)
+
+### Creator Console frontend (`app/creator.tsx` riscritto a pannelli)
+Tab navigabili: **Panoramica · Utenti · Iscrizioni · Contenuti · Feedback** (guard: solo `role=developer`, gestito anche lo stato `loading` per non lampeggiare "Pagina non disponibile").
+- **Panoramica**: griglia statistiche (utenti/Senshot/SnapSense/feedback aperti/bug attivi/nuovi mese) + **Salute del sistema** (backend/database online, build, immagini archiviate, spazio media, dati DB, utenti sospesi, pubblicazioni fallite, pulse vuoti, bug aperti).
+- **Utenti**: ricerca (nickname/email/codice), lista con author_code + contatori (senshot/pulse/feedback) + dot rosso se sospeso. Tap → **modale dettaglio** con azione **Sospendi (sola lettura)** [motivazione + durata: Indefinita/1g/7g/30g] o **Riattiva account**. Account protetti (`protected`) non sospendibili.
+- **Iscrizioni**: lista signups recenti con badge "Sospeso".
+- **Contenuti**: griglia 3-col Senshot/Pulse con filtro + ricerca.
+- **Feedback**: invariato (status cycle, priorità, note del Creator).
+Binding API aggiunti in `backend.ts` (`creatorApi.users/userDetail/suspend/unsuspend/signups/observations/systemHealth` + tipi). Backend `feedback.py` era già pronto.
+
+### Sospensione read-only (utente sospeso)
+- `AuthUser.suspension` aggiunto; `/api/auth/me` e login già lo restituiscono.
+- **`src/components/SuspensionBanner.tsx`** (montato globalmente in `_layout.tsx`): banner rosso persistente "Account in sola lettura" con **motivazione + durata** + "Puoi navigare ma non pubblicare o interagire" + pulsante **Richiedi chiarimenti**. Collassabile in pill "Sola lettura". Non blocca la navigazione.
+- Le write API (`create_observation`, `interact`, `add_comment`) usano già `get_active_user` → 403 `{code:"suspended", reason, until, message}`. `client.ts` ora estrae `code`/`message` dai detail strutturati; `publishError.ts` mostra il messaggio di sospensione.
+
+### "Support" — identità Creator mascherata (richiesta utente)
+- Gli utenti NON vedono mai il nick/nome di NeoMorpheus nelle DM: `dm.py._user_public()` maschera l'account `role=developer` come **"OverView Support"** (`is_support:true`) per chiunque non sia developer. NeoMorpheus vede invece i nick reali.
+- **`POST /api/support/clarification`**: apre/riusa una DM con il Creator e semina un messaggio che **specifica sempre il motivo** ("📋 Richiesta di chiarimento sulla sospensione. Motivo indicato: …"). Il banner "Richiedi chiarimenti" apre `/chat` mascherato come "OverView Support". Notifica push al Creator.
+
+### Verifica
+- Backend curl: tutti gli endpoint creator 200; suspend→/me suspension→comment 403 suspended→unsuspend→cleared; support/clarification 200; masking apple↔developer = "Support".
+- Frontend screenshot: Panoramica, Utenti, modale Sospendi (motivazione+durata), banner sola-lettura, chat "OverView Support" con motivo seminato. Tutto OK.
+- Account revisione Apple riattivato dopo il test.
+
+### PROSSIMO (ordine concordato con l'utente)
+- **Cloudflare R2** (l'utente ha detto "pronto per R2"): migrazione storage immagini da base64 Mongo a R2 (Master/Detail/Feed/Thumbnail).
+- Poi: persistenza testo editor (P2), QR deep link (attende profilo Apple), Night Vision (build nativa), Documented Reality (Marte/ISS).
+

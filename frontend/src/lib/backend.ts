@@ -6,6 +6,8 @@ export { mediaUrl };
 
 export interface ProfileLink { label?: string; url: string }
 
+export interface Suspension { reason: string; until: string | null; created_at?: string }
+
 export interface AuthUser {
   id: string;
   email?: string;
@@ -17,6 +19,7 @@ export interface AuthUser {
   links?: ProfileLink[];
   role?: string;
   protected?: boolean;
+  suspension?: Suspension | null;
   created_at?: string;
 }
 
@@ -432,6 +435,58 @@ export interface CreatorStats {
   new_users_month: number;
 }
 
+export interface CreatorUser {
+  id: string;
+  nickname: string;
+  email?: string;
+  author_code?: string;
+  role: string;
+  protected: boolean;
+  platform?: string;
+  created_at?: string;
+  last_login?: string | null;
+  suspension: Suspension | null;
+  counts: { observe: number; senseshot: number; pulse: number; feedback: number };
+}
+
+export interface CreatorSignup {
+  id: string;
+  nickname: string;
+  author_code?: string;
+  created_at?: string;
+  platform?: string;
+  last_login?: string | null;
+  suspended: boolean;
+}
+
+export interface CreatorObs {
+  id: string;
+  title?: string;
+  nickname?: string;
+  author_code?: string;
+  code?: string;
+  created_at?: string;
+  is_pulse: boolean;
+  has_image: boolean;
+  image_url?: string | null;
+  scientific_value: number;
+  category?: string;
+}
+
+export interface SystemHealth {
+  backend: string;
+  database: string;
+  build_version: string;
+  storage: { images: number; media_bytes: number; db_data_bytes: number };
+  users: number;
+  observations: number;
+  suspended: number;
+  failed_publications: number;
+  empty_pulses: number;
+  feedback_open: number;
+  bugs_open: number;
+}
+
 export const feedbackApi = {
   create: (type: FeedbackType, text: string) =>
     apiFetch<{ ok: boolean; id: string }>("/feedback", { method: "POST", body: JSON.stringify({ type, text }) }),
@@ -449,11 +504,31 @@ export const creatorApi = {
   update: (id: string, data: { status?: FeedbackStatus; priority?: number; creator_note?: string }) =>
     apiFetch<{ ok: boolean }>(`/creator/feedback/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   stats: () => apiFetch<CreatorStats>("/creator/stats"),
+  users: (query = "") =>
+    apiFetch<{ items: CreatorUser[]; count: number; total: number }>(`/creator/users${query ? `?query=${encodeURIComponent(query)}` : ""}`),
+  userDetail: (uid: string) => apiFetch<CreatorUser>(`/creator/users/${uid}`),
+  suspend: (uid: string, reason: string, days?: number) =>
+    apiFetch<{ ok: boolean }>(`/creator/users/${uid}/suspend`, { method: "POST", body: JSON.stringify({ reason, days: days ?? null }) }),
+  unsuspend: (uid: string) =>
+    apiFetch<{ ok: boolean }>(`/creator/users/${uid}/unsuspend`, { method: "POST" }),
+  signups: () => apiFetch<{ items: CreatorSignup[]; count: number }>("/creator/signups"),
+  observations: (query = "", type = "") => {
+    const q = new URLSearchParams();
+    if (query) q.set("query", query);
+    if (type) q.set("type", type);
+    const qs = q.toString();
+    return apiFetch<{ items: CreatorObs[]; count: number }>(`/creator/observations${qs ? `?${qs}` : ""}`);
+  },
+  systemHealth: () => apiFetch<SystemHealth>("/creator/system-health"),
+};
+
+export const supportApi = {
+  clarification: () => apiFetch<{ conv_id: string; name: string }>("/support/clarification", { method: "POST" }),
 };
 
 
 // ---- Direct Messages (polling) + Senshot condiviso ----
-export interface DMUser { id: string; nickname: string; display_name?: string; avatar?: string | null }
+export interface DMUser { id: string; nickname: string; display_name?: string; avatar?: string | null; is_support?: boolean }
 
 export interface ObsSnapshot {
   obs_id: string; user_id: string; nickname?: string; image_url?: string | null;
