@@ -372,7 +372,7 @@ function ContentPanel() {
         {loading && items.length === 0 ? <ActivityIndicator color={colors.brand} style={{ marginTop: spacing.lg }} /> : null}
         <View style={styles.grid}>
           {items.map((o) => {
-            const uri = mediaUrl(o.image_url);
+            const uri = mediaUrl(o.image_url, "thumb");
             return (
               <View key={o.id} style={styles.gridCell}>
                 {uri ? <Image source={{ uri }} style={styles.gridImg} contentFit="cover" /> : <View style={[styles.gridImg, styles.gridEmpty]}><Ionicons name="image-outline" size={20} color={colors.onSurfaceSecondary} /></View>}

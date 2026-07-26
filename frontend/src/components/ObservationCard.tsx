@@ -18,7 +18,7 @@ function timeAgo(iso: string): string {
 
 export function ObservationCard({ obs }: { obs: FeedObservation }) {
   const router = useRouter();
-  const uri = mediaUrl(obs.image_url);
+  const uri = mediaUrl(obs.image_url, "feed");
   return (
     <View style={styles.card}>
       {obs.reposted_by ? (

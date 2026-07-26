@@ -46,7 +46,7 @@ export function VerifiedEvents() {
       <Text style={styles.hint}>Più osservatori, lo stesso fenomeno reale.</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
         {events.map((e) => {
-          const thumb = e.samples[0] ? mediaUrl(e.samples[0]) : null;
+          const thumb = e.samples[0] ? mediaUrl(e.samples[0], "thumb") : null;
           return (
             <Pressable key={e.id} testID={`verified-${e.id}`} onPress={() => open(e)} style={styles.card}>
               {thumb ? (

@@ -1108,3 +1108,38 @@ Binding API aggiunti in `backend.ts` (`creatorApi.users/userDetail/suspend/unsus
 - **Cloudflare R2** (l'utente ha detto "pronto per R2"): migrazione storage immagini da base64 Mongo a R2 (Master/Detail/Feed/Thumbnail).
 - Poi: persistenza testo editor (P2), QR deep link (attende profilo Apple), Night Vision (build nativa), Documented Reality (Marte/ISS).
 
+
+---
+
+## SESSIONE (fork) — Migrazione storage immagini a Cloudflare R2 (COMPLETATO E VERIFICATO)
+
+Integrazione via `integration_playbook_expert` (R2 S3-compatible, boto3). Credenziali SOLO in `backend/.env` (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_ENDPOINT) — mai nel codice.
+
+### Modulo `backend/r2_storage.py` (nuovo, condiviso)
+- boto3 client (region "auto", s3v4); chiamate bloccanti in `asyncio.to_thread`.
+- `db.media` conserva SOLO metadati (key/variants, bucket, prefix, content_type, size, storage:"r2") — NESSUN binario in Mongo (`data` rimosso).
+- `db.media.id` resta = id entità → tutti gli URL `/api/media/{id}` invariati (compatibilità totale). Serve legge R2 o, se presente, il vecchio base64 (retrocompatibile).
+- Nomi file UUID; prefissi whitelisted.
+
+### Layout bucket (prefissi creati automaticamente all'avvio via `ensure_folders`)
+`users/avatars/` · `observe/originals/` · `observe/master/` · `observe/detail/` · `observe/feed/` · `observe/thumbnails/` · `pulse/` · `snapsense/` · `chat/` · `system/` · `temp/`
+
+### Multi-size per immagini Observe (`put_observation_image`, Pillow)
+Ogni foto Observe genera: **originals** (intatta) + **master** 2048px q90 · **detail** 1440px q86 · **feed** 800px q82 · **thumbnails** 320px q74 (solo downscale, EXIF-transpose). Verificato: thumb 2.9KB→feed 12KB→detail 35KB→master 78KB→original 140KB.
+- Serve: `GET /api/media/{id}?size=thumb|feed|detail|master|original` (default = detail → fallback catena). Frontend `mediaUrl(url, size?)`: griglie Explore/creator/LiveEarth/VerifiedEvents → `thumb`; card feed / QuickView / ObservationOfTheDay → `feed`.
+- Pulse/SnapSense/avatar/audio/chat = oggetto singolo (no varianti) nei rispettivi prefissi. Avatar → `users/avatars/`. Audio → `system/`.
+
+### Wiring
+- `social.py`: create_observation (pulse→`pulse/` singolo, altrimenti multi-size), serve `/media/{id}` (+size), upload_audio→`system/`, avatar→`users/avatars/`, delete→`r2_storage.delete` (rimuove tutte le varianti), pulse_compare usa `fetch_base64`.
+- `snapsense.py`: create→`snapsense/`, delete→`r2_storage.delete`.
+- `server.py` startup: `ensure_folders()` + `cleanup_temp(24h)` (auto-elimina upload temporanei inutilizzati).
+
+### Migrazione dati esistenti (`backend/migrate_media_to_r2.py`, idempotente)
+Eseguita sul DB preview: 21 doc media → R2; 15 Observe con varianti generate, resto in prefissi corretti; **0 doc con base64 residuo**. Rimosso placeholder legacy `avatars/.keep`.
+
+### Verifica
+- R2 connectivity put/get/delete OK; upload→metadati-only in Mongo→serve (Cache-Control immutable)→delete rimuove oggetto R2; tutte le size servono; moderazione nudità invariata; feed carica (immagini seed sono 1×1 di test → placeholder atteso, non è un bug).
+- `requirements.txt` aggiornato (boto3 1.43.44 via pip freeze).
+
+NOTA: `pip install` in questo pod non persiste ai redeploy salvo requirements.txt (fatto). Le vecchie immagini seed sono minuscole (test) → in app appaiono come placeholder; le foto reali da device generano varianti corrette.
+

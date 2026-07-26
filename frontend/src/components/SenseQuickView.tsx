@@ -61,7 +61,7 @@ function Page({ obs, width, height, onOpenFull }: { obs: FeedObservation; width:
   const [showOverlay, setShowOverlay] = useState(true);
   const lastTap = useRef(0);
   const d = (obs.data ?? {}) as ObsData;
-  const uri = mediaUrl(obs.image_url) || "";
+  const uri = mediaUrl(obs.image_url, "feed") || "";
   const camAz = d.cameraAz ?? 0;
   const camAlt = d.cameraAlt ?? 0;
   const zoom = d.zoom ?? 1;

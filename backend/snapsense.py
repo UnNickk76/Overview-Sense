@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from database import db
 from auth import get_current_user, get_optional_user
 from push import notify
+import r2_storage
 
 SNAP_REACTIONS = {"observed", "discovery", "learned"}
 
@@ -80,7 +81,7 @@ async def create_snapsense(req: CreateSnap, user: dict = Depends(get_current_use
             verdict = await moderate_image_safe(raw)
             if not verdict["safe"]:
                 raise HTTPException(status_code=422, detail="Contenuti di nudità o sessualmente espliciti non sono ammessi su Overview.")
-        await db.media.insert_one({"id": sid, "content_type": "image/jpeg", "data": raw})
+        await r2_storage.put_base64(sid, "snapsense", raw, content_type="image/jpeg", owner=user["id"])
         has_image = True
         media_type = "image"
 
@@ -231,5 +232,5 @@ async def delete_snapsense(snap_id: str, user: dict = Depends(get_current_user))
     if s["user_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="Non autorizzato")
     await db.snapsenses.delete_one({"id": snap_id})
-    await db.media.delete_one({"id": snap_id})
+    await r2_storage.delete(snap_id)
     return {"ok": True}

@@ -299,7 +299,7 @@ export function LiveEarth({ size = 260, onInteracting, variant = "full", onExpan
           ) : (
             <ScrollView style={{ maxHeight: 430 }} contentContainerStyle={{ paddingBottom: spacing.lg }} showsVerticalScrollIndicator={false}>
               {listItems.map((pt) => {
-                const uri = mediaUrl(pt.image_url);
+                const uri = mediaUrl(pt.image_url, "thumb");
                 return (
                   <Pressable key={pt.id} testID={`list-${pt.id}`} style={styles.listRow} onPress={() => openDetail(pt.id)}>
                     {uri ? (

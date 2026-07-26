@@ -9,8 +9,11 @@ export class ApiError extends Error {
   constructor(status: number, message: string, code?: string) { super(message); this.status = status; this.code = code; }
 }
 
-export function mediaUrl(imageUrl?: string | null): string | null {
-  return imageUrl ? `${BASE}${imageUrl}` : null;
+export function mediaUrl(imageUrl?: string | null, size?: "thumb" | "feed" | "detail" | "master" | "original"): string | null {
+  if (!imageUrl) return null;
+  const full = `${BASE}${imageUrl}`;
+  if (!size) return full;
+  return `${full}${full.includes("?") ? "&" : "?"}size=${size}`;
 }
 
 export async function apiFetch<T>(path: string, opts: RequestInit = {}, timeoutMs = 60000): Promise<T> {

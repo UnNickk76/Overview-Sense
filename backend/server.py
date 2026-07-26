@@ -470,6 +470,16 @@ async def _startup_indexes():
         await ensure_developer_account()
     except Exception as e:
         logger.warning(f"index creation failed: {e}")
+    # Cloudflare R2 media storage: ensure folders exist and purge stale temp uploads.
+    try:
+        import r2_storage
+        if r2_storage.enabled():
+            await r2_storage.ensure_folders()
+            removed = await r2_storage.cleanup_temp()
+            if removed:
+                logger.info(f"R2: purged {removed} stale temp uploads")
+    except Exception as e:
+        logger.warning(f"R2 startup housekeeping failed: {e}")
 
 
 @app.on_event("shutdown")

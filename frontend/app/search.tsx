@@ -122,7 +122,7 @@ export default function Search() {
           }
           ListFooterComponent={loadingMore ? <ActivityIndicator color={colors.brand} style={{ marginVertical: spacing.lg }} /> : null}
           renderItem={({ item, index }) => {
-            const uri = mediaUrl(item.image_url);
+            const uri = mediaUrl(item.image_url, "thumb");
             return (
               <Pressable testID={`grid-${item.id}`} style={{ width: cell, height: cell }}
                 onPress={() => { Haptics.selectionAsync(); setQuick(index); }}>

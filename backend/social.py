@@ -19,6 +19,7 @@ from pymongo import UpdateOne
 
 from database import db
 from auth import get_current_user, get_optional_user, get_active_user, NICK_RE
+import r2_storage
 from feedback import get_creator
 from push import notify, send_push
 
@@ -389,7 +390,10 @@ async def create_observation(req: CreateObs, user: dict = Depends(get_active_use
                     status_code=422,
                     detail="Questa immagine non può essere pubblicata: contenuti di nudità o sessualmente espliciti non sono ammessi su Overview.",
                 )
-        await db.media.insert_one({"id": oid, "content_type": "image/jpeg", "data": raw})
+        if req.is_pulse:
+            await r2_storage.put_base64(oid, "pulse", raw, content_type="image/jpeg", owner=user["id"])
+        else:
+            await r2_storage.put_observation_image(oid, raw, content_type="image/jpeg", owner=user["id"])
         has_image = True
 
     # ZERO DATA-LOSS SAFETY NET: an image observation must never persist without
@@ -458,12 +462,13 @@ async def create_observation(req: CreateObs, user: dict = Depends(get_active_use
 
 
 @social_router.get("/media/{obs_id}")
-async def get_media(obs_id: str):
-    doc = await db.media.find_one({"id": obs_id}, {"_id": 0})
-    if not doc:
+async def get_media(obs_id: str, size: Optional[str] = None):
+    res = await r2_storage.fetch_bytes(obs_id, size)
+    if not res:
         raise HTTPException(status_code=404, detail="Media non trovato")
-    return Response(content=base64.b64decode(doc["data"]),
-                    media_type=doc.get("content_type", "image/jpeg"))
+    content, content_type = res
+    return Response(content=content, media_type=content_type,
+                    headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
 
 class AudioUpload(BaseModel):
@@ -486,8 +491,8 @@ async def upload_audio(req: AudioUpload, user: dict = Depends(get_current_user))
     if size > 8 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="Audio troppo lungo (max ~1 min)")
     mid = str(uuid.uuid4())
-    await db.media.insert_one({"id": mid, "content_type": req.content_type, "data": raw,
-                               "owner": user["id"], "kind": "audio"})
+    await r2_storage.put_base64(mid, "system", raw, content_type=req.content_type,
+                               owner=user["id"], kind="audio")
     return {"id": mid, "url": f"/api/media/{mid}", "duration": req.duration}
 
 
@@ -856,7 +861,7 @@ async def delete_observation(obs_id: str, user: dict = Depends(get_current_user)
     if o["user_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="Non sei l'autore di questa osservazione")
     await db.observations.delete_one({"id": obs_id})
-    await db.media.delete_one({"id": obs_id})
+    await r2_storage.delete(obs_id)
     await db.interactions.delete_many({"obs_id": obs_id})
     await db.comments.delete_many({"obs_id": obs_id})
     await db.saves.delete_many({"obs_id": obs_id})
@@ -1152,14 +1157,14 @@ async def pulse_compare(req: PulseCompareReq, user: dict = Depends(get_current_u
     b = await db.observations.find_one({"id": req.obs_id_b}, {"_id": 0})
     if not a or not b:
         raise HTTPException(status_code=404, detail="Observation non trovata")
-    ma = await db.media.find_one({"id": req.obs_id_a}, {"_id": 0})
-    mb = await db.media.find_one({"id": req.obs_id_b}, {"_id": 0})
-    if not ma or not mb:
+    ma_b64 = await r2_storage.fetch_base64(req.obs_id_a)
+    mb_b64 = await r2_storage.fetch_base64(req.obs_id_b)
+    if not ma_b64 or not mb_b64:
         raise HTTPException(status_code=422, detail="Immagini non disponibili per il confronto")
     task = a.get("pulse_task") or b.get("pulse_task") or {}
     theme = task.get("title") or task.get("theme") or "la stessa sfida osservativa"
     from ai_features import compare_pulse
-    text = await compare_pulse(theme, ma["data"], _pulse_facts(a), mb["data"], _pulse_facts(b))
+    text = await compare_pulse(theme, ma_b64, _pulse_facts(a), mb_b64, _pulse_facts(b))
     return {"text": text, "theme": theme}
 
 
@@ -1530,9 +1535,7 @@ async def update_avatar(req: AvatarReq, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=422,
                             detail="Questa immagine non può essere usata: contenuti non ammessi su Overview.")
     avatar_id = f"avatar_{user['id']}"
-    await db.media.update_one({"id": avatar_id},
-                              {"$set": {"id": avatar_id, "content_type": "image/jpeg", "data": raw}},
-                              upsert=True)
+    await r2_storage.put_base64(avatar_id, "users/avatars", raw, content_type="image/jpeg", owner=user["id"])
     avatar_url = f"/api/media/{avatar_id}?v={uuid.uuid4().hex[:8]}"
     await db.users.update_one({"id": user["id"]},
                               {"$set": {"avatar": avatar_url, "updated_at": datetime.now(timezone.utc).isoformat()}})

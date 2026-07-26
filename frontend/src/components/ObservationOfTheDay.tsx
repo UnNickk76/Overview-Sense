@@ -21,7 +21,7 @@ export function ObservationOfTheDay() {
   }, []);
 
   if (!obs) return null;
-  const uri = mediaUrl(obs.image_url);
+  const uri = mediaUrl(obs.image_url, "feed");
 
   return (
     <Pressable
