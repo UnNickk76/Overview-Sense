@@ -1064,3 +1064,15 @@ Ordine utente rispettato (1 pubblicazione già risolta lato codice → 2-5 qui).
 5. **Search/Explore**: `GET /api/search?q=&offset=&limit=` (match su titolo/descrizione/hashtag/autore/luogo/oggetti/costellazioni/pianeti/senseLayer/categoria + hint linguistici: finestra temporale, "vicino a <luogo>"; ranking per valore scientifico, NON per popolarità). Nuova schermata `app/search.tsx`: barra fissa, chip suggerimenti, griglia 5 colonne, scroll infinito, pull-to-refresh, quick-view (`SenseQuickView`: foto + overlay/nomi con config del proprietario, swipe tra risultati, azioni social, "Apri scheda completa" / doppio tap → observation-detail). Bottom nav ora a **7 slot** (Home, Search, Pulse, Sense Vision centro, Observe, Messaggi, Galleria).
 
 Riuso totale: Search usa lo stesso modello dati, stessa anteprima e la stessa scheda completa (observation-detail = SenseDetail) di Observe.
+
+---
+
+## SESSIONE (fork) — Explore™ + hashtag intelligenti (iter10)
+
+- **#5 Hashtag intelligenti**: nel Composer ogni parola digitata nel campo hashtag diventa automaticamente #parola (anteprima chip live sotto il campo, nessun doppio #). `parseTags()` già normalizzava lato dati.
+- **#6 OverView Explore™**: rinominata la sezione lente (BottomNav "Explore" + titolo "OverView Explore™"). Chip dinamiche/trending da `GET /api/search/trending` (top hashtag ultimi 30gg, fallback statico). Visualizzazione rapida ora a **scroll verticale continuo** tra tutte le Sense (SenseQuickView), secondo tap → scheda completa Observe. Griglia 5 colonne invariata.
+- **#4 Codice Autore**: già implementato in iter8 (nickname univoco + prefisso 3 char immutabile + ID #NEO-000000021). Nessuna azione ulteriore necessaria.
+
+RIMASTI DA FARE (confermati con l'utente):
+- **#1 Creator Console operativa**: rendere ogni riquadro cliccabile → sezioni di dettaglio (Utenti: elenco+ricerca+sospendi/riattiva+contatori; Nuovi iscritti: elenco cronologico con piattaforma/ultimo accesso; SenseShot: elenco+filtri+apri; Feedback apribili; Bug con stati Nuovo/In lavorazione/Risolto/Chiuso; **System Health**: backend/db/storage/spazio/immagini/upload falliti/pubblicazioni fallite/code/errori/versione build).
+- **#2/#3 Storage esterno Cloudflare R2** (S3-compatibile): media fuori dal DB, con varianti Master/Detail/Feed/Thumbnail; Mongo conserva solo metadati/URL. RICHIEDE credenziali R2 dall'utente + integration_expert.

@@ -182,6 +182,7 @@ export const socialApi = {
     apiFetch<{ items: FeedObservation[]; offset: number; has_more: boolean }>(
       `/search?q=${encodeURIComponent(q)}&offset=${offset}&limit=${limit}`,
     ),
+  trending: () => apiFetch<{ tags: string[] }>("/search/trending"),
   observationOfTheDay: () =>
     apiFetch<{ observation: FeedObservation | null }>("/observation-of-the-day"),
   cosmosImages: (q: string, limit = 10) =>

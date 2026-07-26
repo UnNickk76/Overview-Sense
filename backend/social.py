@@ -940,6 +940,21 @@ async def search_observations(
     return {"items": items, "offset": offset + len(items), "has_more": len(docs) >= limit}
 
 
+@social_router.get("/search/trending")
+async def search_trending(limit: int = 12):
+    """Dynamic discovery chips: most-used hashtags across recent Senses."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+    pipeline = [
+        {"$match": {"has_image": True, "created_at": {"$gte": cutoff}, "hashtags": {"$exists": True, "$ne": []}}},
+        {"$unwind": "$hashtags"},
+        {"$group": {"_id": {"$toLower": "$hashtags"}, "n": {"$sum": 1}}},
+        {"$sort": {"n": -1}},
+        {"$limit": min(max(limit, 1), 30)},
+    ]
+    tags = [d["_id"] async for d in db.observations.aggregate(pipeline) if d.get("_id")]
+    return {"tags": tags}
+
+
 
 @social_router.get("/pulse/feed")
 async def pulse_feed(task_id: Optional[str] = None, limit: int = 60,

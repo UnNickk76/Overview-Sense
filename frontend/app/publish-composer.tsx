@@ -189,7 +189,14 @@ export default function PublishComposer() {
               placeholder="Racconta cosa hai osservato…  usa #hashtag" placeholderTextColor={colors.onSurfaceSecondary}
               multiline maxLength={500} />
             <TextInput testID="composer-tags" style={styles.input} value={tagsText} onChangeText={setTagsText}
-              placeholder="#hashtag separati da spazio" placeholderTextColor={colors.onSurfaceSecondary} autoCapitalize="none" />
+              placeholder="Scrivi le parole: diventano hashtag automaticamente" placeholderTextColor={colors.onSurfaceSecondary} autoCapitalize="none" />
+            {parseTags().length > 0 ? (
+              <View style={styles.tagPreview}>
+                {parseTags().map((t) => (
+                  <View key={t} style={styles.hashChip}><Text style={styles.hashChipText}>#{t}</Text></View>
+                ))}
+              </View>
+            ) : null}
           </View>
 
           {/* Music */}
@@ -349,6 +356,9 @@ const styles = StyleSheet.create({
   knob: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#fff" },
   knobOn: { alignSelf: "flex-end" },
   err: { color: "#FF6B6B", fontFamily: fonts.medium, fontSize: type.sm, flex: 1, lineHeight: 18 },
+  tagPreview: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.sm },
+  hashChip: { backgroundColor: "rgba(212,175,55,0.12)", borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 5, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
+  hashChipText: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.sm },
   errBox: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: "rgba(255,107,107,0.10)", borderRadius: radius.md, padding: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,107,107,0.5)" },
   pubStatus: { color: colors.brand, fontFamily: fonts.medium, fontSize: type.sm, textAlign: "center", marginBottom: spacing.sm },
   footer: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: spacing.lg, paddingTop: spacing.md, backgroundColor: "rgba(6,8,12,0.85)", borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border },

@@ -34,13 +34,12 @@ export function SenseQuickView({ items, index, onClose, onOpenFull }: {
       <FlatList
         ref={listRef}
         data={items}
-        horizontal
         pagingEnabled
         initialScrollIndex={index}
-        getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
-        showsHorizontalScrollIndicator={false}
+        getItemLayout={(_, i) => ({ length: height, offset: height * i, index: i })}
+        showsVerticalScrollIndicator={false}
         keyExtractor={(it) => it.id}
-        onMomentumScrollEnd={(e) => setCur(Math.round(e.nativeEvent.contentOffset.x / width))}
+        onMomentumScrollEnd={(e) => setCur(Math.round(e.nativeEvent.contentOffset.y / height))}
         renderItem={({ item }) => (
           <Page obs={item} width={width} height={height} onOpenFull={() => onOpenFull(item.id)} />
         )}

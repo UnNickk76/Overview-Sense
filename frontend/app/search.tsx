@@ -12,7 +12,7 @@ import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { socialApi, FeedObservation, mediaUrl } from "@/src/lib/backend";
 
 const COLS = 5;
-const SUGGESTIONS = ["tramonti", "Luna", "costellazioni", "montagne di notte", "fenomeni atmosferici", "vicino Roma", "osservazioni rare questa settimana"];
+const FALLBACK_CHIPS = ["tramonti", "Luna", "costellazioni", "montagne di notte", "fenomeni atmosferici", "vicino Roma", "osservazioni rare questa settimana"];
 
 export default function Search() {
   const insets = useSafeAreaInsets();
@@ -25,7 +25,14 @@ export default function Search() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [quick, setQuick] = useState<number | null>(null);
+  const [chips, setChips] = useState<string[]>(FALLBACK_CHIPS);
   const seq = useRef(0);
+
+  useEffect(() => {
+    socialApi.trending().then((r) => {
+      if (r.tags && r.tags.length) setChips(r.tags.map((t) => `#${t}`));
+    }).catch(() => {});
+  }, []);
 
   const gap = 2;
   const cell = Math.floor((width - gap * (COLS - 1)) / COLS);
@@ -58,6 +65,7 @@ export default function Search() {
   return (
     <SpaceBackground>
       <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}>
+        <Text style={styles.brandTitle}>OverView Explore™</Text>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={18} color={colors.onSurfaceSecondary} />
           <TextInput
@@ -79,12 +87,12 @@ export default function Search() {
         {q.trim().length === 0 ? (
           <FlatList
             horizontal
-            data={SUGGESTIONS}
+            data={chips}
             keyExtractor={(s) => s}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ gap: spacing.sm, paddingTop: spacing.sm }}
             renderItem={({ item }) => (
-              <Pressable testID={`sugg-${item}`} style={styles.chip} onPress={() => { Haptics.selectionAsync(); setQ(item); }}>
+              <Pressable testID={`sugg-${item}`} style={styles.chip} onPress={() => { Haptics.selectionAsync(); setQ(item.replace(/^#/, "")); }}>
                 <Text style={styles.chipText}>{item}</Text>
               </Pressable>
             )}
@@ -144,6 +152,7 @@ export default function Search() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  brandTitle: { color: colors.brand, fontFamily: fonts.bold, fontSize: type.xl, marginBottom: spacing.sm },
   searchBar: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.surfaceTertiary, borderRadius: radius.pill, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   searchInput: { flex: 1, color: colors.onSurface, fontFamily: fonts.regular, fontSize: type.base, padding: 0 },
   chip: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
