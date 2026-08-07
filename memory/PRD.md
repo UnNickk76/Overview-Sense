@@ -1143,3 +1143,33 @@ Eseguita sul DB preview: 21 doc media → R2; 15 Observe con varianti generate, 
 
 NOTA: `pip install` in questo pod non persiste ai redeploy salvo requirements.txt (fatto). Le vecchie immagini seed sono minuscole (test) → in app appaiono come placeholder; le foto reali da device generano varianti corrette.
 
+
+---
+
+## SESSIONE (fork) — ECOES™ FASE 1 (COMPLETATA E VERIFICATA)
+
+Nuovo secondo pilastro Ecoes™ — Fase 1 (fondamenta). Observe resta la Home iniziale. Modello AI scelto dall'utente per tutto Ecoes: **GPT-5.4** (chiave Emergent).
+
+### 1. Barra inferiore a 8 sezioni equilibrate (`src/components/BottomNav.tsx`, riscritto)
+Home · Explore · Challenges(Pulse) · Observe · **Sense (centrale, PIATTO)** · **Ecoes** · Messaggi · Galleria. Rimosso il pulsante Sense rialzato/floating: stessa dimensione/luminosità/allineamento per tutte; unica differenza = stato selezionato (activeRing dorato + opacità). Icone immagine: ring(observe), pulse, sense-mark, ecoes-icon.
+
+### 2. Ecoes World in Home + scaffold (`app/home.tsx`, nuovo `app/ecoes-world.tsx`)
+- Banner "Ecoes World™" (testID `home-ecoes-world`, icona `ecoes-icon.png`) → `/ecoes-world`.
+- `ecoes-world.tsx`: pianeta pulsante SENZA confini/stati/città, toggle Ecoes Globe / My Ecoes, testo filosofia, stato "in arrivo". La logica completa (connessioni/room/risonanza) è FASE 2.
+
+### 3. Pensieri in Observe (testo, max 3000, niente immagine)
+- Backend `social.py`: `CreateObs.kind`; se `kind=='thought'` o `media_type=='text'` senza immagine → salva `kind:'thought'`, caption fino a 3000 (vuoto→400). `obs_public` espone `kind`. Il feed li mostra insieme ai Sense (nessun filtro has_image).
+- Frontend: FAB "Pensiero" nel feed → `/compose-thought` (contatore 3000, gestione sospensione read-only). `ObservationCard` rende i Pensieri text-forward con tag "PENSIERO" (niente blocco immagine).
+
+### 4. Multilingua (testo originale SEMPRE visibile + Traduci)
+- Backend `ai_features.py`: `POST /api/ai/translate {text, target}` (GPT-5.4) → `{source_lang, target, translation}`; cache in `db.translations` (sha256(target+text)); fail-soft ritorna l'originale.
+- Frontend `src/components/TranslatableText.tsx`: mostra originale + "Traduci" → blocco traduzione sotto (toggle nascondi); se già nella lingua utente mostra "Già nella tua lingua". Chiave i18n "translate" aggiunta. Integrato in: Observe (caption card + Pensiero), observation-detail (caption + commenti), chat/DM (bolle messaggi). `client.mediaUrl(url,size?)` già supporta le taglie.
+
+### Verifica
+- Backend: 13/13 pytest PASS (iteration_8.json). Smoke curl: thought create 200 (kind=thought, no image), translate it→en OK + cache, media size variants OK.
+- Frontend (screenshot main agent): nav 8 slot equilibrata, composer Pensiero (97/3000), Pensiero pubblicato nel feed con tag PENSIERO + Traduci, banner Home Ecoes, schermata Ecoes World scaffold. Tutto OK.
+- NB: `testing_agent` NON va più usato finché l'utente non lo richiede esplicitamente (istruzione utente).
+
+### PROSSIMO — ECOES FASE 2 (MVP)
+Ecoes Globe (stessa Terra senza confini) con Connection = pulsazioni vive (intensità da qualità/continuità, mai numeri); AI (GPT-5.4) propone Connection su risonanza Sense/Pensieri/commenti → accetta/rifiuta; Connection anonime; Ecoes Connection Room privata (≥2 accettano); My Ecoes (esci/rientra; eliminata quando l'ultimo esce). FASE 3: contenuti stanze/thread, inviti, evoluzione titolo+cronologia, DM, Segnala→moderazione, moderazione AI continua, pulsazioni che rallentano/riprendono.
+
