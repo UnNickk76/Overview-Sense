@@ -1,34 +1,64 @@
-import React, { useEffect, useRef } from "react";
-import { StyleSheet, Text, View, Pressable, ScrollView } from "react-native";
-import { Image } from "expo-image";
+import React, { useCallback, useState } from "react";
+import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, Dimensions, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { BottomNav } from "@/src/components/BottomNav";
+import { EcoesGlobe } from "@/src/components/EcoesGlobe";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
+import { useAuth } from "@/src/context/AuthContext";
+import { ecoesApi, EcoesConn, EcoesProposal } from "@/src/lib/backend";
 
-/**
- * Ecoes World™ — second pillar scaffold (full Globe + Connections arrive in Fase 2).
- * Uses the SAME Earth as the rest of the app, but at a different layer of reality:
- * no states, borders or cities — only the planet, because thought belongs to humanity.
- */
 export default function EcoesWorld() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const pulse = useSharedValue(0);
+  const { user } = useAuth();
+  const width = Dimensions.get("window").width;
+  const globeSize = Math.min(width - spacing.lg * 2, 320);
 
-  useEffect(() => {
-    pulse.value = withRepeat(withSequence(
-      withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
-      withTiming(0, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
-    ), -1, false);
-  }, [pulse]);
+  const [mode, setMode] = useState<"globe" | "my">("globe");
+  const [globeItems, setGlobeItems] = useState<EcoesConn[]>([]);
+  const [myItems, setMyItems] = useState<EcoesConn[]>([]);
+  const [proposals, setProposals] = useState<EcoesProposal[]>([]);
+  const [selected, setSelected] = useState<EcoesConn | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
 
-  const ring = useAnimatedStyle(() => ({ opacity: 0.5 - pulse.value * 0.45, transform: [{ scale: 1 + pulse.value * 0.7 }] }));
-  const dot = useAnimatedStyle(() => ({ opacity: 0.6 + pulse.value * 0.4 }));
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const g = await ecoesApi.globe();
+      setGlobeItems(g.items);
+      if (user) {
+        const [p, m] = await Promise.all([ecoesApi.proposals(), ecoesApi.my()]);
+        setProposals(p.items); setMyItems(m.items);
+      } else { setProposals([]); setMyItems([]); }
+    } catch { /* ignore */ } finally { setLoading(false); }
+  }, [user]);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const memberIds = new Set(myItems.map((c) => c.id));
+
+  const accept = async (p: EcoesProposal) => {
+    setBusy(p.proposal_id);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const r = await ecoesApi.accept(p.proposal_id);
+      await load();
+      if (r.room_ready) {
+        router.push(`/ecoes-room?id=${r.connection_id}` as never);
+      } else {
+        Alert.alert("Connection in ascolto", "Hai accettato. La Connection nascerà quando anche un altro osservatore accetterà.");
+      }
+    } catch (e) { Alert.alert("Ecoes", (e as Error).message || "Errore"); } finally { setBusy(null); }
+  };
+  const decline = async (p: EcoesProposal) => {
+    setBusy(p.proposal_id);
+    try { await ecoesApi.decline(p.proposal_id); setProposals((prev) => prev.filter((x) => x.proposal_id !== p.proposal_id)); }
+    catch { /* ignore */ } finally { setBusy(null); }
+  };
 
   return (
     <SpaceBackground>
@@ -43,36 +73,88 @@ export default function EcoesWorld() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 120, alignItems: "center", gap: spacing.xl, paddingTop: spacing.xl }}>
-        {/* Clean planet — no borders, no cities. A living pulsation of an idea. */}
-        <View style={styles.globeWrap}>
-          <View style={styles.globe}>
-            <Image source={require("@/assets/images/ecoes-icon.png")} style={styles.globeImg} contentFit="contain" />
+      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 120 }} showsVerticalScrollIndicator={false}>
+        {/* Proposals — Ecoes has detected a possible Connection */}
+        {proposals.length > 0 ? (
+          <View style={styles.propWrap}>
+            <View style={styles.propHead}>
+              <Ionicons name="sparkles" size={15} color={colors.brand} />
+              <Text style={styles.propHeadText}>È stata rilevata una possibile Connection Ecoes</Text>
+            </View>
+            {proposals.map((p) => (
+              <View key={p.proposal_id} testID={`proposal-${p.proposal_id}`} style={styles.propCard}>
+                <Text style={styles.propTitle}>{p.title}</Text>
+                {p.description ? <Text style={styles.propDesc}>{p.description}</Text> : null}
+                {p.reason ? <Text style={styles.propReason}>↳ {p.reason}</Text> : null}
+                <View style={styles.propActions}>
+                  <Pressable testID={`accept-${p.proposal_id}`} style={styles.acceptBtn} disabled={busy === p.proposal_id} onPress={() => accept(p)}>
+                    {busy === p.proposal_id ? <ActivityIndicator color={colors.onBrand} size="small" /> : <Text style={styles.acceptText}>Accetta la Connection</Text>}
+                  </Pressable>
+                  <Pressable style={styles.declineBtn} disabled={busy === p.proposal_id} onPress={() => decline(p)}>
+                    <Text style={styles.declineText}>Non ora</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
           </View>
-          <Animated.View style={[styles.pulseRing, ring]} pointerEvents="none" />
-          <Animated.View style={[styles.pulseDot, dot]} pointerEvents="none" />
-        </View>
+        ) : null}
 
+        {/* Toggle */}
         <View style={styles.toggleRow}>
-          <View style={[styles.toggle, styles.toggleOn]}>
-            <Ionicons name="planet" size={15} color={colors.onBrand} />
-            <Text style={styles.toggleOnText}>Ecoes Globe</Text>
-          </View>
-          <View style={styles.toggle}>
-            <Ionicons name="albums-outline" size={15} color={colors.onSurfaceSecondary} />
-            <Text style={styles.toggleText}>My Ecoes</Text>
-          </View>
+          <Pressable style={[styles.toggle, mode === "globe" && styles.toggleOn]} onPress={() => { Haptics.selectionAsync(); setMode("globe"); setSelected(null); }}>
+            <Ionicons name="planet" size={15} color={mode === "globe" ? colors.onBrand : colors.onSurfaceSecondary} />
+            <Text style={mode === "globe" ? styles.toggleOnText : styles.toggleText}>Ecoes Globe</Text>
+          </Pressable>
+          <Pressable testID="toggle-my" style={[styles.toggle, mode === "my" && styles.toggleOn]} onPress={() => { Haptics.selectionAsync(); setMode("my"); setSelected(null); }}>
+            <Ionicons name="albums-outline" size={15} color={mode === "my" ? colors.onBrand : colors.onSurfaceSecondary} />
+            <Text style={mode === "my" ? styles.toggleOnText : styles.toggleText}>My Ecoes</Text>
+          </Pressable>
         </View>
 
-        <View style={styles.philosophy}>
-          <Text style={styles.pTitle}>OverView non crea connessioni.</Text>
-          <Text style={styles.pBody}>Le rileva e le rende visibili. Ecoes rende percepibili le risonanze tra pensieri, idee, osservazioni ed emozioni — senza follower, senza numeri, senza gara. Solo la vita di una Connection, raccontata da una pulsazione.</Text>
-        </View>
+        {loading ? <ActivityIndicator color={colors.brand} style={{ marginTop: spacing.xl }} /> : null}
 
-        <View style={styles.soon}>
-          <Ionicons name="sparkles" size={16} color={colors.brand} />
-          <Text style={styles.soonText}>Le Connection appariranno qui quando l'AI rileverà una vera risonanza tra i tuoi contenuti e quelli dell'umanità.</Text>
-        </View>
+        {mode === "globe" ? (
+          <View style={{ alignItems: "center", paddingTop: spacing.md }}>
+            <EcoesGlobe items={globeItems} size={globeSize} onSelect={(c) => { Haptics.selectionAsync(); setSelected(c); }} selectedId={selected?.id} />
+            {selected ? (
+              <View style={styles.selCard}>
+                <View style={styles.selHead}>
+                  <View style={[styles.pulseTag, { backgroundColor: selected.intensity >= 0.45 ? colors.brand : colors.blue }]} />
+                  <Text style={styles.selTitle}>{selected.title}</Text>
+                </View>
+                {selected.description ? <Text style={styles.selDesc}>{selected.description}</Text> : null}
+                <Text style={styles.selNote}>Ecoes non rivela chi né dove. Vedi solo l'eco.</Text>
+                {memberIds.has(selected.id) ? (
+                  <Pressable style={styles.enterBtn} onPress={() => router.push(`/ecoes-room?id=${selected.id}` as never)}>
+                    <Text style={styles.enterText}>Entra nella Connection</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : (
+              <Text style={styles.hint}>Tocca una pulsazione per scoprirne l'eco. Solo titolo e descrizione — mai persone o numeri.</Text>
+            )}
+          </View>
+        ) : (
+          <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.md }}>
+            {!user ? (
+              <Text style={styles.hint}>Accedi per vedere le tue Connection.</Text>
+            ) : myItems.length === 0 ? (
+              <View style={styles.emptyMy}>
+                <Ionicons name="radio-outline" size={34} color={colors.onSurfaceSecondary} />
+                <Text style={styles.hint}>Non fai ancora parte di nessuna Connection. Nasceranno spontaneamente quando Ecoes rileverà una vera risonanza.</Text>
+              </View>
+            ) : myItems.map((c) => (
+              <Pressable key={c.id} testID={`my-${c.id}`} style={styles.myCard} onPress={() => router.push(`/ecoes-room?id=${c.id}` as never)}>
+                <View style={[styles.pulseTag, { backgroundColor: c.dormant ? colors.onSurfaceSecondary : (c.intensity >= 0.45 ? colors.brand : colors.blue) }]} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.myTitle}>{c.title}</Text>
+                  <Text style={styles.myDesc} numberOfLines={2}>{c.description}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceSecondary} />
+              </Pressable>
+            ))}
+          </View>
+        )}
       </ScrollView>
 
       <BottomNav active="ecoes" />
@@ -85,19 +167,34 @@ const styles = StyleSheet.create({
   iconBtn: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   title: { color: colors.onSurface, fontFamily: fonts.bold, fontSize: type.lg },
   subtitle: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, marginTop: 1 },
-  globeWrap: { width: 240, height: 240, alignItems: "center", justifyContent: "center" },
-  globe: { width: 180, height: 180, borderRadius: 90, backgroundColor: "rgba(88,166,255,0.06)", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
-  globeImg: { width: 120, height: 120, opacity: 0.9 },
-  pulseRing: { position: "absolute", width: 180, height: 180, borderRadius: 90, borderWidth: 1.5, borderColor: colors.blue },
-  pulseDot: { position: "absolute", width: 14, height: 14, borderRadius: 7, backgroundColor: colors.blue, top: 56, right: 62, shadowColor: colors.blue, shadowOpacity: 0.9, shadowRadius: 8 },
-  toggleRow: { flexDirection: "row", gap: spacing.sm, backgroundColor: colors.surfaceSecondary, borderRadius: radius.pill, padding: 4, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  propWrap: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.sm },
+  propHead: { flexDirection: "row", alignItems: "center", gap: 6 },
+  propHeadText: { color: colors.brand, fontFamily: fonts.semibold, fontSize: type.sm, flex: 1 },
+  propCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, gap: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.brand },
+  propTitle: { color: colors.onSurface, fontFamily: fonts.bold, fontSize: type.base + 1 },
+  propDesc: { color: colors.onSurface, fontFamily: fonts.regular, fontSize: type.sm, lineHeight: 19 },
+  propReason: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, fontStyle: "italic" },
+  propActions: { flexDirection: "row", gap: spacing.sm, marginTop: 4 },
+  acceptBtn: { flex: 1, backgroundColor: colors.brand, borderRadius: radius.pill, paddingVertical: 10, alignItems: "center" },
+  acceptText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.sm },
+  declineBtn: { paddingHorizontal: spacing.lg, borderRadius: radius.pill, alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  declineText: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm },
+  toggleRow: { flexDirection: "row", gap: spacing.sm, alignSelf: "center", marginTop: spacing.lg, backgroundColor: colors.surfaceSecondary, borderRadius: radius.pill, padding: 4, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   toggle: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: radius.pill },
   toggleOn: { backgroundColor: colors.brand },
   toggleOnText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.sm },
   toggleText: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm },
-  philosophy: { paddingHorizontal: spacing.xl, gap: spacing.sm, alignItems: "center" },
-  pTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.lg, textAlign: "center" },
-  pBody: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.base, lineHeight: 22, textAlign: "center" },
-  soon: { flexDirection: "row", alignItems: "center", gap: 10, marginHorizontal: spacing.xl, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  soonText: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm, flex: 1, lineHeight: 18 },
+  hint: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm, textAlign: "center", paddingHorizontal: spacing.xl, marginTop: spacing.md, lineHeight: 18 },
+  selCard: { marginTop: spacing.lg, marginHorizontal: spacing.lg, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, gap: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, alignSelf: "stretch" },
+  selHead: { flexDirection: "row", alignItems: "center", gap: 8 },
+  pulseTag: { width: 10, height: 10, borderRadius: 5 },
+  selTitle: { color: colors.onSurface, fontFamily: fonts.bold, fontSize: type.lg, flex: 1 },
+  selDesc: { color: colors.onSurface, fontFamily: fonts.regular, fontSize: type.base, lineHeight: 21 },
+  selNote: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, fontStyle: "italic", marginTop: 2 },
+  enterBtn: { marginTop: spacing.sm, backgroundColor: colors.blue, borderRadius: radius.pill, paddingVertical: 10, alignItems: "center" },
+  enterText: { color: "#fff", fontFamily: fonts.semibold, fontSize: type.sm },
+  emptyMy: { alignItems: "center", gap: spacing.sm, paddingTop: spacing.xl },
+  myCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  myTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
+  myDesc: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, marginTop: 1 },
 });

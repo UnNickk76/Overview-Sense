@@ -1173,3 +1173,33 @@ Home · Explore · Challenges(Pulse) · Observe · **Sense (centrale, PIATTO)** 
 ### PROSSIMO — ECOES FASE 2 (MVP)
 Ecoes Globe (stessa Terra senza confini) con Connection = pulsazioni vive (intensità da qualità/continuità, mai numeri); AI (GPT-5.4) propone Connection su risonanza Sense/Pensieri/commenti → accetta/rifiuta; Connection anonime; Ecoes Connection Room privata (≥2 accettano); My Ecoes (esci/rientra; eliminata quando l'ultimo esce). FASE 3: contenuti stanze/thread, inviti, evoluzione titolo+cronologia, DM, Segnala→moderazione, moderazione AI continua, pulsazioni che rallentano/riprendono.
 
+
+---
+
+## SESSIONE (fork) — ECOES™ FASE 2 (MVP) (COMPLETATA E VERIFICATA)
+
+Motore di risonanza + Ecoes World operativi. NON modificata la Fase 1.
+
+### Backend — nuovo modulo `backend/ecoes.py` (router `/api/ecoes`, registrato in server.py)
+- **Rilevamento risonanza automatico a intervalli** (nessun pulsante utente): `resonance_loop()` avviato allo startup, ciclo ogni ora; batch di ~40 contenuti non ancora analizzati (`ecoes_scanned`). Confronta **Pensieri + didascalie Sense + commenti**. Prompt GPT-5.4 cerca risonanze PROFONDE (significato/prospettiva/stato d'animo/complementarità), NON per argomento; **max 3 gruppi**, qualità > quantità, zero se nulla di significativo; ogni gruppo ≥2 utenti distinti.
+- **Proposte individuali anonime**: per ogni gruppo crea una `ecoes_connections` (status `proposed`) con titolo+descrizione+reason generati dall'AI, e `ecoes_proposals` per utente (+notifica "È stata rilevata una possibile Connection Ecoes").
+- **Room nasce solo con ≥2 accettazioni**: `accept` attiva la Connection e rende visibili i partecipanti tra loro; con 1 sola accettazione resta in attesa; altri possono accettare dopo. `decline` disponibile.
+- **Origine geografica reale offuscata**: `origin` (lat/lon del contenuto sorgente) resta interno; `display` = offset deterministico ~90km stabile per id (`_display_coords`); niente città/Stato/coordinate; Terra senza confini.
+- **Intensità = vita della Connection** (`_intensity`: recency + post/autori recenti, mai numeri esposti); `dormant` se inattiva ma resta sul Globe; **eliminata solo quando l'ultimo membro esce** (`leave`).
+- **Room**: `GET /rooms/{id}` (titolo, descrizione, participants, posts), `POST /rooms/{id}/posts` (Pensieri/commenti nella stanza, aggiorna attività), `POST /rooms/{id}/leave`.
+- Endpoint dev-only `POST /ecoes/admin/run-cycle` (solo per test/seed, NON user-facing). Indici `ensure_ecoes_indexes`.
+- Collezioni: `ecoes_connections`, `ecoes_proposals`, `ecoes_members`, `ecoes_posts`, `ecoes_scanned`.
+
+### Frontend
+- `src/lib/backend.ts`: `ecoesApi` (globe/proposals/accept/decline/my/room/post/leave) + tipi.
+- `src/components/EcoesGlobe.tsx`: pianeta ortografico SENZA confini, auto-rotazione calma, pulsazioni per Connection (dimensione/colore per intensità; oro se forte, blu altrimenti), tap→seleziona. Solo lato frontale visibile.
+- `app/ecoes-world.tsx` (riscritto): toggle **Ecoes Globe / My Ecoes**, banner **proposte** con Accetta/Non ora, selezione pulsazione → titolo+descrizione ("Ecoes non rivela chi né dove"), lista My Ecoes → Room.
+- `app/ecoes-room.tsx` (nuovo): titolo+pulsazione, dettagli/participants (tap header), feed post con `TranslatableText`, composer Pensiero, Esci (conferma). Nessun numero mostrato.
+
+### Verifica (curl + screenshot)
+- Ciclo dev: 2 Pensieri topicamente diversi ma profondamente complementari → 1 Connection "La domanda come cammino", 2 proposte. Apple accetta→attesa; Explorer accetta→Room nata; room detail mostra i 2 partecipanti; post OK; Globe 1 pulsazione (display offuscato 14.94,-71.56, intensità 0.8); My Ecoes 1.
+- Screenshot: Globe borderless con pulsazione, My Ecoes, Room con post+Traduci. Tutto OK.
+
+### PROSSIMO — ECOES FASE 3
+Thread/risposte nelle stanze, inviti "per prospettiva", **evoluzione automatica del titolo** (AI propone nuovo titolo + notifica pubblica con motivo + cronologia già salvata in `title_history`), DM tra partecipanti, **Segnala→moderazione**, moderazione AI continua (spam/safety/hate), pulsazioni che rallentano/riprendono, pubblicare un Sense scattato direttamente in una Room e opzionalmente anche in Observe. A regime: rilevamento near-real-time con pre-selezione semantica prima del modello costoso.
+

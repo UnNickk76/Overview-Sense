@@ -23,6 +23,7 @@ from universe_live import universe_router
 from snapsense import snapsense_router, ensure_snapsense_indexes
 from feedback import feedback_router
 from dm import dm_router, ensure_dm_indexes
+from ecoes import ecoes_router, ensure_ecoes_indexes, resonance_loop
 from community import community_router, ensure_community_indexes
 from push import push_router
 from music import music_router
@@ -443,6 +444,7 @@ app.include_router(universe_router)
 app.include_router(snapsense_router)
 app.include_router(feedback_router)
 app.include_router(dm_router)
+app.include_router(ecoes_router)
 app.include_router(community_router)
 app.include_router(push_router)
 app.include_router(music_router)
@@ -465,6 +467,7 @@ async def _startup_indexes():
         await ensure_social_indexes()
         await ensure_snapsense_indexes()
         await ensure_dm_indexes()
+        await ensure_ecoes_indexes()
         await ensure_community_indexes()
         await ensure_world_indexes()
         await ensure_developer_account()
@@ -480,6 +483,11 @@ async def _startup_indexes():
                 logger.info(f"R2: purged {removed} stale temp uploads")
     except Exception as e:
         logger.warning(f"R2 startup housekeeping failed: {e}")
+    # Ecoes™ — periodic automatic resonance detection (no manual trigger).
+    try:
+        asyncio.create_task(resonance_loop())
+    except Exception as e:
+        logger.warning(f"Ecoes resonance loop not started: {e}")
 
 
 @app.on_event("shutdown")

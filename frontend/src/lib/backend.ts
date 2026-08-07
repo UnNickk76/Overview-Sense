@@ -536,6 +536,30 @@ export const translateApi = {
     apiFetch<TranslationResult>("/ai/translate", { method: "POST", body: JSON.stringify({ text, target }) }),
 };
 
+// ---- Ecoes™ — invisible connections between thoughts ----
+export interface EcoesConn { id: string; title: string; description: string; status: string; lat: number; lon: number; intensity: number; dormant: boolean }
+export interface EcoesProposal { proposal_id: string; connection_id: string; title: string; description: string; reason: string }
+export interface EcoesPost { id: string; user_id: string; nickname?: string; kind: string; text: string; created_at: string }
+export interface EcoesTitle { title: string; reason: string; at: string }
+export interface EcoesRoom {
+  connection: EcoesConn;
+  title_history: EcoesTitle[];
+  participants: { user_id: string; nickname?: string }[];
+  posts: EcoesPost[];
+}
+
+export const ecoesApi = {
+  globe: () => apiFetch<{ items: EcoesConn[] }>("/ecoes/globe"),
+  proposals: () => apiFetch<{ items: EcoesProposal[] }>("/ecoes/proposals"),
+  accept: (pid: string) => apiFetch<{ ok: boolean; room_ready: boolean; connection_id: string; born: boolean }>(`/ecoes/proposals/${pid}/accept`, { method: "POST" }),
+  decline: (pid: string) => apiFetch<{ ok: boolean }>(`/ecoes/proposals/${pid}/decline`, { method: "POST" }),
+  my: () => apiFetch<{ items: EcoesConn[] }>("/ecoes/my"),
+  room: (cid: string) => apiFetch<EcoesRoom>(`/ecoes/rooms/${cid}`),
+  post: (cid: string, text: string, kind: "thought" | "comment" = "thought") =>
+    apiFetch<EcoesPost>(`/ecoes/rooms/${cid}/posts`, { method: "POST", body: JSON.stringify({ text, kind }) }),
+  leave: (cid: string) => apiFetch<{ ok: boolean; deleted: boolean }>(`/ecoes/rooms/${cid}/leave`, { method: "POST" }),
+};
+
 
 // ---- Direct Messages (polling) + Senshot condiviso ----
 export interface DMUser { id: string; nickname: string; display_name?: string; avatar?: string | null; is_support?: boolean }
