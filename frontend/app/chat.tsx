@@ -9,6 +9,7 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
+import { TranslatableText } from "@/src/components/TranslatableText";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { useAuth } from "@/src/context/AuthContext";
 import { dmApi, socialApi, mediaUrl, DMMessage, FeedObservation } from "@/src/lib/backend";
@@ -191,7 +192,11 @@ export default function Chat() {
     }
     return (
       <View style={[styles.bubble, mine ? styles.mineBubble : styles.theirBubble]}>
-        <Text style={[styles.bubbleText, mine && { color: colors.onBrand }]}>{m.text}</Text>
+        <TranslatableText
+          text={m.text}
+          textStyle={[styles.bubbleText, mine && { color: colors.onBrand }]}
+          linkStyle={mine ? { color: colors.onBrand } : undefined}
+        />
       </View>
     );
   };

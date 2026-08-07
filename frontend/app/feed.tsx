@@ -158,6 +158,14 @@ export default function Feed() {
         }
       />
 
+      <Pressable
+        testID="compose-thought-fab"
+        style={[styles.thoughtFab, { bottom: insets.bottom + 78 }]}
+        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); router.push(user ? "/compose-thought" as never : "/login" as never); }}>
+        <Ionicons name="create-outline" size={22} color={colors.onBrand} />
+        <Text style={styles.thoughtFabText}>Pensiero</Text>
+      </Pressable>
+
       <BottomNav active="feed" />
 
       {/* Full-screen Live Earth — the world navigation map + all filters */}
@@ -207,6 +215,8 @@ const styles = StyleSheet.create({
   topActions: { flexDirection: "row", alignItems: "center" },
   pinnedEarth: { alignItems: "center", paddingBottom: spacing.sm },
   fab: { position: "absolute", right: spacing.lg, width: 60, height: 60, borderRadius: 30, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 8 },
+  thoughtFab: { position: "absolute", right: spacing.lg, flexDirection: "row", alignItems: "center", gap: 6, height: 46, paddingHorizontal: spacing.lg, borderRadius: 23, backgroundColor: colors.brand, shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 8 },
+  thoughtFabText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.sm },
   iconBtn: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: colors.tertiary, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   headerTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base + 1 },
   headerCenter: { flex: 1, alignItems: "center", paddingHorizontal: spacing.sm },

@@ -7,6 +7,7 @@
 export type Lang = "it" | "en";
 
 export const translations: Record<string, { it: string; en: string }> = {
+  "translate": { it: "Traduci", en: "Translate" },
   // Control Center
   "cc.subtitle": {
     it: "Il centro di controllo di OverView — come funziona l'app.",

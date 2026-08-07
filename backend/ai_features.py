@@ -10,7 +10,7 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from database import EMERGENT_LLM_KEY
+from database import EMERGENT_LLM_KEY, db
 
 ai_router = APIRouter(prefix="/api/ai", tags=["ai-narration"])
 
@@ -542,3 +542,61 @@ async def analyze_satellite(req: SatelliteReq):
         "explanations": explanations or "",
         "cannot": cannot or "",
     }
+
+
+
+# ---------------------------------------------------------------------------
+# Multilingual translation — original text always kept; translation on demand.
+# Powered by GPT-5.4 (Emergent key). Results cached to avoid repeated cost.
+# ---------------------------------------------------------------------------
+import hashlib
+
+TRANSLATE_SYSTEM = (
+    "You are a precise translator for OverView, a science + reflection social app. "
+    "You receive a short user text (a caption, a thought, a comment or a private message) "
+    "and a TARGET language code. Detect the source language and translate the text into the "
+    "target language, preserving meaning, tone, emojis, line breaks and hashtags. Do NOT add "
+    "explanations, do NOT summarise, do NOT censor. If the text is already in the target language, "
+    "return it unchanged. Respond ONLY with compact JSON: "
+    '{"source_lang": "<ISO 639-1 code>", "translation": "<translated text>"}.'
+)
+
+
+class TranslateReq(BaseModel):
+    text: str
+    target: str  # user's language, ISO 639-1 (e.g. "it", "en", "es")
+
+
+@ai_router.post("/translate")
+async def translate_text(req: TranslateReq):
+    import json
+    text = (req.text or "").strip()
+    target = (req.target or "en").strip().lower()[:8]
+    if not text:
+        return {"source_lang": target, "target": target, "translation": "", "cached": False}
+    key = hashlib.sha256(f"{target}\n{text}".encode("utf-8")).hexdigest()
+    cached = await db.translations.find_one({"_id": key}, {"_id": 0})
+    if cached:
+        return {**cached, "cached": True}
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=503, detail="Traduzione non disponibile")
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=str(uuid.uuid4()),
+                       system_message=TRANSLATE_SYSTEM).with_model("openai", "gpt-5.4")
+        resp = await chat.send_message(UserMessage(text=f"TARGET={target}\n\nTEXT:\n{text}"))
+        raw = resp if isinstance(resp, str) else (
+            getattr(resp, "text", None) or getattr(resp, "content", None) or str(resp))
+        s, e = raw.find("{"), raw.rfind("}")
+        data = json.loads(raw[s:e + 1]) if s != -1 and e != -1 else {}
+        translation = (data.get("translation") or text).strip()
+        source_lang = (data.get("source_lang") or "").strip().lower()[:8] or target
+    except Exception:
+        # Fail soft: return original so the UI never breaks.
+        return {"source_lang": target, "target": target, "translation": text, "cached": False}
+    out = {"source_lang": source_lang, "target": target, "translation": translation}
+    try:
+        await db.translations.update_one({"_id": key}, {"$set": out}, upsert=True)
+    except Exception:
+        pass
+    return {**out, "cached": False}

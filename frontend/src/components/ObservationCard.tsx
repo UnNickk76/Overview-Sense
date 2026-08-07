@@ -7,6 +7,7 @@ import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { FeedObservation, mediaUrl } from "@/src/lib/backend";
 import { InteractionBar } from "./InteractionBar";
 import { ActionBar } from "./ActionBar";
+import { TranslatableText } from "./TranslatableText";
 
 function timeAgo(iso: string): string {
   const s = (Date.now() - new Date(iso).getTime()) / 1000;
@@ -19,6 +20,8 @@ function timeAgo(iso: string): string {
 export function ObservationCard({ obs }: { obs: FeedObservation }) {
   const router = useRouter();
   const uri = mediaUrl(obs.image_url, "feed");
+  const isThought = obs.kind === "thought" || (obs.media_type === "text" && !obs.image_url);
+  const openDetail = () => router.push(`${obs.is_pulse ? "/pulse-view" : "/observation-detail"}?id=${obs.id}` as never);
   return (
     <View style={styles.card}>
       {obs.reposted_by ? (
@@ -51,26 +54,36 @@ export function ObservationCard({ obs }: { obs: FeedObservation }) {
         </View>
       </Pressable>
 
-      <Pressable testID={`obs-open-${obs.id}`} onPress={() => router.push(`${obs.is_pulse ? "/pulse-view" : "/observation-detail"}?id=${obs.id}` as never)}>
-        {uri ? (
-          <Image source={{ uri }} style={styles.image} contentFit="cover" transition={200} />
-        ) : (
-          <View style={[styles.image, styles.audioPlaceholder]}>
-            <Ionicons name={obs.media_type === "audio" ? "musical-notes" : "image"} size={40} color={colors.onSurfaceSecondary} />
+      {isThought ? (
+        <Pressable testID={`obs-open-${obs.id}`} onPress={openDetail} style={styles.thoughtBody}>
+          <View style={styles.thoughtTag}>
+            <Ionicons name="create-outline" size={12} color={colors.blue} />
+            <Text style={styles.thoughtTagText}>Pensiero</Text>
           </View>
-        )}
-        {obs.is_pulse ? (
-          <View style={styles.pulseBadge}>
-            <Ionicons name="flash" size={12} color={colors.onBrand} />
-            <Text style={styles.pulseBadgeText}>
-              {obs.pulse_task?.id?.startsWith("g_") ? "GLOBAL PULSE" : "PULSE"}
-            </Text>
-          </View>
-        ) : null}
-      </Pressable>
+          <TranslatableText text={obs.caption} textStyle={styles.thoughtText} numberOfLines={10} />
+        </Pressable>
+      ) : (
+        <Pressable testID={`obs-open-${obs.id}`} onPress={openDetail}>
+          {uri ? (
+            <Image source={{ uri }} style={styles.image} contentFit="cover" transition={200} />
+          ) : (
+            <View style={[styles.image, styles.audioPlaceholder]}>
+              <Ionicons name={obs.media_type === "audio" ? "musical-notes" : "image"} size={40} color={colors.onSurfaceSecondary} />
+            </View>
+          )}
+          {obs.is_pulse ? (
+            <View style={styles.pulseBadge}>
+              <Ionicons name="flash" size={12} color={colors.onBrand} />
+              <Text style={styles.pulseBadgeText}>
+                {obs.pulse_task?.id?.startsWith("g_") ? "GLOBAL PULSE" : "PULSE"}
+              </Text>
+            </View>
+          ) : null}
+        </Pressable>
+      )}
 
       <View style={styles.body}>
-        {obs.caption ? <Text style={styles.caption} numberOfLines={2}>{obs.caption}</Text> : null}
+        {!isThought && obs.caption ? <TranslatableText text={obs.caption} textStyle={styles.caption} numberOfLines={2} /> : null}
         <InteractionBar obs={obs} />
         <ActionBar obs={obs} onComment={() => router.push(`/observation-detail?id=${obs.id}` as never)} />
       </View>
@@ -98,6 +111,10 @@ const styles = StyleSheet.create({
   audioPlaceholder: { alignItems: "center", justifyContent: "center" },
   body: { padding: spacing.md, gap: spacing.md },
   caption: { color: colors.onSurface, fontFamily: fonts.regular, fontSize: type.base, lineHeight: 20 },
+  thoughtBody: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xs, gap: spacing.sm },
+  thoughtTag: { flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", backgroundColor: "rgba(88,166,255,0.12)", borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 3 },
+  thoughtTagText: { color: colors.blue, fontFamily: fonts.semibold, fontSize: type.sm - 3, letterSpacing: 0.4, textTransform: "uppercase" },
+  thoughtText: { color: colors.onSurface, fontFamily: fonts.regular, fontSize: type.lg, lineHeight: 25 },
   commentsLink: { flexDirection: "row", alignItems: "center", gap: 6 },
   commentsText: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm },
 });

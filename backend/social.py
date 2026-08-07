@@ -315,6 +315,7 @@ def obs_public(o: dict, viewer_interactions: Optional[set] = None,
         "avatar": o.get("avatar"),
         "media_type": o.get("media_type", "image"),
         "source": o.get("source", "reality"),
+        "kind": o.get("kind", "sense"),
         "category": o.get("category"),
         "categories": o.get("categories", []),
         "caption": o.get("caption", ""),
@@ -365,6 +366,7 @@ class CreateObs(BaseModel):
     ai_confidence: Optional[int] = None
     is_pulse: bool = False
     pulse_task: Optional[dict] = None
+    kind: Optional[str] = None  # "thought" for text-only Pensieri, else Sense
 
 
 @social_router.post("/observations")
@@ -406,6 +408,14 @@ async def create_observation(req: CreateObs, user: dict = Depends(get_active_use
 
     primary, cats = derive_categories(data, req.source)
     caption = (req.description if req.description is not None else req.caption) or ""
+    is_thought = (req.kind == "thought") or (req.media_type == "text" and not has_image)
+    if is_thought:
+        caption = caption.strip()
+        if len(caption) < 1:
+            raise HTTPException(status_code=400, detail="Un Pensiero non può essere vuoto.")
+        caption = caption[:3000]
+    else:
+        caption = caption.strip()[:500]
     hashtags = [h.strip().lstrip("#") for h in (req.hashtags or []) if h and h.strip()][:15]
     tagged = [{"id": t.get("id"), "nickname": t.get("nickname")} for t in (req.tagged_users or []) if t.get("id")][:20]
     music = None
@@ -431,7 +441,8 @@ async def create_observation(req: CreateObs, user: dict = Depends(get_active_use
         "avatar": user.get("avatar"),
         "media_type": req.media_type,
         "source": req.source,
-        "caption": caption.strip()[:500],
+        "kind": "thought" if is_thought else (req.kind or "sense"),
+        "caption": caption,
         "title": (req.title or "").strip()[:120] or None,
         "hashtags": hashtags,
         "music": music,

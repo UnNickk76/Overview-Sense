@@ -9,6 +9,7 @@ import * as Haptics from "expo-haptics";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { InteractionBar } from "@/src/components/InteractionBar";
+import { TranslatableText } from "@/src/components/TranslatableText";
 import { AddToCollection } from "@/src/components/AddToCollection";
 import { ShareHub } from "@/src/components/ShareHub";
 import { ActionBar } from "@/src/components/ActionBar";
@@ -153,7 +154,7 @@ export default function ObservationDetail() {
   const socialBlock = (
     <View style={{ gap: spacing.md }}>
       {obs.title ? <Text style={styles.postTitle}>{obs.title}</Text> : null}
-      {obs.caption ? <Text style={styles.caption}>{obs.caption}</Text> : null}
+      {obs.caption ? <TranslatableText text={obs.caption} textStyle={styles.caption} /> : null}
       {obs.hashtags && obs.hashtags.length > 0 ? (
         <View style={styles.hashRow}>{obs.hashtags.map((h) => <Text key={h} style={styles.hash}>#{h}</Text>)}</View>
       ) : null}
@@ -255,7 +256,7 @@ export default function ObservationDetail() {
           )}
           <View style={{ flex: 1 }}>
             <Text style={styles.commentNick}>{c.nickname}</Text>
-            <Text style={styles.commentText}>{c.text}</Text>
+            <TranslatableText text={c.text} textStyle={styles.commentText} />
           </View>
         </View>
       ))}

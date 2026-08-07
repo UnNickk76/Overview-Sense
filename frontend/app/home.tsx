@@ -292,6 +292,17 @@ export default function Home() {
           <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceSecondary} />
         </Pressable>
 
+        <Pressable testID="home-ecoes-world" style={styles.ecoesBanner} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/ecoes-world" as never); }}>
+          <View style={styles.ecoesIcon}>
+            <Image source={require("@/assets/images/ecoes-icon.png")} style={{ width: 30, height: 30 }} contentFit="contain" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.ecoesTitle}>Ecoes World™</Text>
+            <Text style={styles.worldSub}>Le connessioni invisibili tra i pensieri, rese visibili</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceSecondary} />
+        </Pressable>
+
         <Pressable testID="home-signature" onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/about" as never); }} style={styles.signatureWrap}>
           <View style={styles.sigRule} />
           <Text style={styles.signature}>&ldquo;OverView doesn&apos;t create reality. It reveals it.&rdquo;</Text>
@@ -379,6 +390,9 @@ const styles = StyleSheet.create({
   worldIcon: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(212,175,55,0.1)" },
   worldTitle: { color: colors.onSurface, fontFamily: fonts.bold, fontSize: type.lg },
   worldSub: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 1, marginTop: 1 },
+  ecoesBanner: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceTertiary, borderRadius: radius.lg, padding: spacing.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.blue, marginHorizontal: spacing.lg, marginTop: spacing.md },
+  ecoesIcon: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(88,166,255,0.12)" },
+  ecoesTitle: { color: colors.onSurface, fontFamily: fonts.bold, fontSize: type.lg },
   sigRule: { width: 100, height: StyleSheet.hairlineWidth, backgroundColor: colors.borderStrong },
   signature: { color: colors.brand, fontFamily: fonts.regular, fontSize: type.lg, fontStyle: "italic", textAlign: "center", opacity: 0.8, paddingHorizontal: spacing.xl },
   copyright: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm, opacity: 0.7 },

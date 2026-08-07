@@ -36,8 +36,9 @@ export interface FeedObservation {
   user_id: string;
   nickname: string;
   avatar?: string | null;
-  media_type: "image" | "audio" | "video";
+  media_type: "image" | "audio" | "video" | "text";
   source: "reality" | "listening";
+  kind?: string;
   category: string;
   categories: string[];
   caption: string;
@@ -168,6 +169,7 @@ export const socialApi = {
     voice?: { media_id: string; duration: number };
     image_base64?: string; data?: ObsData; ai_confidence?: number;
     is_pulse?: boolean; pulse_task?: { id: string; title: string; theme: string; prompt?: string };
+    kind?: string;
   }) => apiFetch<FeedObservation>("/observations", {
     method: "POST", body: JSON.stringify(payload),
   }),
@@ -524,6 +526,14 @@ export const creatorApi = {
 
 export const supportApi = {
   clarification: () => apiFetch<{ conv_id: string; name: string }>("/support/clarification", { method: "POST" }),
+};
+
+// ---- Multilingual translation (original always kept; on-demand) ----
+export interface TranslationResult { source_lang: string; target: string; translation: string; cached?: boolean }
+
+export const translateApi = {
+  translate: (text: string, target: string) =>
+    apiFetch<TranslationResult>("/ai/translate", { method: "POST", body: JSON.stringify({ text, target }) }),
 };
 
 
