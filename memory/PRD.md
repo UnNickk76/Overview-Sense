@@ -1203,3 +1203,13 @@ Motore di risonanza + Ecoes World operativi. NON modificata la Fase 1.
 ### PROSSIMO — ECOES FASE 3
 Thread/risposte nelle stanze, inviti "per prospettiva", **evoluzione automatica del titolo** (AI propone nuovo titolo + notifica pubblica con motivo + cronologia già salvata in `title_history`), DM tra partecipanti, **Segnala→moderazione**, moderazione AI continua (spam/safety/hate), pulsazioni che rallentano/riprendono, pubblicare un Sense scattato direttamente in una Room e opzionalmente anche in Observe. A regime: rilevamento near-real-time con pre-selezione semantica prima del modello costoso.
 
+
+---
+
+## SESSIONE (fork) — ECOES ROOM: BOT DI SISTEMA + MODERAZIONE (COMPLETATO E VERIFICATO)
+Aggiunta strutturale alla Fase 2 (resto invariato).
+- `ecoes.py` `SYSTEM_BOTS`: **OverView Safety Bot** (safety) + **OverView Moderation Bot** (moderation), `is_bot:true`. Presenti in OGNI Room dalla nascita; esposti in `GET /ecoes/rooms/{id}` nel campo `system_bots`, SEPARATI da `participants`. Non sono membri (`ecoes_members`) → non contati, non influenzano pulsazione, non rimovibili, nessun DM.
+- **Moderazione continua** `_moderate_text` (GPT-5.4, fail-open): ogni `POST /rooms/{id}/posts` viene classificato (hate/harassment/spam/dangerous). Contenuti abusivi → **bloccati** (422 `{code:'moderated', message:'<bot>: …'}`) e registrati in `ecoes_flags` (`status:auto_blocked`, `escalate_human` se severity high). Espressione riflessiva/emotiva NON penalizzata. Intervento discreto: solo l'autore vede il blocco, nessun rumore nella Room.
+- Frontend `app/ecoes-room.tsx`: pannello dettagli con **PARTECIPANTI** poi divisore e **BOT DI SISTEMA** (icona scudo/martello, tag "SISTEMA", `pointerEvents=none` → non cliccabili) + nota "Presenza silenziosa di OverView… intervengono solo quando necessario". Il 422 di moderazione mostra un Alert col messaggio del bot.
+- Verifica: room detail ritorna i 2 bot separati dai partecipanti; post riflessivo normale 200; post minaccioso 422 (Safety Bot) + flag loggato. Screenshot UI confermato.
+

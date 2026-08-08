@@ -541,10 +541,12 @@ export interface EcoesConn { id: string; title: string; description: string; sta
 export interface EcoesProposal { proposal_id: string; connection_id: string; title: string; description: string; reason: string }
 export interface EcoesPost { id: string; user_id: string; nickname?: string; kind: string; text: string; created_at: string }
 export interface EcoesTitle { title: string; reason: string; at: string }
+export interface EcoesBot { id: string; name: string; role: string; is_bot: boolean; tagline?: string }
 export interface EcoesRoom {
   connection: EcoesConn;
   title_history: EcoesTitle[];
   participants: { user_id: string; nickname?: string }[];
+  system_bots: EcoesBot[];
   posts: EcoesPost[];
 }
 

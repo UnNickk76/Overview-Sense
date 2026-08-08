@@ -84,14 +84,32 @@ export default function EcoesRoomScreen() {
       {showInfo ? (
         <View style={styles.infoCard}>
           <Text style={styles.infoDesc}>{conn.description}</Text>
+          <Text style={styles.groupLabel}>PARTECIPANTI</Text>
           <View style={styles.partRow}>
             {room.participants.map((p) => (
               <View key={p.user_id} style={styles.partChip}>
                 <Text style={styles.partInit}>{(p.nickname || "?")[0].toUpperCase()}</Text>
-                <Text style={styles.partNick}>{p.nickname || "osservatore"}</Text>
+                <Text style={styles.partNick}>{p.user_id === user?.id ? "Tu" : (p.nickname || "osservatore")}</Text>
               </View>
             ))}
           </View>
+          <View style={styles.botDivider} />
+          <Text style={styles.groupLabel}>BOT DI SISTEMA</Text>
+          {room.system_bots.map((b) => (
+            <View key={b.id} style={styles.botRow} pointerEvents="none">
+              <View style={styles.botIcon}>
+                <Ionicons name={b.role === "safety" ? "shield-checkmark" : "hammer"} size={14} color={colors.blue} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={styles.botNameRow}>
+                  <Text style={styles.botName}>{b.name}</Text>
+                  <View style={styles.botTag}><Text style={styles.botTagText}>SISTEMA</Text></View>
+                </View>
+                {b.tagline ? <Text style={styles.botTagline}>{b.tagline}</Text> : null}
+              </View>
+            </View>
+          ))}
+          <Text style={styles.botNote}>Presenza silenziosa di OverView a tutela della Connection. Intervengono solo quando necessario.</Text>
           {room.title_history.length > 1 ? (
             <Text style={styles.histNote}>Il titolo può evolvere con la Connection.</Text>
           ) : null}
@@ -148,6 +166,16 @@ const styles = StyleSheet.create({
   subtitle: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 2, marginTop: 1 },
   infoCard: { backgroundColor: colors.surfaceSecondary, marginHorizontal: spacing.lg, marginTop: spacing.sm, borderRadius: radius.md, padding: spacing.md, gap: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   infoDesc: { color: colors.onSurface, fontFamily: fonts.regular, fontSize: type.sm, lineHeight: 20 },
+  groupLabel: { color: colors.onSurfaceSecondary, fontFamily: fonts.semibold, fontSize: type.sm - 3, letterSpacing: 0.8, marginTop: 2 },
+  botDivider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginVertical: 2 },
+  botRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  botIcon: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(88,166,255,0.12)", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.blue },
+  botNameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  botName: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.sm },
+  botTag: { backgroundColor: "rgba(88,166,255,0.15)", borderRadius: radius.sm, paddingHorizontal: 5, paddingVertical: 1 },
+  botTagText: { color: colors.blue, fontFamily: fonts.bold, fontSize: type.sm - 4, letterSpacing: 0.5 },
+  botTagline: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 2, marginTop: 1 },
+  botNote: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 2, fontStyle: "italic", marginTop: 2 },
   partRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   partChip: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.tertiary, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 3 },
   partInit: { color: colors.brand, fontFamily: fonts.bold, fontSize: type.sm - 3 },

@@ -41,6 +41,47 @@ SCAN_BATCH = 40
 DORMANT_AFTER_HOURS = 72
 DISPLAY_RADIUS_M = 90000.0  # ~90km obfuscation so no city can be identified
 
+# System bots are a STRUCTURAL part of every Room — the silent presence of
+# OverView guarding users. They are NOT users: not counted, never affect the
+# pulsation, not clickable as profiles, no DM, cannot be removed, always present.
+SYSTEM_BOTS = [
+    {"id": "ecoes_safety_bot", "name": "OverView Safety Bot", "role": "safety", "is_bot": True,
+     "tagline": "Sicurezza · contenuti pericolosi e molestie"},
+    {"id": "ecoes_moderation_bot", "name": "OverView Moderation Bot", "role": "moderation", "is_bot": True,
+     "tagline": "Moderazione · spam e hate speech"},
+]
+
+MODERATION_SYSTEM = (
+    "You are the moderation core of an Ecoes Connection Room in OverView. Classify a single user message "
+    "for safety. Detect: hate speech, harassment/bullying, spam/scam, dangerous content (violence, self-harm, "
+    "illegal). Be tolerant of normal reflective/emotional expression — sadness or vulnerability is NOT harmful. "
+    "Only flag genuinely abusive/dangerous content. Respond ONLY with compact JSON: "
+    '{"allowed": true|false, "category": "none|hate|harassment|spam|dangerous", "severity": "none|low|high"}.'
+)
+
+
+async def _moderate_text(text: str) -> dict:
+    """Continuous automatic moderation. Fails OPEN (allows) on any error so the
+    experience never breaks; genuine abuse is blocked."""
+    if not EMERGENT_LLM_KEY or len(text.strip()) < 2:
+        return {"allowed": True, "category": "none", "severity": "none"}
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=str(uuid.uuid4()),
+                       system_message=MODERATION_SYSTEM).with_model("openai", "gpt-5.4")
+        resp = await chat.send_message(UserMessage(text=text[:1500]))
+        raw = resp if isinstance(resp, str) else (getattr(resp, "text", None) or str(resp))
+        s, e = raw.find("{"), raw.rfind("}")
+        data = json.loads(raw[s:e + 1]) if s != -1 else {}
+        return {
+            "allowed": bool(data.get("allowed", True)),
+            "category": data.get("category", "none"),
+            "severity": data.get("severity", "none"),
+        }
+    except Exception as ex:
+        logger.warning(f"moderation failed (fail-open): {ex}")
+        return {"allowed": True, "category": "none", "severity": "none"}
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -324,6 +365,7 @@ async def room_detail(cid: str, user: dict = Depends(get_current_user)):
         "connection": await _conn_public(conn),
         "title_history": conn.get("title_history", []),
         "participants": [{"user_id": x["user_id"], "nickname": x.get("nickname")} for x in members],
+        "system_bots": SYSTEM_BOTS,
         "posts": posts,
     }
 
@@ -341,6 +383,21 @@ async def room_post(cid: str, req: RoomPost, user: dict = Depends(get_active_use
     text = (req.text or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="Il contenuto non può essere vuoto")
+    # System bots moderate every message continuously and intervene only when
+    # necessary: genuinely abusive/dangerous content is held back before it lands.
+    verdict = await _moderate_text(text)
+    if not verdict["allowed"]:
+        bot = "OverView Safety Bot" if verdict["category"] in ("dangerous", "harassment") else "OverView Moderation Bot"
+        await db.ecoes_flags.insert_one({
+            "id": str(uuid.uuid4()), "connection_id": cid, "user_id": user["id"],
+            "text": text[:1000], "category": verdict["category"], "severity": verdict["severity"],
+            "status": "auto_blocked", "handled_by": bot, "created_at": _now(),
+            "escalate_human": verdict["severity"] == "high",
+        })
+        raise HTTPException(status_code=422, detail={
+            "code": "moderated",
+            "message": f"{bot}: questo contenuto non rispetta le linee guida della Connection e non è stato pubblicato.",
+        })
     doc = {"id": str(uuid.uuid4()), "connection_id": cid, "user_id": user["id"], "nickname": user.get("nickname"),
            "kind": req.kind if req.kind in ("thought", "comment") else "thought", "text": text[:3000], "created_at": _now()}
     await db.ecoes_posts.insert_one(doc)
