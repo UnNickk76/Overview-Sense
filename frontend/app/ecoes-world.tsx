@@ -25,6 +25,7 @@ export default function EcoesWorld() {
   const [selected, setSelected] = useState<EcoesConn | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [globeActive, setGlobeActive] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -73,7 +74,7 @@ export default function EcoesWorld() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 120 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 120 }} showsVerticalScrollIndicator={false} scrollEnabled={!globeActive}>
         {/* Proposals — Ecoes has detected a possible Connection */}
         {proposals.length > 0 ? (
           <View style={styles.propWrap}>
@@ -115,7 +116,7 @@ export default function EcoesWorld() {
 
         {mode === "globe" ? (
           <View style={{ alignItems: "center", paddingTop: spacing.md }}>
-            <EcoesGlobe items={globeItems} size={globeSize} onSelect={(c) => { Haptics.selectionAsync(); setSelected(c); }} selectedId={selected?.id} />
+            <EcoesGlobe items={globeItems} size={globeSize} onSelect={(c) => { Haptics.selectionAsync(); setSelected(c); }} onInteracting={setGlobeActive} />
             {selected ? (
               <View style={styles.selCard}>
                 <View style={styles.selHead}>
@@ -131,7 +132,7 @@ export default function EcoesWorld() {
                 ) : null}
               </View>
             ) : (
-              <Text style={styles.hint}>Tocca una pulsazione per scoprirne l'eco. Solo titolo e descrizione — mai persone o numeri.</Text>
+              <Text style={styles.hint}>Trascina per ruotare · pizzica per zoomare · tocca una pulsazione per scoprirne l'eco. Solo titolo e descrizione — mai persone o numeri.</Text>
             )}
           </View>
         ) : (

@@ -1213,3 +1213,17 @@ Aggiunta strutturale alla Fase 2 (resto invariato).
 - Frontend `app/ecoes-room.tsx`: pannello dettagli con **PARTECIPANTI** poi divisore e **BOT DI SISTEMA** (icona scudo/martello, tag "SISTEMA", `pointerEvents=none` → non cliccabili) + nota "Presenza silenziosa di OverView… intervengono solo quando necessario". Il 422 di moderazione mostra un Alert col messaggio del bot.
 - Verifica: room detail ritorna i 2 bot separati dai partecipanti; post riflessivo normale 200; post minaccioso 422 (Safety Bot) + flag loggato. Screenshot UI confermato.
 
+
+---
+
+## SESSIONE (fork) — ECOES GLOBE evoluto: Terra reale, Sole, senza confini (COMPLETATO)
+Riscritto `src/components/EcoesGlobe.tsx` come vero globo ortografico SVG (stessa tecnica di `LiveEarth` + dati `src/lib/continents` CONTINENTS), senza toccare la logica Fase 1/2.
+- **Rotazione lenta continua** (0.12°/tick @60ms) quando idle; ripresa automatica ~2.5s dopo l'interazione.
+- **Illuminazione solare reale**: `subsolarPoint(UTC)` (declinazione + ora) → gradiente giorno/notte `ec_day` centrato sul punto subsolare proiettato; terminatore si muove nel tempo; se il Sole è sul lato opposto la notte domina. La posizione utente NON influisce sull'illuminazione (eventualmente solo punto di vista iniziale, non implementato ora → funziona senza geoloc).
+- **Nessun confine/etichetta/città**: solo landmass fisici riempiti (CONTINENTS), niente stroke di confini/nomi/graticule.
+- **Interattivo**: Pan (ruota), Pinch (zoom 1..**12**), Tap (seleziona). GestureDetector; `onInteracting` disabilita lo ScrollView di `ecoes-world` durante l'uso.
+- **Fusione densità SENZA numeri**: clustering per distanza schermo (~26px) → un unico bagliore (dimensione cresce col numero, MAI cifre). Tap su bagliore multiplo → zoom verso il centroide (lon0/lat0) così le pulsazioni si separano; a zoom sufficiente ogni Connection torna singola e selezionabile.
+- **Pulsazioni ancorate alla sfera**: proiettate ad ogni frame con rotazione/tilt/zoom; seguono la Terra, spariscono sul lato posteriore.
+- Verifica screenshot: Terra riconoscibile (Africa/Europa/Asia) senza confini, alone atmosferico, illuminazione solare visibile, hint drag/pinch/tap. Fase 1/2 invariate.
+NB tecnico: implementazione SVG (nessuna nuova dipendenza), funziona su web preview + Expo Go. Una futura versione con texture fotorealistica/3D (three/expo-gl già in progetto) è possibile ma richiederebbe build nativo.
+
