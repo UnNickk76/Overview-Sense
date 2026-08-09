@@ -39,6 +39,8 @@ interface Props {
   initialLon?: number;
   initialLat?: number;
   maxZoom?: number;
+  /** When false, drag-rotate and pinch-zoom are disabled (auto-rotation + taps stay). */
+  interactive?: boolean;
   overlay?: (ctx: GlobeCtx) => React.ReactNode;
   onTap?: (x: number, y: number, ctx: GlobeCtx) => void;
   onDoubleTap?: (x: number, y: number, ctx: GlobeCtx) => void;
@@ -52,7 +54,7 @@ interface Props {
  * Ecoes pulsations, …) — never touching the globe geometry.
  */
 export const GlobeBase = forwardRef<GlobeHandle, Props>(function GlobeBase(
-  { size, onInteracting, initialLon = 20, initialLat = 18, maxZoom = 12, overlay, onTap, onDoubleTap }, ref,
+  { size, onInteracting, initialLon = 20, initialLat = 18, maxZoom = 12, interactive = true, overlay, onTap, onDoubleTap }, ref,
 ) {
   const baseR = size / 2 - 6;
   const cx = size / 2, cy = size / 2;
@@ -101,7 +103,7 @@ export const GlobeBase = forwardRef<GlobeHandle, Props>(function GlobeBase(
       setZoomV(clamp(zoomRef.current * zoomMul, 1, maxZoom));
       resumeSoon();
     },
-    reset: () => { setZoomV(1); resumeSoon(); },
+    reset: () => { setZoomV(1); setLatV(initialLat); resumeSoon(); },
   }));
 
   const Rz = baseR * zoom;
@@ -147,14 +149,6 @@ export const GlobeBase = forwardRef<GlobeHandle, Props>(function GlobeBase(
   }, [proj, graticule]);
 
   const gesture = useMemo(() => {
-    const pan = Gesture.Pan().onBegin(() => runOnJS(beginPan)())
-      .onUpdate((e) => runOnJS(updatePan)(e.translationX, e.translationY))
-      .onEnd(() => runOnJS(resumeSoon)());
-    const pinch = Gesture.Pinch().onBegin(() => runOnJS(beginPinch)())
-      .onUpdate((e) => runOnJS(updatePinch)(e.scale))
-      .onEnd(() => runOnJS(resumeSoon)());
-    const moving = Gesture.Simultaneous(pan, pinch);
-    const gs: ReturnType<typeof Gesture.Race>[] | any[] = [];
     const tapFns: any[] = [];
     if (onDoubleTap) {
       tapFns.push(Gesture.Tap().numberOfTaps(2).maxDuration(320)
@@ -164,10 +158,22 @@ export const GlobeBase = forwardRef<GlobeHandle, Props>(function GlobeBase(
       tapFns.push(Gesture.Tap().numberOfTaps(1).maxDuration(260)
         .onEnd((e) => { const c = ctxRef.current; if (c) runOnJS(onTap)(e.x, e.y, c); }));
     }
+    if (!interactive) {
+      // No drag/pinch — only taps (used by Observe compact preview).
+      if (tapFns.length === 0) return Gesture.Tap().enabled(false);
+      return tapFns.length === 1 ? tapFns[0] : Gesture.Exclusive(...tapFns);
+    }
+    const pan = Gesture.Pan().onBegin(() => runOnJS(beginPan)())
+      .onUpdate((e) => runOnJS(updatePan)(e.translationX, e.translationY))
+      .onEnd(() => runOnJS(resumeSoon)());
+    const pinch = Gesture.Pinch().onBegin(() => runOnJS(beginPinch)())
+      .onUpdate((e) => runOnJS(updatePinch)(e.scale))
+      .onEnd(() => runOnJS(resumeSoon)());
+    const moving = Gesture.Simultaneous(pan, pinch);
     if (tapFns.length === 0) return moving;
     return Gesture.Exclusive(...tapFns, moving);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onTap, onDoubleTap]);
+  }, [onTap, onDoubleTap, interactive]);
 
   return (
     <GestureDetector gesture={gesture}>
