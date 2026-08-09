@@ -23,7 +23,7 @@ from universe_live import universe_router
 from snapsense import snapsense_router, ensure_snapsense_indexes
 from feedback import feedback_router
 from dm import dm_router, ensure_dm_indexes
-from ecoes import ecoes_router, ensure_ecoes_indexes, resonance_loop
+from ecoes import ecoes_router, ensure_ecoes_indexes, resonance_loop, maintenance_loop
 from community import community_router, ensure_community_indexes
 from push import push_router
 from music import music_router
@@ -488,6 +488,11 @@ async def _startup_indexes():
         asyncio.create_task(resonance_loop())
     except Exception as e:
         logger.warning(f"Ecoes resonance loop not started: {e}")
+    # Ecoes™ — periodic upkeep of living Connections (auto title evolution).
+    try:
+        asyncio.create_task(maintenance_loop())
+    except Exception as e:
+        logger.warning(f"Ecoes maintenance loop not started: {e}")
 
 
 @app.on_event("shutdown")

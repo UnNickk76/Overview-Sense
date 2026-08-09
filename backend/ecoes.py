@@ -272,6 +272,85 @@ async def resonance_loop():
 
 
 # --------------------------------------------------------------------------- #
+# Title evolution — the Connection's identity follows the conversation.
+# --------------------------------------------------------------------------- #
+TITLE_SYSTEM = (
+    "Sei Ecoes. Una Connection ha un titolo attuale e una conversazione che evolve. Decidi se "
+    "l'ESSENZA condivisa della Connection è realmente cambiata abbastanza da meritare un nuovo "
+    "titolo. Cambia SOLO se c'è un vero spostamento di significato/tema/sensibilità condivisa; NON "
+    "cambiare per piccole variazioni o per un singolo messaggio. Il nuovo titolo deve essere "
+    "evocativo, max ~6 parole, semanticamente coerente con ciò che accade ORA nella stanza. Scrivi "
+    "nella lingua prevalente della conversazione. Rispondi SOLO con JSON compatto: "
+    '{"changed": <bool>, "title": "", "reason": ""}'
+)
+
+
+async def maybe_evolve_title(conn: dict) -> bool:
+    """If the room's shared essence genuinely shifted, rename it, keep the full
+    history and notify participants. Never inflates activity (no post created)."""
+    if not EMERGENT_LLM_KEY:
+        return False
+    hist = conn.get("title_history") or [{"title": conn["title"], "at": conn.get("created_at")}]
+    last_entry = hist[-1]
+    last_at = _parse(last_entry.get("at"))
+    if last_at and (datetime.now(timezone.utc) - last_at).total_seconds() < 2 * 3600:
+        return False  # cool-down: at most one rename every ~2h
+    q = {"connection_id": conn["id"]}
+    if last_entry.get("at"):
+        q["created_at"] = {"$gt": last_entry["at"]}
+    since_count = await db.ecoes_posts.count_documents(q)
+    if since_count < 6:
+        return False  # not enough new conversation to reconsider identity
+    posts = await db.ecoes_posts.find(
+        {"connection_id": conn["id"], "text": {"$ne": ""}}, {"_id": 0, "text": 1}
+    ).sort("created_at", -1).limit(24).to_list(24)
+    texts = [p.get("text", "") for p in reversed(posts) if p.get("text")]
+    if len(texts) < 4:
+        return False
+    prompt = (f'Titolo attuale: "{conn["title"]}"\nMessaggi recenti (dal più vecchio al più nuovo):\n'
+              + "\n".join(f"- {t[:200]}" for t in texts))
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=str(uuid.uuid4()),
+                       system_message=TITLE_SYSTEM).with_model("openai", "gpt-5.4")
+        resp = await chat.send_message(UserMessage(text=prompt))
+        raw = resp if isinstance(resp, str) else (getattr(resp, "text", None) or str(resp))
+        s, e = raw.find("{"), raw.rfind("}")
+        data = json.loads(raw[s:e + 1]) if s != -1 else {}
+    except Exception as ex:
+        logger.warning(f"title evolution failed: {ex}")
+        return False
+    new_title = (data.get("title") or "").strip()[:80]
+    if not data.get("changed") or not new_title or new_title.lower() == (conn["title"] or "").strip().lower():
+        return False
+    reason = (data.get("reason") or "").strip()[:300] or "La Connection ha preso una nuova direzione."
+    entry = {"title": new_title, "reason": reason, "at": _now(), "previous": conn.get("title")}
+    await db.ecoes_connections.update_one(
+        {"id": conn["id"]}, {"$set": {"title": new_title}, "$push": {"title_history": entry}})
+    for mem in await _active_members(conn["id"]):
+        await notify(mem["user_id"], "ecoes", "Ecoes™",
+                     f"La Connection ora si chiama «{new_title}».", action_url=f"/ecoes-room?id={conn['id']}")
+    logger.info(f"Ecoes title evolved: {conn['id']} → {new_title}")
+    return True
+
+
+async def maintenance_loop():
+    """Periodic upkeep of living Connections (title evolution). Pulsation itself
+    is computed on read from real activity, so nothing to persist there."""
+    await asyncio.sleep(150)
+    while True:
+        try:
+            async for conn in db.ecoes_connections.find({"status": "active"}, {"_id": 0}).limit(200):
+                try:
+                    await maybe_evolve_title(conn)
+                except Exception as ex:
+                    logger.warning(f"title loop conn error: {ex}")
+        except Exception as ex:
+            logger.warning(f"maintenance loop error: {ex}")
+        await asyncio.sleep(1800)  # every 30 minutes
+
+
+# --------------------------------------------------------------------------- #
 # Public serialisers
 # --------------------------------------------------------------------------- #
 async def _conn_public(conn: dict, intensity: Optional[float] = None) -> dict:
@@ -282,6 +361,22 @@ async def _conn_public(conn: dict, intensity: Optional[float] = None) -> dict:
         "status": conn.get("status"), "lat": conn["display"]["lat"], "lon": conn["display"]["lon"],
         "intensity": intensity, "dormant": intensity < 0.28,
     }
+
+
+def _post_public(p: dict) -> dict:
+    """Serialise a room post. A 'sense' post carries a real image (room-only or
+    also published to Observe); threads are expressed via parent_id."""
+    out = {
+        "id": p["id"], "connection_id": p.get("connection_id"), "user_id": p["user_id"],
+        "nickname": p.get("nickname"), "kind": p.get("kind", "thought"),
+        "text": p.get("text", ""), "parent_id": p.get("parent_id"),
+        "created_at": p.get("created_at"),
+    }
+    if p.get("image_media_id"):
+        out["image_url"] = f"/api/media/{p['image_media_id']}"
+    if p.get("obs_id"):
+        out["obs_id"] = p["obs_id"]
+    return out
 
 
 # --------------------------------------------------------------------------- #
@@ -366,13 +461,23 @@ async def room_detail(cid: str, user: dict = Depends(get_current_user)):
         "title_history": conn.get("title_history", []),
         "participants": [{"user_id": x["user_id"], "nickname": x.get("nickname")} for x in members],
         "system_bots": SYSTEM_BOTS,
-        "posts": posts,
+        "posts": [_post_public(p) for p in posts],
     }
 
 
 class RoomPost(BaseModel):
     text: str
     kind: str = "thought"  # "thought" | "comment"
+    parent_id: Optional[str] = None  # reply → builds a thread under another post
+
+
+async def _validate_parent(cid: str, parent_id: Optional[str]) -> Optional[str]:
+    if not parent_id:
+        return None
+    parent = await db.ecoes_posts.find_one({"id": parent_id, "connection_id": cid}, {"_id": 0, "id": 1})
+    if not parent:
+        raise HTTPException(status_code=404, detail="Messaggio a cui rispondere non trovato")
+    return parent_id
 
 
 @ecoes_router.post("/rooms/{cid}/posts")
@@ -383,6 +488,7 @@ async def room_post(cid: str, req: RoomPost, user: dict = Depends(get_active_use
     text = (req.text or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="Il contenuto non può essere vuoto")
+    parent_id = await _validate_parent(cid, req.parent_id)
     # System bots moderate every message continuously and intervene only when
     # necessary: genuinely abusive/dangerous content is held back before it lands.
     verdict = await _moderate_text(text)
@@ -399,11 +505,105 @@ async def room_post(cid: str, req: RoomPost, user: dict = Depends(get_active_use
             "message": f"{bot}: questo contenuto non rispetta le linee guida della Connection e non è stato pubblicato.",
         })
     doc = {"id": str(uuid.uuid4()), "connection_id": cid, "user_id": user["id"], "nickname": user.get("nickname"),
-           "kind": req.kind if req.kind in ("thought", "comment") else "thought", "text": text[:3000], "created_at": _now()}
+           "kind": req.kind if req.kind in ("thought", "comment") else "thought", "text": text[:3000],
+           "parent_id": parent_id, "created_at": _now()}
     await db.ecoes_posts.insert_one(doc)
     await db.ecoes_connections.update_one({"id": cid}, {"$set": {"last_activity_at": _now(), "status": "active"}})
-    doc.pop("_id", None)
-    return doc
+    return _post_public(doc)
+
+
+class ShareSense(BaseModel):
+    obs_id: Optional[str] = None       # share an already-published Observe Sense
+    image_base64: Optional[str] = None  # or a room-only Sense (not in Observe)
+    caption: str = ""
+    parent_id: Optional[str] = None
+
+
+@ecoes_router.post("/rooms/{cid}/share-sense")
+async def share_sense(cid: str, req: ShareSense, user: dict = Depends(get_active_user)):
+    """Share a Sense INSIDE a Connection. Two ways, reusing existing systems:
+    - obs_id → reference a Sense already published in Observe (created via the
+      normal /observations flow; optionally right before this call).
+    - image_base64 → a room-only Sense (moderated, stored in R2, never in Observe).
+    Never creates a parallel media system."""
+    m = await db.ecoes_members.find_one({"connection_id": cid, "user_id": user["id"], "active": True}, {"_id": 0})
+    if not m:
+        raise HTTPException(status_code=403, detail="Non fai parte di questa Connection")
+    parent_id = await _validate_parent(cid, req.parent_id)
+    caption = (req.caption or "").strip()[:500]
+    image_media_id: Optional[str] = None
+    obs_id: Optional[str] = None
+
+    if req.obs_id:
+        obs = await db.observations.find_one({"id": req.obs_id}, {"_id": 0})
+        if not obs:
+            raise HTTPException(status_code=404, detail="Sense non trovato")
+        obs_id = obs["id"]
+        image_media_id = obs["id"] if obs.get("has_image") else None
+        if not caption:
+            caption = (obs.get("caption") or "")[:500]
+    elif req.image_base64:
+        import r2_storage
+        from ai_features import moderate_image_safe
+        raw = req.image_base64
+        if "," in raw and raw.strip().startswith("data:"):
+            raw = raw.split(",", 1)[1]
+        try:
+            import base64 as _b64
+            _b64.b64decode(raw)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Immagine non valida")
+        verdict = await moderate_image_safe(raw)
+        if not verdict["safe"]:
+            raise HTTPException(status_code=422, detail="Questa immagine non può essere condivisa: contenuti espliciti non ammessi.")
+        image_media_id = str(uuid.uuid4())
+        await r2_storage.put_base64(image_media_id, "chat", raw, content_type="image/jpeg", owner=user["id"], kind="ecoes_sense")
+    else:
+        raise HTTPException(status_code=400, detail="Serve un'immagine o un Sense da condividere")
+
+    doc = {"id": str(uuid.uuid4()), "connection_id": cid, "user_id": user["id"], "nickname": user.get("nickname"),
+           "kind": "sense", "text": caption, "parent_id": parent_id,
+           "image_media_id": image_media_id, "obs_id": obs_id, "created_at": _now()}
+    await db.ecoes_posts.insert_one(doc)
+    await db.ecoes_connections.update_one({"id": cid}, {"$set": {"last_activity_at": _now(), "status": "active"}})
+    return _post_public(doc)
+
+
+class RoomReport(BaseModel):
+    post_id: Optional[str] = None
+    reason: str = ""
+
+
+@ecoes_router.post("/rooms/{cid}/report")
+async def report_content(cid: str, req: RoomReport, user: dict = Depends(get_current_user)):
+    """Segnala → moderazione. A participant flags a message (or the Connection).
+    The report is recorded for the System bots; genuinely abusive content is
+    auto-escalated for human review. Never reveals who reported to others."""
+    m = await db.ecoes_members.find_one({"connection_id": cid, "user_id": user["id"], "active": True}, {"_id": 0})
+    if not m:
+        raise HTTPException(status_code=403, detail="Non fai parte di questa Connection")
+    target = None
+    if req.post_id:
+        target = await db.ecoes_posts.find_one({"id": req.post_id, "connection_id": cid}, {"_id": 0})
+        if not target:
+            raise HTTPException(status_code=404, detail="Contenuto non trovato")
+    verdict = {"allowed": True, "category": "none", "severity": "none"}
+    if target and target.get("text"):
+        verdict = await _moderate_text(target["text"])
+    bot = "OverView Safety Bot" if verdict["category"] in ("dangerous", "harassment") else "OverView Moderation Bot"
+    await db.ecoes_flags.insert_one({
+        "id": str(uuid.uuid4()), "connection_id": cid,
+        "reported_by": user["id"],
+        "post_id": req.post_id,
+        "user_id": (target or {}).get("user_id"),
+        "text": ((target or {}).get("text") or "")[:1000],
+        "reason": (req.reason or "").strip()[:500],
+        "category": verdict["category"], "severity": verdict["severity"],
+        "status": "reported", "handled_by": bot,
+        "escalate_human": (not verdict["allowed"]) or verdict["severity"] == "high",
+        "created_at": _now(),
+    })
+    return {"ok": True, "handled_by": bot}
 
 
 @ecoes_router.post("/rooms/{cid}/leave")
@@ -436,4 +636,6 @@ async def ensure_ecoes_indexes():
     await db.ecoes_members.create_index([("connection_id", 1), ("active", 1)])
     await db.ecoes_members.create_index([("user_id", 1), ("active", 1)])
     await db.ecoes_posts.create_index([("connection_id", 1), ("created_at", 1)])
+    await db.ecoes_posts.create_index("parent_id")
+    await db.ecoes_flags.create_index([("connection_id", 1), ("created_at", -1)])
     await db.ecoes_scanned.create_index("content_id", unique=True)

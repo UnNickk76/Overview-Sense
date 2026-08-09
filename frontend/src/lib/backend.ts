@@ -539,8 +539,8 @@ export const translateApi = {
 // ---- Ecoes™ — invisible connections between thoughts ----
 export interface EcoesConn { id: string; title: string; description: string; status: string; lat: number; lon: number; intensity: number; dormant: boolean }
 export interface EcoesProposal { proposal_id: string; connection_id: string; title: string; description: string; reason: string }
-export interface EcoesPost { id: string; user_id: string; nickname?: string; kind: string; text: string; created_at: string }
-export interface EcoesTitle { title: string; reason: string; at: string }
+export interface EcoesPost { id: string; connection_id?: string; user_id: string; nickname?: string; kind: string; text: string; parent_id?: string | null; image_url?: string | null; obs_id?: string | null; created_at: string }
+export interface EcoesTitle { title: string; reason: string; at: string; previous?: string }
 export interface EcoesBot { id: string; name: string; role: string; is_bot: boolean; tagline?: string }
 export interface EcoesRoom {
   connection: EcoesConn;
@@ -557,8 +557,12 @@ export const ecoesApi = {
   decline: (pid: string) => apiFetch<{ ok: boolean }>(`/ecoes/proposals/${pid}/decline`, { method: "POST" }),
   my: () => apiFetch<{ items: EcoesConn[] }>("/ecoes/my"),
   room: (cid: string) => apiFetch<EcoesRoom>(`/ecoes/rooms/${cid}`),
-  post: (cid: string, text: string, kind: "thought" | "comment" = "thought") =>
-    apiFetch<EcoesPost>(`/ecoes/rooms/${cid}/posts`, { method: "POST", body: JSON.stringify({ text, kind }) }),
+  post: (cid: string, text: string, kind: "thought" | "comment" = "thought", parent_id?: string | null) =>
+    apiFetch<EcoesPost>(`/ecoes/rooms/${cid}/posts`, { method: "POST", body: JSON.stringify({ text, kind, parent_id: parent_id ?? null }) }),
+  shareSense: (cid: string, payload: { obs_id?: string; image_base64?: string; caption?: string; parent_id?: string | null }) =>
+    apiFetch<EcoesPost>(`/ecoes/rooms/${cid}/share-sense`, { method: "POST", body: JSON.stringify(payload) }),
+  report: (cid: string, payload: { post_id?: string | null; reason?: string }) =>
+    apiFetch<{ ok: boolean; handled_by: string }>(`/ecoes/rooms/${cid}/report`, { method: "POST", body: JSON.stringify(payload) }),
   leave: (cid: string) => apiFetch<{ ok: boolean; deleted: boolean }>(`/ecoes/rooms/${cid}/leave`, { method: "POST" }),
 };
 

@@ -1,0 +1,40 @@
+{
+  "summary": "Ecoes™ Phase 3 — Backend 17/17 PASS + Frontend room UI verified end-to-end. Threads (parent_id): valid parent → 200 with parent_id echoed; invalid parent → 404 'Messaggio a cui rispondere non trovato'; non-member → 403. Share-Sense: image_base64 (tiny JPEG) → 200 with image_url starting /api/media/ and obs_id=null; obs_id (created via POST /api/observations media_type=image source=reality image_base64=<tiny jpeg>) → 200 with obs_id + image_url referencing the observation; missing both → 400 'Serve un'immagine o un Sense da condividere'; non-member → 403. GET /api/ecoes/rooms/test-ecoes-room-0001 returns connection, title_history (list, ≥1 entry), participants (user_id+nickname only — NO 'total'/'count'/'participants_count'/'member_count' fields), system_bots (exactly 2: safety+moderation), posts serialized with id,user_id,nickname,kind,text,parent_id,created_at (sense posts also carry image_url). Report: {post_id} → 200 {ok:true, handled_by:'OverView Moderation Bot'|'OverView Safety Bot'}; connection-level (no post_id) → 200 ok; non-member → 403. Regressions: /globe, /proposals, /my, and served media GET /api/media/{id} for a room-only sense — ALL 200. Moderation: abusive text returned 422 with detail.code='moderated' (EMERGENT_LLM_KEY active). FRONTEND (Expo web, mobile 390x844): Login (explorer@overview.app / overview123) via testIDs login-email/login-password/login-submit works → /feed. /ecoes-world 'My Ecoes' toggle (testID toggle-my) reveals seeded card testID my-test-ecoes-room-0001. Tap → /ecoes-room?id=test-ecoes-room-0001. Renders: header title 'Il silenzio tra le stelle', root post 'Stanotte il cielo…', indented reply 'Anch'io ho sentito…', multiple 'Rispondi' buttons, ellipsis on non-mine posts, room-sense + room-input + room-send composers. Tapping room-sense opens the 'Condividi un Sense' sheet with Fotocamera/Galleria (the 'Pubblica anche in Observe' switch renders only AFTER an image is picked — expected, as web preview cannot exercise ImagePicker). Tapping the header title toggles the info panel: shows PARTECIPANTI with tappable chips (E/Tu + A/Apple with chat icon) and NO numeric count next to the heading; BOT DI SISTEMA section lists OverView Safety Bot + OverView Moderation Bot each with a SISTEMA tag. No React Native red screen. Only warnings: expected shadow*/textShadow* deprecations and pointerEvents prop deprecation (pre-existing, unrelated to Phase 3).",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "ecoes-room.tsx (bot row)", "issue": "props.pointerEvents is deprecated on web; use style.pointerEvents. Reference: /app/frontend/app/ecoes-room.tsx:232 (View pointerEvents='none'). Warning only, non-blocking — same warning already present elsewhere in the app."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_ecoes_fase3.py",
+    "/app/test_reports/pytest/pytest_ecoes_fase3.xml"
+  ],
+  "action_items": [
+    "None blocking. All Phase 3 review items verified.",
+    "Optional polish: move `pointerEvents='none'` on the botRow View (/app/frontend/app/ecoes-room.tsx:232) into `style.pointerEvents='none'` to silence the RN Web deprecation warning."
+  ],
+  "critical_code_review_comments": [
+    "ecoes.py:474-480 _validate_parent correctly scopes lookup by BOTH id AND connection_id, so a valid parent_id from another room is rejected as 404. Good.",
+    "ecoes.py:503-506 moderation block returns HTTPException(status_code=422, detail={code:'moderated', message:...}); FastAPI serializes this as {'detail': {code:..., message:...}} — frontend Alert.alert reads the message via the standard error path, verified functional.",
+    "ecoes.py:522-569 share-sense correctly branches on obs_id vs image_base64, base64-validates the payload, calls moderate_image_safe before storing in R2, and never creates a parallel media system (falls back to /api/media/{id} for retrieval). The obs_id branch reuses the observation's own id as image_media_id when has_image is truthy — consistent with the /observations flow.",
+    "ecoes.py:449-465 room_detail returns participants as a plain list without any aggregate count fields; frontend also renders no numeric count next to PARTECIPANTI, honoring the 'no public counts' constraint end-to-end.",
+    "ecoes.py:577-606 report endpoint always records a flag (even connection-level without post_id) and returns handled_by=<bot name>. Non-member 403 gate is applied first. Good.",
+    "ecoes-room.tsx:50-66 thread grouping walks parent_id chains defensively with a `seen` guard, preventing infinite loops on malformed cyclic parent_id data. Nice.",
+    "ecoes-room.tsx:83-107 pickSense correctly asks permissions with canAskAgain + Impostazioni fallback, and rejects on ImagePicker.canceled. Suitable for iOS release review."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_ecoes_fase3.py (new — 17 pytest tests)",
+    "/app/test_reports/pytest/pytest_ecoes_fase3.xml (new — JUnit)",
+    "/app/test_reports/iteration_8.json (new)"
+  ],
+  "success_rate": { "backend": "100% (17/17)", "frontend": "100% (login → My Ecoes → seeded room → thread render → sense sheet → info panel with no count + system bots verified)" },
+  "seed_data_creation": "Created 1 ephemeral outsider user via POST /api/auth/register (nickname prefix 'out*') for 403 tests, 1 observation for share-sense obs_id path, and ~3 test posts + 1 room-only sense in the seeded connection (all prefixed with 'TEST'). Non-destructive: db.ecoes_posts.delete_many({text: /^TEST/}) can clean them if desired.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Reproduce with: pytest /app/backend/tests/test_ecoes_fase3.py -v. Base URL from frontend/.env EXPO_PUBLIC_BACKEND_URL. Seeded room id: 'test-ecoes-room-0001' with explorer + Apple as active members and 1 root+1 reply pre-populated. TINY_JPEG constant is embedded in the test file. Frontend: login via testID login-submit reliably redirects to /feed (auth_token persisted in localStorage). Header title Pressable on ecoes-room does NOT expose a wrapping testID — tap it via mouse.click(195, 25) to open the info panel. The 'Pubblica anche in Observe' Switch only renders after an image has been selected in the Sense sheet (sensePreview truthy); do NOT assert its presence before ImagePicker returns.",
+  "rca_of_issue": "n/a — no regressions. Phase 3 additions are additive and Phase 1/2 endpoints (globe/proposals/my/accept/decline/leave/admin.run-cycle) unchanged."
+}
