@@ -3,6 +3,21 @@
 ## Original problem statement
 "Overview" — app nativa iOS (realizzata come app Expo/React Native cross-platform su richiesta utente) che estende i sensi umani: trasforma fenomeni fisici reali e invisibili in esperienze visive, sonore e interattive. Principio assoluto: **nessun dato inventato**; se un dato non è disponibile, indicarlo chiaramente. Stile Apple minimal, nero/oro/blu.
 
+## SESSIONE — Globo condiviso + Ecoes™ Fase 3 (2026-06)
+- **GlobeBase condiviso (FATTO)**: `src/components/GlobeBase.tsx` è ora l'UNICA base SVG orthographic (sfera, continenti, rotazione auto, drag+pinch, proiezione stabile). `LiveEarth.tsx` (Observe) ed `EcoesGlobe.tsx` la consumano via `overlay(ctx)`; risolta la deformazione del globo su rotazione/zoom. GlobeBase ha prop `interactive` (compact Observe disabilita pan/pinch). Nessuna regressione (città, puntini osservazioni, lista, reset, pulsazioni Ecoes).
+- **Report Sense Vision (SOLO analisi, nessun codice)**: consegnato all'utente. Sistema attuale = riconoscimento di UN solo soggetto (Live Sense™) via OpenAI GPT-5.4 (endpoint /api/ai/live-recognize, /scene, /recognize-subject, /see); categorie abilitate (default preset "balanced", 9 su 12), soglia confidenza (<0.55 scartato in silenzio), snapshot ridotto a 640px. Astronomia gestita da motore deterministico separato. Evoluzione futura concordata (NON ancora implementata): scena completa, multi-soggetto, confidenza per elemento, "non determinabile" esplicito, risoluzione adattiva.
+- **Ecoes™ Fase 3 (FATTO, testato 17/17 backend + frontend)**:
+  - Thread/risposte: `POST /api/ecoes/rooms/{cid}/posts` accetta `parent_id` (validato); UI room con risposte indentate + banner "In risposta a…".
+  - Condivisione Sense: `POST /api/ecoes/rooms/{cid}/share-sense` — `image_base64` (sense solo-room, moderato, R2 prefix "chat") oppure `obs_id` (referenzia un Sense già pubblicato in Observe). Frontend: sheet con Fotocamera/Galleria + switch "Pubblica anche in Observe" (se ON crea prima l'observation via flusso Observe intatto, poi la referenzia).
+  - DM tra partecipanti: RIUSA il sistema Messaggi esistente (`dmApi.start` → `/chat`), nessun sistema parallelo. Chip partecipante toccabile.
+  - Evoluzione automatica titolo: `maintenance_loop` (ogni 30min) → `maybe_evolve_title` (GPT-5.4) rinomina solo su reale spostamento di significato (cooldown 2h, ≥6 nuovi post), aggiorna `title_history`, notifica i partecipanti. NON crea post (non gonfia l'attività). UI: sezione "EVOLUZIONE DEL TITOLO" nel pannello info.
+  - Segnala → moderazione: `POST /api/ecoes/rooms/{cid}/report` (post o connection) → `ecoes_flags` status "reported", auto-escalation se abusivo. Menu ⋯ sui post altrui.
+  - Bot di sistema: sempre presenti, tag "SISTEMA", non utenti, non conteggiati, non influenzano la pulsazione (invariato Fasi 1/2). Moderazione AI continua sul post (422 se abusivo).
+  - Pulsazione dinamica: già gestita da `_intensity` (recency+attività, dormant<0.28) + EcoesGlobe (velocità/opacità ∝ intensità). Nessun numero pubblico.
+  - VINCOLI rispettati: logica Fasi 1/2 invariata, Sense Vision non toccato, nessun conteggio pubblico utenti, identità visiva Ecoes World invariata.
+  - Nuovi campi post: `parent_id`, `kind:"sense"` con `image_media_id`/`obs_id`. Serializzatore `_post_public`. Seed di test: `/app/backend/seed_ecoes_room.py` (connection `test-ecoes-room-0001`, membri explorer+Apple).
+
+
 ## Architecture
 - **Frontend**: Expo Router (stack navigation), React Native, Reanimated, react-native-svg, expo-blur (glass), expo-camera, expo-sensors, expo-location, expo-audio, @gorhom/bottom-sheet, react-native-keyboard-controller. Font Geist + Geist Mono.
 - **Backend**: FastAPI + MongoDB (motor). Proxy verso fonti scientifiche pubbliche + AI streaming.

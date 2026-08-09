@@ -229,7 +229,7 @@ export default function EcoesRoomScreen() {
           <View style={styles.botDivider} />
           <Text style={styles.groupLabel}>BOT DI SISTEMA</Text>
           {room.system_bots.map((b) => (
-            <View key={b.id} style={styles.botRow} pointerEvents="none">
+            <View key={b.id} style={styles.botRow}>
               <View style={styles.botIcon}>
                 <Ionicons name={b.role === "safety" ? "shield-checkmark" : "hammer"} size={14} color={colors.blue} />
               </View>
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
   infoDesc: { color: colors.onSurface, fontFamily: fonts.regular, fontSize: type.sm, lineHeight: 20 },
   groupLabel: { color: colors.onSurfaceSecondary, fontFamily: fonts.semibold, fontSize: type.sm - 3, letterSpacing: 0.8, marginTop: 2 },
   botDivider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginVertical: 2 },
-  botRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  botRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, pointerEvents: "none" },
   botIcon: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(88,166,255,0.12)", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.blue },
   botNameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   botName: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.sm },
