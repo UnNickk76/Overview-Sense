@@ -442,7 +442,6 @@ export const CameraPro = forwardRef<CameraProHandle, { enhance?: boolean; hudBot
               <Ionicons name={live.on ? "eye" : "eye-off"} size={13} color={live.on ? colors.brand : "#fff"} />
               <Text style={[styles.liveChipText, live.on && { color: colors.brand }]}>Live Sense</Text>
             </Pressable>
-            <View style={styles.zoomPill}><Text style={styles.zoomText}>{zoomLabel}</Text></View>
             {zoomFactor >= 5 ? (
               <View style={styles.skyPill}>
                 <Ionicons name="sparkles" size={12} color={colors.onBrand} />
@@ -479,16 +478,16 @@ const styles = StyleSheet.create({
   fallbackText: { color: "#fff", fontFamily: fonts.medium, fontSize: type.base },
   focusRing: { position: "absolute", width: 68, height: 68, borderRadius: 12, borderWidth: 1.5, borderColor: colors.brand },
   radarPos: { position: "absolute", top: 70, right: spacing.lg },
-  hud: { position: "absolute", left: 0, right: 0, alignItems: "center", gap: spacing.sm },
-  presetZone: { minHeight: 74, alignItems: "center", justifyContent: "center" },
-  presetRow: { flexDirection: "row", alignItems: "center", gap: 2, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 999, padding: 4 },
-  presetPill: { minWidth: 34, alignItems: "center", justifyContent: "center", borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 },
+  hud: { position: "absolute", left: 0, right: 0, alignItems: "center", gap: 6 },
+  presetZone: { minHeight: 50, alignItems: "center", justifyContent: "center" },
+  presetRow: { flexDirection: "row", alignItems: "center", gap: 2, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 999, padding: 3 },
+  presetPill: { minWidth: 30, alignItems: "center", justifyContent: "center", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5 },
   presetOn: { backgroundColor: colors.brand },
-  presetText: { color: "#fff", fontFamily: fonts.mono, fontSize: type.sm - 1 },
+  presetText: { color: "#fff", fontFamily: fonts.mono, fontSize: type.sm - 2 },
   crescentWrap: { alignItems: "center", justifyContent: "flex-end", height: 74 },
   crescentLabel: { position: "absolute", top: 0, alignSelf: "center", backgroundColor: colors.brand, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 5, zIndex: 2 },
   crescentLabelText: { color: colors.onBrand, fontFamily: fonts.bold, fontSize: type.base, letterSpacing: 0.5 },
-  hudRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.md },
+  hudRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
   macroPill: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.brand, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6 },
   macroText: { color: colors.onBrand, fontFamily: fonts.semibold, fontSize: type.sm - 2, letterSpacing: 0.5 },
   skyPill: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.brand, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6 },

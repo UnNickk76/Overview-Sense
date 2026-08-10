@@ -3,7 +3,15 @@
 ## Original problem statement
 "Overview" — app nativa iOS (realizzata come app Expo/React Native cross-platform su richiesta utente) che estende i sensi umani: trasforma fenomeni fisici reali e invisibili in esperienze visive, sonore e interattive. Principio assoluto: **nessun dato inventato**; se un dato non è disponibile, indicarlo chiaramente. Stile Apple minimal, nero/oro/blu.
 
-## SESSIONE — Sense Vision 2.0 (comprensione della scena)
+## SESSIONE — Sense Vision UI/UX (camera nativa, solo presentazione)
+Solo UI, nessuna modifica a backend/riconoscimento/Scene Graph/AI. File: `app/sense-vision.tsx`, `src/components/CameraPro.native.tsx`.
+- MAKE A SENSE ridotto (~22%) e reso SEMPRE opaco (rimosso il dimming `chromeStyle` dalla barra inferiore).
+- I 3 pill di destra (Osserva meglio / Riconoscimento / Luoghi) → colonna di **piccole icone** con stato on/off chiaro; nome completo mostrato al tap (hint contestuale transitorio). Funzioni invariate (stessi testID/handler).
+- HUD zoom di `CameraPro` compattata: rimosso il duplicato "1.0×" (`zoomPill`) ridondante rispetto al preset "1×"; pill zoom più piccole; `hudBottom` di Sense Vision 220→150 per stare più in basso e liberare la scena. `overview-guide`/`visual-assistant` invariati (hudBottom proprio/default).
+- Rimosso "WYSIWYG": resta solo "4:5" molto discreto.
+- Aggiunto **ingranaggio Impostazioni** (barra superiore) → pannello "Sense Vision Settings" con TUTTE le funzioni (Osserva meglio, Riconoscimento, Luoghi + raggio, Sense Layer). Architettura **ibrida**: controlli rapidi restano in camera + tutto disponibile nelle impostazioni.
+- Verifica: bundle OK, nessun crash (su web mostra schermata permessi; il layout camera-live è validabile solo su build nativa con fotocamera reale). Stili vecchi dei pill lasciati inutilizzati (innocui) per non introdurre refactoring non richiesto.
+
 Progetto completo in `/app/memory/sense_vision_evolution.md` (approvato dall'utente).
 - **Fase A (backend) — FATTA e testata**: nuovo modulo `backend/sense_vision.py`, router `/api/sv`:
   - `POST /api/sv/analyze` → Scene Graph gerarchico (scene → subjects → elements) con confidence indipendente, tier (confirmed/probable/generic/undetermined), regioni normalizzate, `az`/`alt`/`salience`/`notable`; **fusione** AI Vision (GPT-5.4) + geografia reale OSM (`geo_places.resolve_places`, esteso). Astronomia resta separata/deterministica.

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { StyleSheet, Text, View, Pressable, useWindowDimensions, Linking, ScrollView } from "react-native";
+import { StyleSheet, Text, View, Pressable, useWindowDimensions, Linking, ScrollView, Modal, Switch } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCameraPermissions } from "expo-camera";
 import { CameraPro, CameraProHandle } from "@/src/components/CameraPro";
@@ -46,6 +46,20 @@ const SENSE_LAYERS: Layer[] = [
   { key: "solar", label: "Sole & UV", tint: "rgba(255,159,10,0.16)", color: "#FF9F0A" },
 ];
 
+// Settings row used inside the Sense Vision Settings panel.
+function SettingRow({ icon, title, sub, value, onChange }: { icon: keyof typeof Ionicons.glyphMap; title: string; sub: string; value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <View style={styles.settingRow}>
+      <View style={styles.settingIcon}><Ionicons name={icon} size={18} color={colors.brand} /></View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.settingTitle}>{title}</Text>
+        <Text style={styles.settingSub}>{sub}</Text>
+      </View>
+      <Switch value={value} onValueChange={(v) => { Haptics.selectionAsync(); onChange(v); }} trackColor={{ true: colors.brand, false: colors.tertiary }} thumbColor="#fff" />
+    </View>
+  );
+}
+
 export default function SenseVision() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
@@ -83,6 +97,14 @@ export default function SenseVision() {
   const [placeRadius, setPlaceRadius] = useState<PlaceRadius>(60);
   const [places, setPlaces] = useState<PlaceItem[]>([]);
   const [placesLoading, setPlacesLoading] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [ctrlHint, setCtrlHint] = useState<string | null>(null);
+  const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showHint = React.useCallback((t: string) => {
+    setCtrlHint(t);
+    if (hintTimer.current) clearTimeout(hintTimer.current);
+    hintTimer.current = setTimeout(() => setCtrlHint(null), 1600);
+  }, []);
   const placesKey = useRef<string>("");
   const chromeOpacity = useSharedValue(1);
   const chromeStyle = useAnimatedStyle(() => ({ opacity: chromeOpacity.value }));
@@ -291,7 +313,7 @@ export default function SenseVision() {
 
   return (
     <View style={styles.root}>
-      <CameraPro ref={cameraRef} enhance={enhance} hudBottom={insets.bottom + 220} onChromeChange={onChromeChange} onZoomChange={setZoom} liveSky={false} />
+      <CameraPro ref={cameraRef} enhance={enhance} hudBottom={insets.bottom + 150} onChromeChange={onChromeChange} onZoomChange={setZoom} liveSky={false} />
       <View style={[StyleSheet.absoluteFill, { backgroundColor: layer.tint }]} pointerEvents="none" />
 
       {/* Real-data Sense visualization overlay (Invisible Fields engine) */}
@@ -332,7 +354,7 @@ export default function SenseVision() {
           <View style={[styles.frameCorner, styles.frameTR]} />
           <View style={[styles.frameCorner, styles.frameBL]} />
           <View style={[styles.frameCorner, styles.frameBR]} />
-          <View style={styles.frameRatioTag}><Text style={styles.frameRatioText}>4:5 · WYSIWYG</Text></View>
+          <View style={styles.frameRatioTag}><Text style={styles.frameRatioText}>4:5</Text></View>
         </View>
       ) : null}
 
@@ -369,6 +391,10 @@ export default function SenseVision() {
         </View>
         <View style={styles.hudRight}>
           <OverviewShortcut size={26} />
+          <Pressable testID="sense-settings" style={styles.glassBtn} onPress={() => { Haptics.selectionAsync(); setSettingsOpen(true); }}>
+            <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+            <Ionicons name="settings-outline" size={19} color="#fff" />
+          </Pressable>
           <Pressable testID="sense-gallery" style={styles.glassBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push("/observations" as never); }}>
             <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
             <Ionicons name="images-outline" size={20} color="#fff" />
@@ -376,41 +402,29 @@ export default function SenseVision() {
         </View>
       </Animated.View>
 
-      {/* Real-enhancement toggle — "observe better", never invents detail */}
+      {/* Compact quick-controls — small icons, clear on/off; full name on tap.
+          All functions also live in Sense Vision Settings (gear). */}
       {stage === "ready" && !review ? (
-        <Animated.View pointerEvents="box-none" style={[styles.enhancePill, { top: insets.top + 104 }, enhance && { backgroundColor: colors.brand, borderColor: colors.brand }, chromeStyle]}>
-          <Pressable testID="sense-enhance" hitSlop={8} style={styles.enhanceInner} onPress={() => { Haptics.selectionAsync(); setEnhance((e) => !e); }}>
-            <Ionicons name="sparkles" size={13} color={enhance ? colors.onBrand : "#fff"} />
-            <Text style={[styles.enhanceText, enhance && { color: colors.onBrand }]}>Osserva meglio</Text>
+        <Animated.View pointerEvents="box-none" style={[styles.ctrlCol, { top: insets.top + 100 }, chromeStyle]}>
+          {ctrlHint ? <View style={styles.ctrlHint}><Text style={styles.ctrlHintText}>{ctrlHint}</Text></View> : null}
+          <Pressable testID="sense-enhance" hitSlop={6} style={[styles.iconToggle, enhance && { backgroundColor: colors.brand, borderColor: colors.brand }]}
+            onPress={() => { Haptics.selectionAsync(); showHint(`Osserva meglio · ${!enhance ? "ON" : "OFF"}`); setEnhance((e) => !e); }}>
+            <Ionicons name="sparkles" size={17} color={enhance ? colors.onBrand : "#fff"} />
           </Pressable>
-        </Animated.View>
-      ) : null}
-
-      {/* "Luoghi" — reveal real geographic features in the observed direction */}
-      {stage === "ready" && !review ? (
-        <Animated.View pointerEvents="box-none" style={[styles.geoPill, { top: insets.top + 148 }, chromeStyle]}>
-          <Pressable testID="sense-places" hitSlop={8} style={[styles.enhanceInner, placesOn && styles.geoOn]} onPress={() => { Haptics.selectionAsync(); setPlacesOn((p) => !p); }}>
-            <Ionicons name="location" size={13} color={placesOn ? "#04201B" : "#63E6C7"} />
-            <Text style={[styles.enhanceText, { color: placesOn ? "#04201B" : "#63E6C7" }]}>Luoghi</Text>
-            {placesOn && placesLoading ? <Ionicons name="sync" size={12} color="#04201B" /> : null}
+          <Pressable testID="sense-recognition" hitSlop={6} style={[styles.iconToggle, recognitionOn && { backgroundColor: "#B79BFF", borderColor: "#B79BFF" }]}
+            onPress={() => { Haptics.selectionAsync(); showHint(`Riconoscimento · ${!recognitionOn ? "ON" : "OFF"}`); setRecognitionOn(!recognitionOn); }}>
+            <Ionicons name="scan" size={17} color={recognitionOn ? "#04121f" : "#B79BFF"} />
+          </Pressable>
+          <Pressable testID="sense-places" hitSlop={6} style={[styles.iconToggle, placesOn && { backgroundColor: "#63E6C7", borderColor: "#63E6C7" }]}
+            onPress={() => { Haptics.selectionAsync(); showHint(`Luoghi · ${!placesOn ? "ON" : "OFF"}`); setPlacesOn((p) => !p); }}>
+            <Ionicons name={placesOn && placesLoading ? "sync" : "location"} size={17} color={placesOn ? "#04201B" : "#63E6C7"} />
           </Pressable>
           {placesOn ? (
-            <Pressable testID="sense-places-radius" hitSlop={8} style={styles.geoRadius}
+            <Pressable testID="sense-places-radius" hitSlop={6} style={styles.radiusMini}
               onPress={() => { Haptics.selectionAsync(); setPlaceRadius((r) => (r === 15 ? 60 : r === 60 ? 200 : 15)); }}>
-              <Text style={styles.geoRadiusText}>{placeRadius} km</Text>
+              <Text style={styles.radiusMiniText}>{placeRadius}</Text>
             </Pressable>
           ) : null}
-        </Animated.View>
-      ) : null}
-
-      {/* Sense Vision 2.0 — whole-scene Recognition ON/OFF (overlay visibility;
-          analysis keeps running when OFF) */}
-      {stage === "ready" && !review ? (
-        <Animated.View pointerEvents="box-none" style={[styles.recogPill, { top: insets.top + 192 }, chromeStyle]}>
-          <Pressable testID="sense-recognition" hitSlop={8} style={[styles.enhanceInner, recognitionOn && styles.recogOn]} onPress={() => { Haptics.selectionAsync(); setRecognitionOn(!recognitionOn); }}>
-            <Ionicons name="scan" size={13} color={recognitionOn ? "#04121f" : "#B79BFF"} />
-            <Text style={[styles.enhanceText, { color: recognitionOn ? "#04121f" : "#B79BFF" }]}>Riconoscimento</Text>
-          </Pressable>
         </Animated.View>
       ) : null}
 
@@ -431,7 +445,7 @@ export default function SenseVision() {
 
       {/* Bottom — MAKE A SENSE */}
       {stage === "ready" && !review ? (
-        <Animated.View entering={FadeIn.delay(200)} pointerEvents="box-none" style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }, chromeStyle]}>
+        <Animated.View entering={FadeIn.delay(200)} pointerEvents="box-none" style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }]}>
           {pulseTask ? (
             <View style={styles.pulseBanner}>
               <Text style={styles.pulseBannerIcon}>{pulseTask.icon}</Text>
@@ -443,8 +457,8 @@ export default function SenseVision() {
           ) : null}
           {/* Universal "Look Up / Go Inside" language — placed under the shutter */}
           <Text style={styles.hudMeta}>{compassPoint(heading)} {heading.toFixed(0)}° · {nf(mag.magnitude, 0)} µT{weather?.temperature_c != null ? ` · ${nf(weather.temperature_c, 0)}°` : ""}</Text>
-          <Pressable testID="make-a-sense" style={[styles.senseBtn, busy && { opacity: 0.85 }]} onPress={makeSense} disabled={busy}>
-            <SenseMark size={26} active={busy} />
+          <Pressable testID="make-a-sense" style={[styles.senseBtn, busy && { opacity: 0.9 }]} onPress={makeSense} disabled={busy}>
+            <SenseMark size={20} active={busy} />
             <Text style={styles.senseBtnText}>MAKE A SENSE</Text>
           </Pressable>
           <View style={styles.pivotRow}>
@@ -506,6 +520,45 @@ export default function SenseVision() {
           </View>
         </Animated.View>
       ) : null}
+
+      {/* Sense Vision Settings — hybrid: quick controls stay in camera, ALL
+          functions also live here. */}
+      <Modal visible={settingsOpen} transparent animationType="slide" onRequestClose={() => setSettingsOpen(false)}>
+        <Pressable style={styles.settingsBackdrop} onPress={() => setSettingsOpen(false)} />
+        <View style={[styles.settingsSheet, { paddingBottom: insets.bottom + spacing.lg }]}>
+          <View style={styles.settingsHandle} />
+          <Text style={styles.settingsTitle}>Sense Vision Settings</Text>
+          <SettingRow icon="sparkles" title="Osserva meglio" sub="Migliora la resa reale, senza inventare dettagli" value={enhance} onChange={setEnhance} />
+          <SettingRow icon="scan" title="Riconoscimento scena" sub="Comprende la scena; nascondendolo, l'analisi prosegue" value={recognitionOn} onChange={setRecognitionOn} />
+          <SettingRow icon="location" title="Luoghi" sub="Elementi geografici reali nella direzione osservata" value={placesOn} onChange={setPlacesOn} />
+          {placesOn ? (
+            <View style={styles.settingsRadius}>
+              <Text style={styles.settingsRadiusLabel}>Raggio Luoghi</Text>
+              <View style={styles.settingsRadiusOpts}>
+                {[15, 60, 200].map((r) => (
+                  <Pressable key={r} style={[styles.radiusOpt, placeRadius === r && styles.radiusOptOn]}
+                    onPress={() => { Haptics.selectionAsync(); setPlaceRadius(r as PlaceRadius); }}>
+                    <Text style={[styles.radiusOptText, placeRadius === r && { color: colors.onBrand }]}>{r} km</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : null}
+          <Text style={styles.settingsGroup}>SENSE LAYER</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
+            {SENSE_LAYERS.map((m, i) => (
+              <Pressable key={m.key} onPress={() => { Haptics.selectionAsync(); setLayerIdx(i); }}
+                style={[styles.settingsChip, i === layerIdx && { backgroundColor: colors.brand, borderColor: colors.brand }]}>
+                <Text style={[styles.settingsChipText, i === layerIdx && { color: colors.onBrand }]}>{m.label}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+          <Text style={styles.settingsNote}>I controlli rapidi restano disponibili anche in camera. Le funzioni secondarie potranno in seguito restare solo qui.</Text>
+          <Pressable style={styles.settingsClose} onPress={() => setSettingsOpen(false)}>
+            <Text style={styles.settingsCloseText}>Fatto</Text>
+          </Pressable>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -519,8 +572,8 @@ const styles = StyleSheet.create({
   frameTR: { top: -1, right: -1, borderTopWidth: 2, borderRightWidth: 2 },
   frameBL: { bottom: -1, left: -1, borderBottomWidth: 2, borderLeftWidth: 2 },
   frameBR: { bottom: -1, right: -1, borderBottomWidth: 2, borderRightWidth: 2 },
-  frameRatioTag: { position: "absolute", top: 6, alignSelf: "center", backgroundColor: "rgba(10,12,16,0.55)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
-  frameRatioText: { color: "rgba(240,235,210,0.9)", fontFamily: fonts.mono, fontSize: type.sm - 3, letterSpacing: 0.5 },
+  frameRatioTag: { position: "absolute", top: 6, alignSelf: "center", backgroundColor: "rgba(10,12,16,0.4)", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  frameRatioText: { color: "rgba(240,235,210,0.65)", fontFamily: fonts.mono, fontSize: type.sm - 4, letterSpacing: 0.5 },
   permCenter: { flex: 1, alignItems: "center", paddingHorizontal: spacing.xl, gap: spacing.md, justifyContent: "center" },
   permTitle: { color: colors.onSurface, fontFamily: fonts.bold, fontSize: type["2xl"], textAlign: "center", marginTop: spacing.md, letterSpacing: 0.5 },
   permText: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.base, textAlign: "center", lineHeight: 21 },
@@ -542,6 +595,34 @@ const styles = StyleSheet.create({
   recogOn: { backgroundColor: "#B79BFF", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, marginHorizontal: -4 },
   recogSummary: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(20,12,40,0.7)", borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(183,155,255,0.4)", width: "100%" },
   recogSummaryText: { color: "#EDE7FF", fontFamily: fonts.medium, fontSize: type.sm - 1, flex: 1 },
+  // Compact quick-controls (right column of small icon toggles)
+  ctrlCol: { position: "absolute", right: spacing.lg, alignItems: "flex-end", gap: spacing.sm },
+  ctrlHint: { position: "absolute", right: 46, top: 4, backgroundColor: "rgba(10,12,16,0.8)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 5, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.2)" },
+  ctrlHintText: { color: "#fff", fontFamily: fonts.medium, fontSize: type.sm - 2, letterSpacing: 0.3 },
+  iconToggle: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.5)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.28)" },
+  radiusMini: { minWidth: 34, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(99,230,199,0.18)", paddingHorizontal: 8 },
+  radiusMiniText: { color: "#63E6C7", fontFamily: fonts.mono, fontSize: type.sm - 2 },
+  // Sense Vision Settings panel
+  settingsBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.6)" },
+  settingsSheet: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.lg, gap: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  settingsHandle: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border },
+  settingsTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.lg },
+  settingRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  settingIcon: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceTertiary, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  settingTitle: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
+  settingSub: { color: colors.onSurfaceSecondary, fontFamily: fonts.regular, fontSize: type.sm - 2, marginTop: 1 },
+  settingsRadius: { gap: 6 },
+  settingsRadiusLabel: { color: colors.onSurfaceSecondary, fontFamily: fonts.medium, fontSize: type.sm - 1 },
+  settingsRadiusOpts: { flexDirection: "row", gap: spacing.sm },
+  radiusOpt: { paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 999, backgroundColor: colors.surfaceTertiary, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  radiusOptOn: { backgroundColor: colors.brand, borderColor: colors.brand },
+  radiusOptText: { color: colors.onSurface, fontFamily: fonts.mono, fontSize: type.sm - 1 },
+  settingsGroup: { color: colors.onSurfaceSecondary, fontFamily: fonts.bold, fontSize: type.sm - 3, letterSpacing: 0.8, marginTop: 2 },
+  settingsChip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 999, backgroundColor: colors.surfaceTertiary, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  settingsChipText: { color: colors.onSurface, fontFamily: fonts.medium, fontSize: type.sm },
+  settingsNote: { color: colors.onSurfaceTertiary, fontFamily: fonts.regular, fontSize: type.sm - 2, fontStyle: "italic", lineHeight: 15 },
+  settingsClose: { alignItems: "center", paddingVertical: spacing.md, backgroundColor: colors.surfaceTertiary, borderRadius: radius.md },
+  settingsCloseText: { color: colors.onSurface, fontFamily: fonts.semibold, fontSize: type.base },
   geoRadiusText: { color: "#63E6C7", fontFamily: fonts.mono, fontSize: type.sm - 3, letterSpacing: 0.3 },
   hudMeta: { color: "#fff", fontFamily: fonts.mono, fontSize: type.sm - 1, opacity: 0.85 },
   pivotRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
@@ -553,8 +634,8 @@ const styles = StyleSheet.create({
   layerChip: { overflow: "hidden", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   layerText: { color: "#fff", fontFamily: fonts.medium, fontSize: type.sm },
   bottomBar: { position: "absolute", bottom: 0, left: 0, right: 0, paddingHorizontal: spacing.lg, gap: spacing.md, alignItems: "center" },
-  senseBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brand, borderRadius: 999, paddingVertical: spacing.lg, paddingHorizontal: spacing.xl, minWidth: 240, shadowColor: colors.brand, shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 0 } },
-  senseBtnText: { color: colors.onBrand, fontFamily: fonts.bold, fontSize: type.lg, letterSpacing: 1.5 },
+  senseBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brand, borderRadius: 999, paddingVertical: spacing.md, paddingHorizontal: spacing.lg, minWidth: 185, shadowColor: colors.brand, shadowOpacity: 0.5, shadowRadius: 16, shadowOffset: { width: 0, height: 0 } },
+  senseBtnText: { color: colors.onBrand, fontFamily: fonts.bold, fontSize: type.base, letterSpacing: 1 },
   captureHint: { color: "#fff", fontFamily: fonts.regular, fontSize: type.sm - 1, opacity: 0.85, textAlign: "center" },
   pulseBanner: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: "rgba(10,16,26,0.72)", borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: 1, borderColor: colors.brand, width: "100%" },
   pulseBannerIcon: { fontSize: 22 },
