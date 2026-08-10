@@ -11,7 +11,7 @@ import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { getObservation, observationCode, updateObservationConfig, Observation } from "@/src/lib/gallery";
-import { socialApi } from "@/src/lib/backend";
+import { socialApi, svApi } from "@/src/lib/backend";
 import { publishErrorMessage } from "@/src/lib/publishError";
 import { ApiError } from "@/src/lib/client";
 import { senseImageBase64 } from "@/src/lib/imageUpload";
@@ -136,6 +136,9 @@ export default function ObservationView() {
     }
     try {
       const created = await socialApi.createObservation(payload);
+      if (obs.data.recognition) {
+        svApi.saveRecognition(created.id, obs.data.recognition, obs.data.recognitionOverlayDefault ?? "on").catch(() => {});
+      }
       setPubOpen(false);
       setPublished(created.id);
     } catch (e) {

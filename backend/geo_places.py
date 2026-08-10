@@ -170,6 +170,16 @@ async def geo_places(
     radius_km: float = Query(60.0, ge=1.0, le=250.0),
     ele: float = Query(0.0),  # observer elevation (m) from GPS altitude
 ):
+    places, available = await resolve_places(lat, lon, radius_km, ele)
+    if not available and not places:
+        raise HTTPException(status_code=502, detail="Servizio dati geografici non disponibile")
+    return {"available": True, "count": len(places), "places": places}
+
+
+async def resolve_places(lat: float, lon: float, radius_km: float = 60.0, ele: float = 0.0):
+    """Real geographic features (OSM) in view of (lat,lon), with bearing/elevation.
+    Returns (places, available). Never raises — degrades gracefully to ([], False)
+    so callers (e.g. Sense Vision fusion) can fall back to generic labels."""
     key = (round(lat, 2), round(lon, 2), round(radius_km))
     db_key = f"{key[0]},{key[1]},{key[2]}"
     now = time.time()
@@ -185,6 +195,7 @@ async def geo_places(
             elements = doc["elements"]
             _CACHE[key] = (now, elements)
 
+    available = True
     if elements is None:  # L3: live Overpass (blocking → run off the event loop)
         r_m = int(radius_km * 1000)
         elements = await asyncio.to_thread(_fetch, _q_points(lat, lon, r_m), 5)
@@ -193,8 +204,9 @@ async def geo_places(
             doc = await db.geo_cache.find_one({"_id": db_key})  # stale fallback
             if doc:
                 elements = doc["elements"]
+                available = False
             else:
-                raise HTTPException(status_code=502, detail="Servizio dati geografici non disponibile")
+                return [], False
         else:
             areas = await asyncio.to_thread(_fetch, _q_areas(lat, lon, r_m), 2, 25, True)
             if areas:
@@ -250,4 +262,4 @@ async def geo_places(
         })
 
     out.sort(key=lambda p: p["score"], reverse=True)
-    return {"available": True, "count": len(out[:90]), "places": out[:90]}
+    return out[:90], available

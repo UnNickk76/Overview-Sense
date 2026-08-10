@@ -14,7 +14,7 @@ import { SenseCanvas, layerToVisual } from "@/src/components/SenseCanvas";
 import { GeoPrivacyPicker } from "@/src/components/GeoPrivacyPicker";
 import { MusicPicker } from "@/src/components/MusicPicker";
 import { getObservation, observationCode, Observation } from "@/src/lib/gallery";
-import { socialApi } from "@/src/lib/backend";
+import { socialApi, svApi } from "@/src/lib/backend";
 import type { GeoPrecision } from "@/src/lib/backend";
 import { publishErrorMessage } from "@/src/lib/publishError";
 import { ApiError } from "@/src/lib/client";
@@ -128,6 +128,11 @@ export default function PublishComposer() {
     // 2) Publish immediately. Success is defined as the record existing on Observe.
     try {
       const created = await socialApi.createObservation(payload);
+      // Persist the whole-scene recognition layer (computed at capture) onto the
+      // published Sense — versioned, non-destructive. Never blocks publishing.
+      if (data.recognition) {
+        svApi.saveRecognition(created.id, data.recognition, data.recognitionOverlayDefault ?? "on").catch(() => {});
+      }
       setPubState("idle"); setPublishing(false);
       router.replace(`/observation-detail?id=${created.id}` as never);
     } catch (e) {

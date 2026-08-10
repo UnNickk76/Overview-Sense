@@ -3,7 +3,21 @@
 ## Original problem statement
 "Overview" — app nativa iOS (realizzata come app Expo/React Native cross-platform su richiesta utente) che estende i sensi umani: trasforma fenomeni fisici reali e invisibili in esperienze visive, sonore e interattive. Principio assoluto: **nessun dato inventato**; se un dato non è disponibile, indicarlo chiaramente. Stile Apple minimal, nero/oro/blu.
 
-## SESSIONE — Globo condiviso + Ecoes™ Fase 3 (2026-06)
+## SESSIONE — Sense Vision 2.0 (comprensione della scena)
+Progetto completo in `/app/memory/sense_vision_evolution.md` (approvato dall'utente).
+- **Fase A (backend) — FATTA e testata**: nuovo modulo `backend/sense_vision.py`, router `/api/sv`:
+  - `POST /api/sv/analyze` → Scene Graph gerarchico (scene → subjects → elements) con confidence indipendente, tier (confirmed/probable/generic/undetermined), regioni normalizzate, `az`/`alt`/`salience`/`notable`; **fusione** AI Vision (GPT-5.4) + geografia reale OSM (`geo_places.resolve_places`, esteso). Astronomia resta separata/deterministica.
+  - `POST /api/sv/refine` → Pass 2 (crop ad alta risoluzione, automatico/gating + "Approfondisci" manuale).
+  - `POST /api/sv/observations/{id}/recognition` (persistenza owner-only), `GET` recognition, `POST /reanalyze` (re-analisi versionata → `recognition_version` bump; immagine mai modificata).
+  - Passthrough `recognition`+`recognition_version` nel feed/detail (`obs_public`).
+  - No Invention verificato (immagine vuota/scura → 0 elementi, scena onesta). Nessuna regressione su geo/places, live-recognize, scene. Non-owner → 403.
+- **Fase B (frontend) — CUORE FATTO (verificato su web)**:
+  - `src/components/RecognitionLayer.tsx`: layer elegante/anti-clutter in Observe (SCENA + soggetti + elementi notable con ⭐; "Probabile:" per tier probable; budget ~5 + "Mostra altri"); toggle Mostra/Nascondi **per-viewer** (`sceneRecognition.ts`, default = scelta del creatore); "Approfondisci" (re-analisi) solo per l'autore. Verificato: SCENA "Roma", "Probabile: Tevere", "Colosseo".
+  - Cattura (`sense-vision.tsx`): toggle **Riconoscimento ON/OFF** (OFF nasconde overlay ma l'analisi prosegue); analisi scena alla cattura (contesto GPS/heading/cameraAlt/fovH/aspect); riepilogo nella review; `overlay_default` = scelta allo scatto.
+  - Persistenza al publish (`publish-composer.tsx` + `observation.tsx`): `svApi.saveRecognition` non bloccante.
+  - `svApi` + tipi `SceneRecognition`/`SVElement`/`SVContext` in `backend.ts`; `ObsData.recognition`/`recognitionOverlayDefault`.
+- **Fase B — RESTANTE (device-only, richiede build nativa)**: overlay LIVE durante l'inquadratura + **Memoria Spaziale di Sessione** (promemoria direzionali sul bordo per elementi notable) — richiedono un analizzatore LIVE in background (snapshot periodico + gating su cambio scena) e una modifica a `CameraPro` per esporre lo snapshot. Impostazione memoria (OFF/Solo rilevanti/Tutti) predisposta in `sceneRecognition.ts`. Architettura Scene Graph già pronta a fornire `az`/`alt`/`notable`. Predisposto anche il futuro video (nessuna riprogettazione necessaria).
+
 - **GlobeBase condiviso (FATTO)**: `src/components/GlobeBase.tsx` è ora l'UNICA base SVG orthographic (sfera, continenti, rotazione auto, drag+pinch, proiezione stabile). `LiveEarth.tsx` (Observe) ed `EcoesGlobe.tsx` la consumano via `overlay(ctx)`; risolta la deformazione del globo su rotazione/zoom. GlobeBase ha prop `interactive` (compact Observe disabilita pan/pinch). Nessuna regressione (città, puntini osservazioni, lista, reset, pulsazioni Ecoes).
 - **Report Sense Vision (SOLO analisi, nessun codice)**: consegnato all'utente. Sistema attuale = riconoscimento di UN solo soggetto (Live Sense™) via OpenAI GPT-5.4 (endpoint /api/ai/live-recognize, /scene, /recognize-subject, /see); categorie abilitate (default preset "balanced", 9 su 12), soglia confidenza (<0.55 scartato in silenzio), snapshot ridotto a 640px. Astronomia gestita da motore deterministico separato. Evoluzione futura concordata (NON ancora implementata): scena completa, multi-soggetto, confidenza per elemento, "non determinabile" esplicito, risoluzione adattiva.
 - **Ecoes™ Fase 3 (FATTO, testato 17/17 backend + frontend)**:

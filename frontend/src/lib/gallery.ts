@@ -44,6 +44,11 @@ export interface ObsData {
   // Full unique SenseShot id "#NEO-000000021" (author code + progressive number),
   // frozen at publish so Observe shows the same id as the Gallery.
   senseCode?: string;
+  // Sense Vision 2.0 — whole-scene recognition computed at capture (elements
+  // present in the shot only). Persisted to the backend observation on publish;
+  // NEVER alters the original image.
+  recognition?: import("@/src/lib/backend").SceneRecognition | null;
+  recognitionOverlayDefault?: "on" | "off";
 }
 
 export interface Observation {

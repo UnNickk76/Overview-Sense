@@ -49,6 +49,8 @@ export interface FeedObservation {
   voice?: { media_id: string; duration: number; url: string } | null;
   scientific_value: number;
   ai_confidence?: number | null;
+  recognition?: SceneRecognition | null;
+  recognition_version?: number;
   image_url: string | null;
   lat?: number | null;
   lon?: number | null;
@@ -535,6 +537,40 @@ export const translateApi = {
   translate: (text: string, target: string) =>
     apiFetch<TranslationResult>("/ai/translate", { method: "POST", body: JSON.stringify({ text, target }) }),
 };
+
+// ---- Sense Vision 2.0 — whole-scene recognition (Scene Graph) ----
+export interface SVElement {
+  id: string; label: string; label_specific?: string | null; kind: string;
+  tier: "confirmed" | "probable" | "generic" | "undetermined"; confidence: number;
+  region: { x: number; y: number; w: number; h: number };
+  az?: number | null; alt?: number | null; distance_km?: number | null;
+  salience?: number; notable?: boolean; source?: string; role?: string;
+}
+export interface SceneRecognition {
+  version?: number; schema_version?: number; overlay_default?: "on" | "off";
+  scene?: { label: string; label_specific?: string | null; confidence: number; source?: string; tier?: string } | null;
+  subjects?: SVElement[]; elements?: SVElement[]; needs_zoom?: string[]; geo_available?: boolean;
+}
+export interface SVContext {
+  lat?: number | null; lon?: number | null; heading?: number | null; cameraAlt?: number | null;
+  fovH?: number | null; aspect?: number | null; ele?: number | null; radius_km?: number; ts?: number;
+}
+
+export const svApi = {
+  analyze: (image_base64: string, context?: SVContext, mode: "live" | "capture" = "capture") =>
+    apiFetch<SceneRecognition>("/sv/analyze", { method: "POST", body: JSON.stringify({ image_base64, context, mode }) }),
+  refine: (crop_base64: string, label: string, kind: string, candidates?: Record<string, unknown>[]) =>
+    apiFetch<{ label_specific: string | null; confidence: number; tier: string; text: string }>(
+      "/sv/refine", { method: "POST", body: JSON.stringify({ crop_base64, label, kind, candidates }) }),
+  saveRecognition: (obsId: string, recognition: SceneRecognition, overlay_default: "on" | "off") =>
+    apiFetch<{ ok: boolean; recognition_version: number }>(`/sv/observations/${obsId}/recognition`,
+      { method: "POST", body: JSON.stringify({ recognition, overlay_default }) }),
+  getRecognition: (obsId: string) =>
+    apiFetch<{ recognition: SceneRecognition | null; recognition_version: number; recognized_at?: string }>(`/sv/observations/${obsId}/recognition`),
+  reanalyze: (obsId: string) =>
+    apiFetch<{ ok: boolean; recognition_version: number; recognition: SceneRecognition }>(`/sv/observations/${obsId}/reanalyze`, { method: "POST" }),
+};
+
 
 // ---- Ecoes™ — invisible connections between thoughts ----
 export interface EcoesConn { id: string; title: string; description: string; status: string; lat: number; lon: number; intensity: number; dormant: boolean }

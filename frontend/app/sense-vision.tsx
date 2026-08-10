@@ -31,6 +31,8 @@ import { buildOverlay } from "@/src/lib/senseFrame";
 import { SenseSkyOverlay } from "@/src/components/SenseSkyOverlay";
 import { SenseGeoOverlay } from "@/src/components/SenseGeoOverlay";
 import { fetchPlaces, PlaceItem, PlaceRadius } from "@/src/lib/places";
+import { svApi, SVContext } from "@/src/lib/backend";
+import { useSceneRecog, hydrateSceneRecog, setRecognitionOn } from "@/src/lib/sceneRecognition";
 
 // The "Invisible Fields" engine, presented to the user as Sense Layers.
 type Layer = { key: string; label: string; tint: string; color: string };
@@ -70,7 +72,12 @@ export default function SenseVision() {
   const [stage, setStage] = useState<"init" | "scan" | "ready">("init");
   const [created, setCreated] = useState(false);
   const [review, setReview] = useState<{ uri: string; data: ObsData } | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
   const [zoom, setZoom] = useState(1);
+  // Sense Vision 2.0 — whole-scene recognition. ON = analysis + overlay visible;
+  // OFF = overlay hidden but analysis still runs (user chooses what to SEE).
+  const { recognitionOn } = useSceneRecog();
+  useEffect(() => { hydrateSceneRecog(); }, []);
   // Sense Vision "Luoghi" — real geographic features in the observed direction.
   const [placesOn, setPlacesOn] = useState(false);
   const [placeRadius, setPlaceRadius] = useState<PlaceRadius>(60);
@@ -203,7 +210,26 @@ export default function SenseVision() {
           data.senseLayer = `Pulse · ${pulseTask.title}`;
         }
         // Show a review step — the user decides to keep or discard (nothing saved yet).
+        data.recognitionOverlayDefault = recognitionOn ? "on" : "off";
         setReview({ uri: photo.uri, data });
+        // Whole-scene recognition runs in the background (never blocks the shutter).
+        // Overlay OFF still analyses — the user only chose not to SEE it live.
+        if (photo.base64) {
+          const ctx: SVContext = {
+            lat: obs.status === "granted" ? obs.lat : null,
+            lon: obs.status === "granted" ? obs.lon : null,
+            heading, cameraAlt, fovH, aspect: frameH / frameW,
+            ele: obs.status === "granted" ? (obs.altitude ?? 0) : 0, ts: now.getTime(),
+          };
+          setAnalyzing(true);
+          svApi.analyze(photo.base64, ctx, "capture")
+            .then((rec) => {
+              data.recognition = rec;
+              setReview((r) => (r ? { ...r, data: { ...r.data, recognition: rec } } : r));
+            })
+            .catch(() => {})
+            .finally(() => setAnalyzing(false));
+        }
       }
     } catch { /* ignore */ }
     finally { setBusy(false); }
@@ -377,6 +403,17 @@ export default function SenseVision() {
         </Animated.View>
       ) : null}
 
+      {/* Sense Vision 2.0 — whole-scene Recognition ON/OFF (overlay visibility;
+          analysis keeps running when OFF) */}
+      {stage === "ready" && !review ? (
+        <Animated.View pointerEvents="box-none" style={[styles.recogPill, { top: insets.top + 192 }, chromeStyle]}>
+          <Pressable testID="sense-recognition" hitSlop={8} style={[styles.enhanceInner, recognitionOn && styles.recogOn]} onPress={() => { Haptics.selectionAsync(); setRecognitionOn(!recognitionOn); }}>
+            <Ionicons name="scan" size={13} color={recognitionOn ? "#04121f" : "#B79BFF"} />
+            <Text style={[styles.enhanceText, { color: recognitionOn ? "#04121f" : "#B79BFF" }]}>Riconoscimento</Text>
+          </Pressable>
+        </Animated.View>
+      ) : null}
+
       {/* Sense Layer selector */}
       {stage === "ready" && !review ? (
         <Animated.View entering={FadeIn.delay(150)} style={[styles.layerBar, { top: insets.top + 52 }, chromeStyle]}>
@@ -436,6 +473,25 @@ export default function SenseVision() {
             </View>
           </View>
           <View style={[styles.reviewBar, { paddingBottom: insets.bottom + 20 }]}>
+            {analyzing ? (
+              <View style={styles.recogSummary}>
+                <Ionicons name="scan" size={14} color="#B79BFF" />
+                <Text style={styles.recogSummaryText}>Comprensione della scena in corso…</Text>
+              </View>
+            ) : review.data.recognition && (review.data.recognition.scene || (review.data.recognition.subjects?.length ?? 0) > 0) ? (
+              <View style={styles.recogSummary}>
+                <Ionicons name="scan" size={14} color="#B79BFF" />
+                <Text style={styles.recogSummaryText} numberOfLines={1}>
+                  {review.data.recognition.scene?.label_specific || review.data.recognition.scene?.label || "Scena"}
+                  {(() => {
+                    const s = review.data.recognition!;
+                    const names = [...(s.subjects ?? []), ...(s.elements ?? [])]
+                      .filter((e) => e.notable).map((e) => e.label_specific || e.label).slice(0, 3);
+                    return names.length ? ` · ${names.join(" · ")}` : "";
+                  })()}
+                </Text>
+              </View>
+            ) : null}
             <Text style={styles.reviewHint}>Vuoi conservare questo Sense? Potrai poi migliorarlo e pubblicarlo dalla galleria.</Text>
             <View style={styles.reviewBtns}>
               <Pressable testID="discard-sense" style={styles.discardBtn} onPress={discardSense} disabled={busy}>
@@ -482,6 +538,10 @@ const styles = StyleSheet.create({
   geoPill: { position: "absolute", right: spacing.lg, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(4,32,27,0.55)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(99,230,199,0.5)" },
   geoOn: { backgroundColor: "#63E6C7", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, marginHorizontal: -4 },
   geoRadius: { backgroundColor: "rgba(99,230,199,0.16)", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  recogPill: { position: "absolute", right: spacing.lg, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(20,12,40,0.55)", borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(183,155,255,0.5)" },
+  recogOn: { backgroundColor: "#B79BFF", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, marginHorizontal: -4 },
+  recogSummary: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(20,12,40,0.7)", borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(183,155,255,0.4)", width: "100%" },
+  recogSummaryText: { color: "#EDE7FF", fontFamily: fonts.medium, fontSize: type.sm - 1, flex: 1 },
   geoRadiusText: { color: "#63E6C7", fontFamily: fonts.mono, fontSize: type.sm - 3, letterSpacing: 0.3 },
   hudMeta: { color: "#fff", fontFamily: fonts.mono, fontSize: type.sm - 1, opacity: 0.85 },
   pivotRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },

@@ -19,7 +19,8 @@ import { VoicePlayer } from "@/src/components/Voice";
 import { GeoPrivacyPicker } from "@/src/components/GeoPrivacyPicker";
 import { ConfirmSheet } from "@/src/components/ConfirmSheet";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
-import { socialApi, FeedObservation, Comment, mediaUrl, eventsApi, ObservationChain } from "@/src/lib/backend";
+import { socialApi, FeedObservation, Comment, mediaUrl, eventsApi, ObservationChain, svApi } from "@/src/lib/backend";
+import { RecognitionLayer } from "@/src/components/RecognitionLayer";
 import type { GeoPrecision } from "@/src/lib/backend";
 import type { ObsData } from "@/src/lib/gallery";
 import { useAuth } from "@/src/context/AuthContext";
@@ -91,6 +92,18 @@ export default function ObservationDetail() {
   }, [obs]);
 
   const isAuthor = !!user && user.id === obs?.user_id;
+
+  const recognition = obs?.recognition ?? null;
+  const [deepening, setDeepening] = useState(false);
+  const deepen = useCallback(async () => {
+    if (!id || deepening) return;
+    setDeepening(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const r = await svApi.reanalyze(id);
+      setObs((o) => (o ? { ...o, recognition: r.recognition, recognition_version: r.recognition_version } : o));
+    } catch { /* ignore */ } finally { setDeepening(false); }
+  }, [id, deepening]);
 
   const persistConfig = useCallback((cfg: SenseDisplayConfig) => {
     if (!id || !isAuthor) return;
@@ -206,6 +219,13 @@ export default function ObservationDetail() {
       <View style={styles.catRow}>
         {obs.categories.map((c) => <View key={c} style={styles.tag}><Text style={styles.tagText}>{c}</Text></View>)}
       </View>
+
+      <RecognitionLayer
+        recognition={recognition}
+        obsId={obs.id}
+        onDeepen={isAuthor ? deepen : undefined}
+        deepening={deepening}
+      />
 
       {goThere ? (
         <View style={styles.goThereWrap}>
