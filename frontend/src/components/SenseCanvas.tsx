@@ -99,11 +99,14 @@ function SkiaSense({ uri, width, height, layer }: Props) {
   // Real "Dettaglio" — spatial sharpening via RuntimeEffect (not a color matrix).
   const sharpen = layer === "Dettaglio" ? getSharpen() : null;
   if (layer === "Dettaglio" && sharpen) {
-    const iw = image.width() || width, ih = image.height() || height;
     return (
       <Canvas style={{ width, height }}>
         <Fill>
-          <Shader source={sharpen} uniforms={{ texel: [1 / iw, 1 / ih], amount: 0.85 }}>
+          {/* texel must be in the SHADER'S sampling space (the Canvas = width×height),
+              NOT the source image pixels — otherwise the 4 neighbour taps collapse to
+              sub-pixel and the unsharp mask does nothing (why "Dettaglio" ≈ "Originale").
+              Honest unsharp of real pixels only — no invented detail. */}
+          <Shader source={sharpen} uniforms={{ texel: [1 / width, 1 / height], amount: 1.0 }}>
             <ImageShader image={image} fit="cover" rect={{ x: 0, y: 0, width, height }} />
           </Shader>
         </Fill>

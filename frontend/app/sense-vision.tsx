@@ -4,7 +4,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCameraPermissions } from "expo-camera";
 import { CameraPro, CameraProHandle } from "@/src/components/CameraPro";
 import { BlurView } from "expo-blur";
-import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -33,17 +32,23 @@ import { SenseGeoOverlay } from "@/src/components/SenseGeoOverlay";
 import { fetchPlaces, PlaceItem, PlaceRadius } from "@/src/lib/places";
 import { svApi, SVContext } from "@/src/lib/backend";
 import { useSceneRecog, hydrateSceneRecog, setRecognitionOn } from "@/src/lib/sceneRecognition";
+import { SenseCanvas, VISUAL_LAYERS, layerToVisual, SenseVisualLayer } from "@/src/components/SenseCanvas";
+import { layerMeta } from "@/src/lib/senseLayers";
 
-// The "Invisible Fields" engine, presented to the user as Sense Layers.
-type Layer = { key: string; label: string; tint: string; color: string };
+// SINGLE SOURCE OF TRUTH for Sense Layers.
+// - PIXEL layers (Originale…Dettaglio): real visual transforms of the scene, shared
+//   1:1 with review + Gallery (SenseCanvas). No fake tint live — WYSIWYG or clean.
+// - DATA layers (magnetic, solar): informational overlays from REAL measured data
+//   only (never a color wash, never invented).
+type Layer = { key: string; label: string; color: string; pixel: boolean; visual?: SenseVisualLayer };
+const PIXEL_COLORS: Record<string, string> = {
+  Originale: colors.onSurfaceSecondary, Luce: "#FFFFFF", Colore: colors.blue,
+  Contrasto: "#8FD0FF", Luminanza: "#CFE8FF", Silhouette: "#9FB3C8", Dettaglio: "#8FD0FF",
+};
 const SENSE_LAYERS: Layer[] = [
-  { key: "environment", label: "Ambiente", tint: "rgba(212,175,55,0.10)", color: colors.brand },
-  { key: "light", label: "Luce", tint: "rgba(255,255,255,0.14)", color: "#FFFFFF" },
-  { key: "color", label: "Colore", tint: "rgba(90,176,255,0.14)", color: colors.blue },
-  { key: "contrast", label: "Contrasto", tint: "rgba(0,0,0,0.28)", color: "#8FD0FF" },
-  { key: "detail", label: "Silhouette", tint: "rgba(0,0,0,0.15)", color: "#8FD0FF" },
-  { key: "magnetic", label: "Campo magnetico", tint: "rgba(212,175,55,0.16)", color: colors.brand },
-  { key: "solar", label: "Sole & UV", tint: "rgba(255,159,10,0.16)", color: "#FF9F0A" },
+  ...VISUAL_LAYERS.map((k): Layer => ({ key: k, label: layerMeta(k).label, color: PIXEL_COLORS[k] ?? colors.brand, pixel: true, visual: k })),
+  { key: "magnetic", label: "Campo magnetico", color: colors.brand, pixel: false },
+  { key: "solar", label: "Sole & UV", color: "#FF9F0A", pixel: false },
 ];
 
 // Settings row used inside the Sense Vision Settings panel.
@@ -218,7 +223,7 @@ export default function SenseVision() {
               : undefined,
           };
         }
-        data.senseLayer = layer.label;
+        data.senseLayer = layer.pixel && layer.visual ? layer.visual : layer.label;
         data.magnetic = { magnitude: mag.magnitude };
         // Freeze the REAL zoom/FOV so the saved photo projects overlays identically.
         data.zoom = zoom;
@@ -314,9 +319,9 @@ export default function SenseVision() {
   return (
     <View style={styles.root}>
       <CameraPro ref={cameraRef} enhance={enhance} hudBottom={insets.bottom + 150} onChromeChange={onChromeChange} onZoomChange={setZoom} liveSky={false} />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: layer.tint }]} pointerEvents="none" />
-
-      {/* Real-data Sense visualization overlay (Invisible Fields engine) */}
+      {/* Real-DATA Sense visualization (Invisible Fields) — only for data layers,
+          derived from measured data. Pixel layers keep a clean, honest preview. */}
+      {!layer.pixel ? (
       <View style={[StyleSheet.absoluteFill, styles.vizCenter]} pointerEvents="none">
         <Animated.View style={[{ width: vizSize, height: vizSize }, ringStyle]}>
           <Svg width={vizSize} height={vizSize}>
@@ -343,6 +348,7 @@ export default function SenseVision() {
           </Svg>
         </Animated.View>
       </View>
+      ) : null}
 
       {/* WYSIWYG capture frame — a 4:5 box that mirrors EXACTLY the saved photo.
           The celestial overlay here is the same engine + dataset the final render uses. */}
@@ -471,14 +477,16 @@ export default function SenseVision() {
               <Text style={styles.pivotGoText}>GO INSIDE</Text>
             </Pressable>
           </View>
-          <Text style={styles.captureHint}>Rivela i dati reali della scena · Layer: {layer.label}</Text>
+          <Text style={styles.captureHint}>{layer.pixel ? `Layer «${layer.label}» · anteprima pulita, applicato allo scatto` : `Dati reali della scena · Layer: ${layer.label}`}</Text>
         </Animated.View>
       ) : null}
 
       {/* Review — decide whether to keep or discard the captured Sense */}
       {review ? (
         <Animated.View entering={FadeIn.duration(200)} style={styles.reviewOverlay}>
-          <Image source={{ uri: review.uri }} style={StyleSheet.absoluteFill} contentFit="cover" transition={120} />
+          <View style={StyleSheet.absoluteFill}>
+            <SenseCanvas uri={review.uri} width={width} height={height} layer={layerToVisual(review.data.senseLayer)} />
+          </View>
           <View style={styles.reviewScrim} pointerEvents="none" />
           <View style={[styles.reviewTop, { paddingTop: insets.top + 10 }]}>
             <View style={styles.reviewBadge}>

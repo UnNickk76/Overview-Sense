@@ -3,6 +3,19 @@
 ## Original problem statement
 "Overview" — app nativa iOS (realizzata come app Expo/React Native cross-platform su richiesta utente) che estende i sensi umani: trasforma fenomeni fisici reali e invisibili in esperienze visive, sonore e interattive. Principio assoluto: **nessun dato inventato**; se un dato non è disponibile, indicarlo chiaramente. Stile Apple minimal, nero/oro/blu.
 
+## SESSIONE — Sense Vision WYSIWYG (coerenza layer live→scatto→galleria)
+Solo modifiche mirate; pipeline di cattura e motore galleria NON riscritti. NO INVENTION preservato.
+- **Causa root**: preview live = **velo di colore piatto** (`sense-vision.tsx`); galleria = vero motore Skia (`SenseCanvas`). Set layer divergenti + review post-scatto mostrava foto grezza. "Dettaglio"≈"Originale" per bug spazio-coordinate unsharp (`texel=1/img` vs campionamento nello spazio Canvas).
+- **Fatto**:
+  - Fonte unica dei layer: camera usa i 7 layer-pixel della galleria (`VISUAL_LAYERS`); `senseLayer` salvato con chiave visual → 1:1 (`layerToVisual`).
+  - Stop al tint fuorviante: layer-pixel → preview pulita + nota "applicato allo scatto".
+  - Layer-dati separati (Campo magnetico, Sole & UV): viz Invisible Fields solo per essi, da dati reali; nessun velo per i pixel.
+  - Review = Galleria: renderizza con lo stesso `SenseCanvas` + `layerToVisual(senseLayer)`.
+  - Fix "Dettaglio": `texel` nello spazio del Canvas (`1/width,1/height`), amount 1.0 → unsharp reale (solo pixel reali).
+  - Cattura invariata (vision-camera multi-cam, zoom ottico, format max). Nessuna modifica rischiosa al format.
+- **Rinviato (device-only)**: preview LIVE reale via Skia Frame Processor — `react-native-worklets-core` NON installato (serve ai frame processor di vision-camera 4); attivarlo alla cieca rischierebbe la camera primaria. Fallback autorizzato (preview pulita + nota). Da abilitare/validare su build fisica.
+
+
 ## SESSIONE — Sense Vision UI/UX (camera nativa, solo presentazione)
 Solo UI, nessuna modifica a backend/riconoscimento/Scene Graph/AI. File: `app/sense-vision.tsx`, `src/components/CameraPro.native.tsx`.
 - MAKE A SENSE ridotto (~22%) e reso SEMPRE opaco (rimosso il dimming `chromeStyle` dalla barra inferiore).
