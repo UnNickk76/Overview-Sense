@@ -15,6 +15,7 @@ import { useHeading, useMagnetometer, useAccelerometer } from "@/src/hooks/useSe
 import { nf, compassPoint } from "@/src/lib/format";
 import { colors, fonts, spacing, type } from "@/src/theme";
 import { OverviewShortcut } from "@/src/components/OverviewShortcut";
+import { HomeShortcut } from "@/src/components/HomeShortcut";
 import { SnapshotStudio, SnapshotInput } from "@/src/components/SnapshotStudio";
 
 const AnimatedEllipse = Animated.createAnimatedComponent(Ellipse);
@@ -279,6 +280,7 @@ export default function Invisible3D() {
           <Ionicons name="magnet" size={13} color={colors.brand} />
           <Text style={styles.titleText}>REALTÀ INVISIBILE 3D</Text>
         </View>
+        <HomeShortcut size={26} />
         <OverviewShortcut size={26} />
       </View>
 

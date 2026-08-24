@@ -15,6 +15,7 @@ import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { SenseRadar } from "@/src/components/SenseRadar";
 import { SenseStatusRing } from "@/src/components/SenseStatusRing";
 import { OverviewShortcut } from "@/src/components/OverviewShortcut";
+import { HomeShortcut } from "@/src/components/HomeShortcut";
 import { colors, fonts, radius, spacing, type } from "@/src/theme";
 import { useObserver, useNow } from "@/src/hooks/useObserver";
 import { useHeading, useAccelerometer } from "@/src/hooks/useSensors";
@@ -210,6 +211,7 @@ export default function OverviewGuide() {
           <Ionicons name="compass" size={13} color={colors.brand} />
           <Text style={styles.titleText}>OVERVIEW GUIDE</Text>
         </View>
+        <HomeShortcut size={26} />
         <OverviewShortcut size={26} />
       </View>
 

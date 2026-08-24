@@ -24,6 +24,7 @@ import { saveObservation } from "@/src/lib/gallery";
 import type { ObsData } from "@/src/lib/gallery";
 import { SenseMark } from "@/src/components/SenseMark";
 import { OverviewShortcut } from "@/src/components/OverviewShortcut";
+import { HomeShortcut } from "@/src/components/HomeShortcut";
 import { getPulseTask } from "@/src/lib/pulseTasks";
 import { FOV_H, cameraAltFromAccel } from "@/src/lib/project";
 import { buildOverlay } from "@/src/lib/senseFrame";
@@ -396,6 +397,7 @@ export default function SenseVision() {
           <Text style={styles.hudText}>SENSE VISION™</Text>
         </View>
         <View style={styles.hudRight}>
+          <HomeShortcut size={26} />
           <OverviewShortcut size={26} />
           <Pressable testID="sense-settings" style={styles.glassBtn} onPress={() => { Haptics.selectionAsync(); setSettingsOpen(true); }}>
             <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />

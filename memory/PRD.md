@@ -3,6 +3,17 @@
 ## Original problem statement
 "Overview" — app nativa iOS (realizzata come app Expo/React Native cross-platform su richiesta utente) che estende i sensi umani: trasforma fenomeni fisici reali e invisibili in esperienze visive, sonore e interattive. Principio assoluto: **nessun dato inventato**; se un dato non è disponibile, indicarlo chiaramente. Stile Apple minimal, nero/oro/blu.
 
+## SESSIONE — Navigazione globale OverView + Home Shortcut
+Solo UI/navigation, nessuna modifica a backend/logiche. BottomNav (8 item) invariata come sorgente unica.
+- **File nuovi**: `src/lib/navState.ts` (stato globale espanso + timer auto-collapse 15s, INDIPENDENTE dal polling DM), `src/components/GlobalNav.tsx` (montato una volta in `app/_layout.tsx`), `src/components/HomeShortcut.tsx`.
+- **File modificati**: `_layout.tsx` (monta `<GlobalNav/>`), `OverviewShortcut.tsx` (ora launcher: `expandNav()` invece di push /feed), `ScreenHeader.tsx` (rimosso il ring OverView dall'header → un solo ring globale; Home button mantenuto), + 5 immersive con ring proprio (sense-vision, earth-explorer, invisible-3d, visual-assistant, overview-guide) → aggiunto `HomeShortcut` accanto al ring.
+- **Logica globale**: route-aware. FULL permanente sulle 8 sezioni (che montano già la BottomNav: /home,/search,/challenges,/feed,/messages,/observations,/profile,/activity,/ecoes-world). Secondarie → launcher COMPACT (ring dorato in basso a destra) → tap → barra FULL 15s (auto-collapse, reset su interazione, collapse al cambio route). Immersive con ring proprio (5) → nessun launcher extra (usano il loro ring); universe-explorer (senza ring) → launcher globale.
+- **Route escluse (nessuna nav)**: /, /index, /welcome, /login, /register, /before-you-begin, /privacy-consent (pre-login/onboarding).
+- **Home Shortcut**: presente ovunque via ScreenHeader (44 schermate) + HomeShortcut nelle 5 immersive; assente su Home e pre-login.
+- **Test**: login(0 nav), home(barra permanente, 0 launcher), about(1 launcher, ring header assente, expand→FULL), visual-assistant(Home presente, 0 launcher globale), universe-explorer(1 launcher globale). Lint pulito.
+- **Da verificare su iPhone**: posizione launcher compatto bottom-right su schermate immersive (es. universe-explorer vicino ai controlli "Scala"; sense-vision usa il ring nell'header, non il launcher) per evitare sovrapposizioni; auto-collapse 15s reale.
+
+
 ## SESSIONE — Sense Vision WYSIWYG (coerenza layer live→scatto→galleria)
 Solo modifiche mirate; pipeline di cattura e motore galleria NON riscritti. NO INVENTION preservato.
 - **Causa root**: preview live = **velo di colore piatto** (`sense-vision.tsx`); galleria = vero motore Skia (`SenseCanvas`). Set layer divergenti + review post-scatto mostrava foto grezza. "Dettaglio"≈"Originale" per bug spazio-coordinate unsharp (`texel=1/img` vs campionamento nello spazio Canvas).

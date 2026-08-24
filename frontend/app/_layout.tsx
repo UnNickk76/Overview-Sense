@@ -14,6 +14,7 @@ import { AuthProvider } from "@/src/context/AuthContext";
 import { LangProvider } from "@/src/context/LangContext";
 import { PushBridge } from "@/src/components/PushBridge";
 import { SuspensionBanner } from "@/src/components/SuspensionBanner";
+import { GlobalNav } from "@/src/components/GlobalNav";
 import { flushPendingPublishes } from "@/src/lib/pendingPublish";
 
 LogBox.ignoreAllLogs(true);
@@ -65,6 +66,7 @@ export default function RootLayout() {
                   }}
                 />
                 <SuspensionBanner />
+                <GlobalNav />
               </LangProvider>
             </AuthProvider>
           </BottomSheetModalProvider>

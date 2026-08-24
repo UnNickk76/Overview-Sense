@@ -10,6 +10,7 @@ import { GestureDetector, Gesture } from "react-native-gesture-handler";
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from "react-native-reanimated";
 import { EarthGlobe, EarthCtrl, makeEarthCtrl } from "@/src/components/EarthGlobe";
 import { OverviewShortcut } from "@/src/components/OverviewShortcut";
+import { HomeShortcut } from "@/src/components/HomeShortcut";
 import { SnapshotStudio, SnapshotInput } from "@/src/components/SnapshotStudio";
 import { useObserver } from "@/src/hooks/useObserver";
 import { colors, fonts, spacing, type } from "@/src/theme";
@@ -137,6 +138,7 @@ export default function EarthExplorer() {
           <Ionicons name="earth" size={13} color={colors.brand} />
           <Text style={styles.titleText}>SATELLITE OBSERVATION · {altLabel.toUpperCase()}</Text>
         </View>
+        <HomeShortcut size={26} />
         <OverviewShortcut size={26} />
       </View>
 

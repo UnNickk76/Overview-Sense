@@ -13,6 +13,7 @@ import { SpaceBackground } from "@/src/components/SpaceBackground";
 import { ScreenHeader } from "@/src/components/ScreenHeader";
 import { SenseMark } from "@/src/components/SenseMark";
 import { OverviewShortcut } from "@/src/components/OverviewShortcut";
+import { HomeShortcut } from "@/src/components/HomeShortcut";
 import { colors, fonts, spacing, type } from "@/src/theme";
 import { useObserver, useNow } from "@/src/hooks/useObserver";
 import { useHeading, useAccelerometer, useMagnetometer } from "@/src/hooks/useSensors";
@@ -185,6 +186,7 @@ export default function VisualAssistant() {
           <Ionicons name="eye" size={13} color={colors.brand} />
           <Text style={styles.hudText}>ASSISTENTE VISIVO</Text>
         </View>
+        <HomeShortcut size={26} />
         <OverviewShortcut size={26} />
       </View>
 
