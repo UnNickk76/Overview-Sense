@@ -40,7 +40,7 @@ export default function Register() {
 
   return (
     <SpaceBackground>
-      <ScreenHeader title="Crea account" />
+      <ScreenHeader title="Crea account" showHome={false} />
       <KeyboardAwareScrollView
         bottomOffset={20}
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"], gap: spacing.lg }}

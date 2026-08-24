@@ -3,6 +3,13 @@
 ## Original problem statement
 "Overview" — app nativa iOS (realizzata come app Expo/React Native cross-platform su richiesta utente) che estende i sensi umani: trasforma fenomeni fisici reali e invisibili in esperienze visive, sonore e interattive. Principio assoluto: **nessun dato inventato**; se un dato non è disponibile, indicarlo chiaramente. Stile Apple minimal, nero/oro/blu.
 
+## SESSIONE — Home Shortcut globale completato (rettifica)
+- Nuovo comune in `GlobalNav.tsx`: Home flottante top-right per le custom-header interne senza Home proprio (`NEEDS_HOME_ROUTES`: feed, search, challenges, ecoes-world, ecoes-room, chat, compose-thought, publish-composer, pulse, pulse-view, pulse-global, universe-explorer). Nessun duplicato (queste route non usano ScreenHeader).
+- Auth: soppresso Home su login, register, privacy-consent (`showHome={false}`).
+- Home (/home) e pre-login/onboarding: nessun Home shortcut.
+- Test web: /home=0 home, chat=1 (input non coperto), feed/search/challenges/ecoes-world/universe-explorer=1, about(SH)=1 singolo, login=0. Lint pulito. Global Navigation precedente invariata.
+
+
 ## SESSIONE — Navigazione globale OverView + Home Shortcut
 Solo UI/navigation, nessuna modifica a backend/logiche. BottomNav (8 item) invariata come sorgente unica.
 - **File nuovi**: `src/lib/navState.ts` (stato globale espanso + timer auto-collapse 15s, INDIPENDENTE dal polling DM), `src/components/GlobalNav.tsx` (montato una volta in `app/_layout.tsx`), `src/components/HomeShortcut.tsx`.

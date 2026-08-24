@@ -35,7 +35,7 @@ export default function Login() {
 
   return (
     <SpaceBackground>
-      <ScreenHeader title="Accedi" />
+      <ScreenHeader title="Accedi" showHome={false} />
       <KeyboardAwareScrollView
         bottomOffset={20}
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"], gap: spacing.lg }}

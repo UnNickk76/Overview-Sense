@@ -39,7 +39,7 @@ export default function PrivacyConsent() {
 
   return (
     <SpaceBackground>
-      <ScreenHeader title="Privacy & Consensi™" subtitle="La tua identità, il tuo controllo"
+      <ScreenHeader title="Privacy & Consensi™" subtitle="La tua identità, il tuo controllo" showHome={false}
         right={saving ? <ActivityIndicator size="small" color={colors.brand} /> : undefined} />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing["2xl"], gap: spacing.lg }} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
